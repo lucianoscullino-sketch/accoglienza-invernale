@@ -103,6 +103,7 @@ export default function MapView({
 }) {
   const holderRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
+  const fittedRef = useRef(false);
   const lgRef = useRef<LayerGroup | null>(null);
   const Lref = useRef<LeafletModule | null>(null);
   const cbRef = useRef({ onSelect, onPlace, placing });
@@ -141,6 +142,7 @@ export default function MapView({
       mapRef.current = null;
       lgRef.current = null;
       Lref.current = null;
+	  fittedRef.current = false;
     };
   }, []);
 
@@ -171,6 +173,11 @@ export default function MapView({
       });
       marker.addTo(lg);
     });
+	    if (!fittedRef.current && items.length > 0) {
+      const b = L.latLngBounds(items.map((i) => [i.lat, i.lng] as [number, number]));
+      mapRef.current?.fitBounds(b.pad(0.25), { maxZoom: 17 });
+      fittedRef.current = true;
+    }
   }, [items, selected, ready]);
 
   // Centra la mappa quando la selezione arriva dall'elenco
