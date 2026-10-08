@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Map as LeafletMap, LayerGroup, Marker } from "leaflet";
 import type { Status } from "@/lib/types";
+import "leaflet/dist/leaflet.css";
 
 type LeafletModule = typeof import("leaflet");
 
