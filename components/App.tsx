@@ -673,8 +673,7 @@ export default function App({ profile }: { profile: Profile }) {
               tonight={tonightLog(u.id) || null}
               past={logs
                 .filter((l) => l.user_id === u.id && l.date !== today())
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .slice(0, 6)}
+                .sort((a, b) => b.date.localeCompare(a.date))}
               canRecord={canRecord}
               orgs={orgs}
               readOnlyMsg={dutyMsg(

@@ -27,6 +27,7 @@ export default function UserDetail({
   onSave: (v: EntryValues) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  const [showAllPast, setShowAllPast] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
 
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
@@ -70,11 +71,14 @@ export default function UserDetail({
     </div>
   );
 
+  const PAST_PREVIEW = 5;
+  const hasMorePast = past.length > PAST_PREVIEW;
+  const visiblePast = showAllPast ? past : past.slice(0, PAST_PREVIEW);
   const hist = past.length ? (
     <div className="stack">
-      <h3>Uscite precedenti</h3>
+      <h3>Report giorni precedenti</h3>
       <ul className="hist">
-        {past.map((l, i) => (
+        {visiblePast.map((l, i) => (
           <li key={l.id || i}>
             <div className="h-top">
               <span className="mono">{fmtShort(l.date)}</span>
@@ -93,6 +97,17 @@ export default function UserDetail({
           </li>
         ))}
       </ul>
+      {hasMorePast ? (
+        <button
+          className="btn btn-sm"
+          type="button"
+          onClick={() => setShowAllPast((v) => !v)}
+        >
+          {showAllPast
+            ? "Mostra meno"
+            : `Mostra tutte le uscite precedenti (${past.length})`}
+        </button>
+      ) : null}
     </div>
   ) : null;
 
