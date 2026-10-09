@@ -114,13 +114,16 @@ export default function UserDetail({
         <div className="actions" style={{ padding: 0 }}>
           <a
             className="btn btn-sm"
-            href={`https://www.google.com/maps/dir/?api=1&destination=${user.lat},${user.lng}`}
+            href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${user.lat},${user.lng}`}
             target="_blank"
             rel="noopener noreferrer"
           >
             Naviga con Maps
           </a>
         </div>
+        <p className="pgtxt mono">
+          Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
+        </p>
         {form}
         {hist}
       </div>
