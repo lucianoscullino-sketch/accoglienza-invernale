@@ -270,9 +270,6 @@ export default function AdminPanel({
                 placeholder="es. Croce Rossa"
               />
             </div>
-            <button className="btn btn-primary" type="button" disabled={busy === "new"} onClick={createOrg}>
-              {busy === "new" ? "Creo…" : "Aggiungi associazione"}
-            </button>
           </div>
 
           <div className="stack">
@@ -336,6 +333,9 @@ export default function AdminPanel({
             ) : (
               <p className="notice">Nessuna associazione presente.</p>
             )}
+            <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
+              {busy === "new" ? "Creo…" : "Aggiungi associazione"}
+            </button>
           </div>
         </div>
       )}
