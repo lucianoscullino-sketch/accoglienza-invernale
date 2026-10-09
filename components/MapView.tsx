@@ -27,8 +27,8 @@ export interface Selection {
   id: string;
 }
 
-const CENTER_LAT = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LAT ?? 44.4949);
-const CENTER_LNG = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LNG ?? 11.3426);
+const CENTER_LAT = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LAT ?? 44.6475);
+const CENTER_LNG = Number(process.env.NEXT_PUBLIC_MAP_CENTER_LNG ?? 10.924);
 const CENTER_ZOOM = Number(process.env.NEXT_PUBLIC_MAP_CENTER_ZOOM ?? 14);
 
 const PIN = "M0 0C-5 -9 -17 -15 -17 -27a17 17 0 1 1 34 0C17 -15 5 -9 0 0Z";
