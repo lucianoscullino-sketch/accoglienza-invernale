@@ -10,6 +10,7 @@ import type { EntryValues } from "@/components/EntryFields";
 import ProposeForm from "@/components/ProposeForm";
 import UserDetail from "@/components/UserDetail";
 import PropDetail from "@/components/PropDetail";
+import Popup from "@/components/Popup";
 import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
 import OrgReport from "@/components/OrgReport";
@@ -655,6 +656,7 @@ export default function App({ profile }: { profile: Profile }) {
         const u = users.find((x) => x.id === selected.id);
         if (u)
           return (
+            <Popup title={u.name} onClose={back}>
             <UserDetail
               user={u}
               status={statusOf(u)}
@@ -669,13 +671,14 @@ export default function App({ profile }: { profile: Profile }) {
                 ". Con questo accesso puoi consultare la scheda, ma non registrare gli esiti."
               )}
               onSave={(v) => saveUserEntry(u.id, v)}
-              onBack={back}
             />
+            </Popup>
           );
       } else {
         const p = proposals.find((x) => x.id === selected.id && x.status === "pending");
         if (p)
           return (
+            <Popup title={p.name} onClose={back}>
             <PropDetail
               p={p}
               orgs={orgs}
@@ -690,8 +693,8 @@ export default function App({ profile }: { profile: Profile }) {
               onDelete={!isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
               canDelete={!isAdmin && !!myOrg && p.proposed_by === myOrg}
               myOrg={myOrg}
-              onBack={back}
             />
+            </Popup>
           );
       }
     }

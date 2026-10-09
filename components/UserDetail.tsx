@@ -16,7 +16,6 @@ export default function UserDetail({
   orgs,
   readOnlyMsg,
   onSave,
-  onBack,
 }: {
   user: ServiceUser;
   status: Status;
@@ -26,7 +25,6 @@ export default function UserDetail({
   orgs: Org[];
   readOnlyMsg: string;
   onSave: (v: EntryValues) => Promise<void>;
-  onBack: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
@@ -99,13 +97,9 @@ export default function UserDetail({
   ) : null;
 
   return (
-    <>
-      <button className="back" type="button" onClick={onBack}>
-        &larr; Torna all&apos;elenco
-      </button>
-      <div className="detail stack">
-        <div>
-          <h2>{user.name}</h2>
+    <div className="detail stack">
+      <div>
+        <h2>{user.name}</h2>
           <div className="meta">
             <span className={tagCls}>{ST_LABEL[status]}</span>
           </div>
@@ -127,6 +121,5 @@ export default function UserDetail({
         {form}
         {hist}
       </div>
-    </>
-  );
+    );
 }

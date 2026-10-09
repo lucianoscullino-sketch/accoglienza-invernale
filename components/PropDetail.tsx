@@ -41,7 +41,6 @@ export default function PropDetail({
   onDelete,
   canDelete,
   myOrg,
-  onBack,
 }: {
   p: Proposal;
   orgs: Org[];
@@ -56,7 +55,6 @@ export default function PropDetail({
   onDelete: (() => Promise<void>) | null;
   canDelete: boolean;
   myOrg: string | null;
-  onBack: () => void;
 }) {
   const [busy, setBusy] = useState<"save" | "val" | "rej" | "del" | "">("");
   const [confirmDel, setConfirmDel] = useState(false);
@@ -120,9 +118,6 @@ export default function PropDetail({
 
   return (
     <>
-      <button className="back" type="button" onClick={onBack}>
-        &larr; Torna all&apos;elenco
-      </button>
       <div className="detail stack">
         <div>
           <h2>{p.name}</h2>
