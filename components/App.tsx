@@ -67,9 +67,21 @@ export default function App({ profile }: { profile: Profile }) {
       const problems: string[] = [];
       try {
         const sb = supabase();
+        // La colonna profiles.created_at potrebbe mancare se il DB di
+        // produzione non è allineato alle migrazioni: in quel caso
+        // "order by created_at" fallisce con "column ... does not exist".
+        // Proviamo con l'ordinamento e, se manca la colonna, ricarichiamo
+        // i profili senza ordinamento (l'app resta pienamente funzionante).
+        const prPromise = (async () => {
+          const ordered = await sb.from("profiles").select("*").order("created_at", { ascending: true });
+          if (ordered.error && /created_at/i.test(ordered.error.message || "")) {
+            return sb.from("profiles").select("*");
+          }
+          return ordered;
+        })();
         const [o, pr, u, l, p, c, s] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
-          sb.from("profiles").select("*").order("created_at", { ascending: true }),
+          prPromise,
           sb.from("service_users").select("*").eq("active", true),
           sb.from("daily_logs").select("*").order("date", { ascending: false }).limit(3000),
           sb.from("proposals")
