@@ -370,8 +370,18 @@ export default function App({ profile }: { profile: Profile }) {
   // Cancella definitivamente una proposta creata per errore (solo chi l'ha proposta)
   async function deleteProposal(pid: string) {
     try {
-      const { error } = await supabase().from("proposals").delete().eq("id", pid);
+      // .select() fa sì che PostgREST restituisca le righe eliminate: se la policy
+      // RLS blocca l'operazione, data è vuoto (0 righe) e la proposta resta nel DB.
+      const { data, error } = await supabase()
+        .from("proposals")
+        .delete()
+        .eq("id", pid)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Cancellazione non riuscita: permesso negato. Ricarica la pagina e riprova.");
+        return;
+      }
       setProposals((prev) => prev.filter((x) => x.id !== pid));
       setSelected(null);
       setTab("proposte");

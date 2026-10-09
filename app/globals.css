@@ -214,37 +214,45 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
   * { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
 
-/* Popup a tutta pagina per le schede (ottimizzato mobile) */
-.popup { position: fixed; inset: 0; z-index: 2000; display: flex; }
-.popup-backdrop { position: absolute; inset: 0; background: rgba(9, 14, 20, .5); }
+/* Popup modale centrato per le schede: l'app sotto resta visibile */
+.popup {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(16px + env(safe-area-inset-bottom, 0px));
+}
+.popup-backdrop { position: absolute; inset: 0; background: rgba(9, 14, 20, .45); }
 .popup-panel {
   position: relative; display: flex; flex-direction: column;
-  width: 100%; height: 100%; background: var(--bg);
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  width: 100%; max-width: 560px; max-height: 100%;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35); overflow: hidden;
 }
 .popup-toolbar {
-  position: sticky; top: 0; z-index: 1;
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; background: var(--surface);
+  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 12px 12px 16px; background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
-.popup-back {
-  flex: 0 0 auto; min-width: 44px; height: 44px; padding: 0 12px;
-  display: grid; place-items: center;
-  background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
-  cursor: pointer; font-size: 20px; line-height: 1; color: var(--ink);
-}
-.popup-back:active { background: var(--line); }
 .popup-title {
   margin: 0; flex: 1 1 auto; min-width: 0;
-  font: 700 18px/1.2 var(--font-display);
+  font: 700 17px/1.2 var(--font-display);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.popup-content {
-  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 14px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+.popup-close {
+  flex: 0 0 auto; width: 40px; height: 40px; padding: 0;
+  display: grid; place-items: center;
+  background: var(--surface2); border: 1px solid var(--line); border-radius: 10px;
+  cursor: pointer; font-size: 24px; line-height: 1; color: var(--muted);
 }
-.popup-content .detail { max-width: 720px; margin: 0 auto; }
+.popup-close:active { background: var(--line); color: var(--ink); }
+.popup-content {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 520px) {
+  .popup { padding-left: 8px; padding-right: 8px; }
+  .popup-panel { max-width: 100%; }
+}
 
 
 

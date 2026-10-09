@@ -1,5 +1,7 @@
-import { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+// Dialog modale centrato: sovrapposto all'app, con "X" per chiudere.
+// Lo sfondo resta semi-trasparente così si vede che l'app sotto è ancora aperta.
 export default function Popup({
   title,
   onClose,
@@ -9,16 +11,17 @@ export default function Popup({
   onClose: () => void;
   children: ReactNode;
 }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <div className="popup">
-      <div
-        className="popup-backdrop"
-        onClick={onClose}
-        aria-hidden="true"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onClose();
-        }}
-      />
+      <div className="popup-backdrop" onClick={onClose} aria-hidden="true" />
       <div
         className="popup-panel"
         role="dialog"
@@ -27,15 +30,15 @@ export default function Popup({
         tabIndex={-1}
       >
         <div className="popup-toolbar">
+          <h2 className="popup-title">{title}</h2>
           <button
-            className="popup-back"
+            className="popup-close"
             type="button"
             onClick={onClose}
-            aria-label="Chiudi e torna indietro"
+            aria-label="Chiudi"
           >
-            &larr;
+            &times;
           </button>
-          <h2 className="popup-title">{title}</h2>
         </div>
         <div className="popup-content">{children}</div>
       </div>
