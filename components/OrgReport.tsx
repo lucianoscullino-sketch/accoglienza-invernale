@@ -9,6 +9,7 @@ import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
 import { allRecs } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
 import { fmtShort, orgName, today } from "@/lib/format";
+import PanelHeader from "@/components/PanelHeader";
 
 export default function OrgReport({
   orgs,
@@ -16,12 +17,14 @@ export default function OrgReport({
   logs,
   proposals,
   myOrg,
+  onBack,
 }: {
   orgs: Org[];
   users: ServiceUser[];
   logs: DailyLog[];
   proposals: Proposal[];
   myOrg: string;
+  onBack: () => void;
 }) {
   const [nightSel, setNightSel] = useState("");
   const [busyXlsx, setBusyXlsx] = useState(false);
@@ -40,7 +43,7 @@ export default function OrgReport({
   if (!nights.length)
     return (
       <div className="detail stack">
-        <h2>Il tuo report</h2>
+        <PanelHeader title="Il tuo report" onClose={onBack} />
         <p className="notice">
           La tua associazione non ha ancora registrato uscite. Il report di una sera compare qui
           dopo la prima registrazione.
@@ -71,13 +74,16 @@ export default function OrgReport({
 
   return (
     <div className="detail stack">
-      <div>
-        <h2>Il tuo report</h2>
-        <p className="pgtxt" style={{ margin: "4px 0 0" }}>
-          Tutte le attività svolte da <strong>{orgName(myOrg, orgs)}</strong> in una sera di
-          uscita, utenti regolari e proposte verificate.
-        </p>
-      </div>
+      <PanelHeader
+        title="Il tuo report"
+        subtitle={
+          <>
+            Tutte le attività svolte da <strong>{orgName(myOrg, orgs)}</strong> in una sera di
+            uscita, utenti regolari e proposte verificate.
+          </>
+        }
+        onClose={onBack}
+      />
       <div>
         <label className="lb" htmlFor="my-night">
           Sera di uscita

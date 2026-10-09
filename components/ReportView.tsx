@@ -8,6 +8,7 @@ import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
 import { allRecs, csvOf, filterRange } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
 import { addDaysKey, fmtShort, orgName, today } from "@/lib/format";
+import PanelHeader from "@/components/PanelHeader";
 
 export default function ReportView({
   orgs,
@@ -16,6 +17,7 @@ export default function ReportView({
   proposals,
   rep,
   setRep,
+  onBack,
 }: {
   orgs: Org[];
   users: ServiceUser[];
@@ -23,6 +25,7 @@ export default function ReportView({
   proposals: Proposal[];
   rep: { from: string; to: string };
   setRep: React.Dispatch<React.SetStateAction<{ from: string; to: string }>>;
+  onBack: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [fallback, setFallback] = useState("");
@@ -140,12 +143,7 @@ export default function ReportView({
 
   return (
     <div className="detail stack">
-      <div>
-        <h2>Report</h2>
-        <p className="pgtxt" style={{ margin: "4px 0 0" }}>
-          Riservato al coordinamento
-        </p>
-      </div>
+      <PanelHeader title="Report" subtitle="Riservato al coordinamento" onClose={onBack} />
       <div className="rep-range">
         <div>
           <label className="lb" htmlFor="r-from">

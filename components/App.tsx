@@ -757,9 +757,30 @@ export default function App({ profile }: { profile: Profile }) {
             }}
           />
         ) : tab === "report" && isAdmin ? (
-          <ReportView orgs={orgs} users={users} logs={logs} proposals={proposals} rep={rep} setRep={setRep} />
+          <ReportView
+            orgs={orgs}
+            users={users}
+            logs={logs}
+            proposals={proposals}
+            rep={rep}
+            setRep={setRep}
+            onBack={() => {
+              setSelected(null);
+              setTab("utenti");
+            }}
+          />
         ) : tab === "mine" && !isAdmin && myOrg ? (
-          <OrgReport orgs={orgs} users={users} logs={logs} proposals={proposals} myOrg={myOrg} />
+          <OrgReport
+            orgs={orgs}
+            users={users}
+            logs={logs}
+            proposals={proposals}
+            myOrg={myOrg}
+            onBack={() => {
+              setSelected(null);
+              setTab("utenti");
+            }}
+          />
         ) : tab === "coord" && isAdmin ? (
           <AdminPanel
             profile={profile}
@@ -797,6 +818,11 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- legenda e layout ---
   const c = counts();
+  const menuWide =
+    tab === "calendario" ||
+    (tab === "report" && isAdmin) ||
+    (tab === "mine" && !isAdmin && myOrg) ||
+    (tab === "coord" && isAdmin);
   const legend = (
     <ul className="legend">
       <li>
@@ -817,7 +843,7 @@ export default function App({ profile }: { profile: Profile }) {
   );
 
   return (
-    <div className="app">
+    <div className={menuWide ? "app app-wide" : "app"}>
       <header className="top">
         <div className="brand">
           <h1>Accoglienza Invernale</h1>

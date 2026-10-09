@@ -7,6 +7,7 @@ import { useState, type ReactNode } from "react";
 import type { CalendarOverride, Org, Settings } from "@/lib/types";
 import { baseDutyId, effDutyId } from "@/lib/duty";
 import { WD_IT, WK_ORDER, addDaysKey, fmtShort, orgName, today } from "@/lib/format";
+import PanelHeader from "@/components/PanelHeader";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -260,17 +261,15 @@ export default function CalendarView({
 
   return (
     <div className="detail stack">
-      <button className="btn btn-sm" type="button" onClick={onBack}>
-        ← Torna a Stasera
-      </button>
-      <div>
-        <h2>Calendario delle uscite</h2>
-        <p className="pgtxt" style={{ margin: "4px 0 0" }}>
-          {adm
+      <PanelHeader
+        title="Calendario delle uscite"
+        subtitle={
+          adm
             ? "Il calendario fisso vale ogni settimana. Qui sotto puoi cambiare una singola sera quando serve."
-            : "Le sere in cui esce la tua associazione sono evidenziate."}
-        </p>
-      </div>
+            : "Le sere in cui esce la tua associazione sono evidenziate."
+        }
+        onClose={onBack}
+      />
 
       <details className="caltools wkbox" open>
         <summary>Calendario settimanale fisso</summary>

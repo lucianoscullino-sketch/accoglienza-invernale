@@ -269,3 +269,18 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
 
 
 
+/* Pannelli gestionali (Coordinamento, Calendario, Report, Il tuo report):
+   su desktop si dà più spazio al menu restringendo la mappa,
+   su mobile si riduce l'altezza della mappa. */
+@media (max-width: 899px) {
+  .app.app-wide .mapcard {
+    height: 34vh;
+    min-height: 220px;
+  }
+}
+@media (min-width: 900px) {
+  .app.app-wide {
+    grid-template-columns: minmax(0, 1fr) 560px;
+  }
+}
+

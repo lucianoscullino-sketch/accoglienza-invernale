@@ -19,6 +19,7 @@ import type {
 } from "@/lib/types";
 import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
+import PanelHeader from "@/components/PanelHeader";
 import { supabase } from "@/lib/supabase";
 import { orgName } from "@/lib/format";
 
@@ -208,16 +209,16 @@ export default function AdminPanel({
 
   return (
     <div className="detail stack">
-      <button className="btn btn-sm" type="button" onClick={onBack}>
-        ← Torna a Stasera
-      </button>
-      <div>
-        <h2>Menu coordinamento</h2>
-        <p className="pgtxt" style={{ margin: "4px 0 0" }}>
-          Accesso come <strong>{profile.display_name || "Coordinamento"}</strong>. Gestione di
-          associazioni, account, calendario e report.
-        </p>
-      </div>
+      <PanelHeader
+        title="Menu coordinamento"
+        subtitle={
+          <>
+            Accesso come <strong>{profile.display_name || "Coordinamento"}</strong>. Gestione di
+            associazioni, account, calendario e report.
+          </>
+        }
+        onClose={onBack}
+      />
 
       <div className="tabs" role="tablist" aria-label="Sezioni del coordinamento">
         {secBtn("associazioni", "Associazioni")}
@@ -454,6 +455,7 @@ export default function AdminPanel({
           proposals={proposals}
           rep={rep}
           setRep={setRep}
+          onBack={() => setSection("associazioni")}
         />
       )}
     </div>
