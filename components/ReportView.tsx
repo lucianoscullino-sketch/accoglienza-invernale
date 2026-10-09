@@ -28,9 +28,24 @@ export default function ReportView({
   const [fallback, setFallback] = useState("");
   const [busyXlsx, setBusyXlsx] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
+  // Filtri aggiuntivi sul periodo: giorno singolo, associazione, utente.
+  const [fDay, setFDay] = useState("");
+  const [fOrg, setFOrg] = useState("");
+  const [fUser, setFUser] = useState("");
 
   const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
-  const rows = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
+  const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
+  const rows = useMemo(
+    () =>
+      ranged.filter(
+        (r) =>
+          (!fDay || r.date === fDay) &&
+          (!fOrg || r.org === fOrg) &&
+          (!fUser || (r.uid ? r.uid === fUser : r.name === fUser))
+      ),
+    [ranged, fDay, fOrg, fUser]
+  );
+  const filtersOn = !!(fDay || fOrg || fUser);
 
   const nights = new Set(rows.map((r) => r.date)).size;
   const found = rows.filter((r) => r.found).length;
@@ -165,6 +180,55 @@ export default function ReportView({
         <button className="btn btn-sm" type="button" onClick={() => preset("all")}>
           Tutto
         </button>
+      </div>
+
+      <div className="stack">
+        <h3>Filtri</h3>
+        <div>
+          <label className="lb" htmlFor="f-day">
+            Giorno singolo
+          </label>
+          <input id="f-day" type="date" value={fDay} onChange={(e) => setFDay(e.target.value)} />
+        </div>
+        <div>
+          <label className="lb" htmlFor="f-org">
+            Associazione
+          </label>
+          <select id="f-org" value={fOrg} onChange={(e) => setFOrg(e.target.value)}>
+            <option value="">Tutte le associazioni</option>
+            {orgs.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="lb" htmlFor="f-user">
+            Utente
+          </label>
+          <select id="f-user" value={fUser} onChange={(e) => setFUser(e.target.value)}>
+            <option value="">Tutti gli utenti</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {filtersOn ? (
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => {
+              setFDay("");
+              setFOrg("");
+              setFUser("");
+            }}
+          >
+            Azzera filtri
+          </button>
+        ) : null}
       </div>
 
       {!rows.length ? (

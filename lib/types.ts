@@ -12,6 +12,8 @@ export interface Profile {
   role: Role;
   org_id: string | null;
   display_name: string;
+  email?: string;
+  created_at?: string;
 }
 
 export interface ServiceUser {
@@ -21,6 +23,7 @@ export interface ServiceUser {
   lat: number;
   lng: number;
   active: boolean;
+  note?: string; // nota stabile del coordinamento, distinta dalle note serali
 }
 
 export interface DailyLog {

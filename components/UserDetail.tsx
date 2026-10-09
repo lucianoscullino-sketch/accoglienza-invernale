@@ -13,22 +13,28 @@ export default function UserDetail({
   tonight,
   past,
   canRecord,
+  canEditNote,
   orgs,
   readOnlyMsg,
   onSave,
+  onSaveNote,
 }: {
   user: ServiceUser;
   status: Status;
   tonight: DailyLog | null;
   past: DailyLog[];
   canRecord: boolean;
+  canEditNote: boolean;
   orgs: Org[];
   readOnlyMsg: string;
   onSave: (v: EntryValues) => Promise<void>;
+  onSaveNote?: (note: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
+  const [note, setNote] = useState(user.note || "");
+  const [noteBusy, setNoteBusy] = useState(false);
 
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
@@ -120,6 +126,41 @@ export default function UserDetail({
           </div>
         </div>
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
+      {canEditNote ? (
+        <div className="stack" style={{ gap: 6 }}>
+          <label className="lb" htmlFor="user-note">
+            Nota del coordinamento (visibile a tutte le associazioni)
+          </label>
+          <textarea
+            id="user-note"
+            rows={3}
+            value={note}
+            placeholder="Es. avvicinare con cautela, non accetta cibo, chiamare i servizi sociali…"
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="actions" style={{ padding: 0 }}>
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={noteBusy || note === (user.note || "")}
+              onClick={() => {
+                setNoteBusy(true);
+                (onSaveNote ? onSaveNote(note) : Promise.resolve()).finally(() => setNoteBusy(false));
+              }}
+            >
+              {noteBusy ? "Salvo…" : "Salva nota"}
+            </button>
+          </div>
+        </div>
+      ) : user.note ? (
+        <div className="stack" style={{ gap: 4 }}>
+          <p className="lb" style={{ margin: 0 }}>
+            Nota del coordinamento
+          </p>
+          <p className="signed">{user.note}</p>
+        </div>
+      ) : null}
+
         <div className="actions" style={{ padding: 0 }}>
           <a
             className="btn btn-sm"

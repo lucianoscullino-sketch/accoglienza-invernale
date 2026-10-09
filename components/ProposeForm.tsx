@@ -5,6 +5,7 @@
 
 import { useRef, useState } from "react";
 import { EntryFields, emptyEntry, type EntryValues } from "@/components/EntryFields";
+import { geocodeAddress } from "@/lib/geocode";
 
 export interface ProposeDraft {
   name: string;
@@ -16,17 +17,45 @@ export default function ProposeForm({
   isAdmin,
   onCancel,
   onSubmit,
+  onPlace,
 }: {
   pos: { lat: number; lng: number } | null;
   isAdmin: boolean;
   onCancel: () => void;
   onSubmit: (v: { name: string; desc: string; entry: EntryValues }) => Promise<void>;
+  onPlace: (lat: number, lng: number) => void;
 }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [addr, setAddr] = useState("");
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoMsg, setGeoMsg] = useState("");
   const entryRef = useRef<EntryValues>(emptyEntry());
+
+  async function findAddress() {
+    const q = addr.trim();
+    if (q.length < 3) {
+      setGeoMsg("Scrivi un indirizzo (via e città).");
+      return;
+    }
+    setGeoBusy(true);
+    setGeoMsg("");
+    try {
+      const r = await geocodeAddress(q);
+      if (!r) {
+        setGeoMsg("Indirizzo non trovato. Prova con via e città, oppure tocca la mappa.");
+        return;
+      }
+      onPlace(r.lat, r.lng);
+      setGeoMsg(`Trovato: ${r.label}`);
+    } catch (e) {
+      setGeoMsg("Ricerca non riuscita: " + (e instanceof Error ? e.message : "riprova"));
+    } finally {
+      setGeoBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +89,31 @@ export default function ProposeForm({
           : "Tocca la mappa nel punto in cui l'utente dorme di solito."}
       </p>
       {err && <p className="err">{err}</p>}
+      <div className="stack" style={{ gap: 6 }}>
+        <div>
+          <label className="lb" htmlFor="p-addr">
+            Oppure cerca un indirizzo
+          </label>
+          <input
+            id="p-addr"
+            type="text"
+            autoComplete="off"
+            value={addr}
+            placeholder="es. via Emilia 12, Modena"
+            onChange={(e) => setAddr(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                findAddress();
+              }
+            }}
+          />
+        </div>
+        <button className="btn btn-sm" type="button" disabled={geoBusy} onClick={findAddress}>
+          {geoBusy ? "Cerco…" : "Trova sulla mappa"}
+        </button>
+        {geoMsg ? <p className="signed">{geoMsg}</p> : null}
+      </div>
       <div>
         <label className="lb" htmlFor="p-name">
           Nickname (come vuole essere chiamato)

@@ -14,6 +14,7 @@ import Popup from "@/components/Popup";
 import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
 import OrgReport from "@/components/OrgReport";
+import AdminPanel from "@/components/AdminPanel";
 import { supabase } from "@/lib/supabase";
 import type {
   CalendarOverride,
@@ -29,13 +30,14 @@ import type {
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
 
-type Tab = "utenti" | "proposte" | "calendario" | "report" | "mine";
+type Tab = "utenti" | "proposte" | "calendario" | "report" | "mine" | "coord";
 
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
 
   // --- dati condivisi ---
   const [orgs, setOrgs] = useState<Org[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [users, setUsers] = useState<ServiceUser[]>([]);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -64,8 +66,9 @@ export default function App({ profile }: { profile: Profile }) {
     (async () => {
       try {
         const sb = supabase();
-        const [o, u, l, p, c, s] = await Promise.all([
+        const [o, pr, u, l, p, c, s] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
+          sb.from("profiles").select("*").order("created_at", { ascending: true }),
           sb.from("service_users").select("*").eq("active", true),
           sb.from("daily_logs").select("*").order("date", { ascending: false }).limit(3000),
           sb.from("proposals")
@@ -74,10 +77,11 @@ export default function App({ profile }: { profile: Profile }) {
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
         ]);
-        const err = o.error || u.error || l.error || p.error || c.error || s.error;
+        const err = o.error || pr.error || u.error || l.error || p.error || c.error || s.error;
         if (err) throw err;
         if (dead) return;
         setOrgs((o.data || []) as Org[]);
+        setProfiles((pr.data || []) as Profile[]);
         setUsers((u.data || []) as ServiceUser[]);
         setLogs((l.data || []) as DailyLog[]);
         setProposals(
@@ -221,6 +225,18 @@ export default function App({ profile }: { profile: Profile }) {
       back();
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // Nota stabile del coordinamento su un utente (solo admin può modificarla).
+  async function saveUserNote(uid: string, note: string) {
+    try {
+      const { error } = await supabase().from("service_users").update({ note }).eq("id", uid);
+      if (error) throw error;
+      setUsers((prev) => prev.map((x) => (x.id === uid ? { ...x, note } : x)));
+      toast("Nota salvata");
+    } catch (e) {
+      toast("Errore nel salvataggio della nota: " + (e instanceof Error ? e.message : "riprova"));
     }
   }
 
@@ -536,6 +552,7 @@ export default function App({ profile }: { profile: Profile }) {
         {t("calendario", "Calendario")}
         {!isAdmin && myOrg ? t("mine", "Il tuo report") : null}
         {isAdmin && t("report", "Report")}
+        {isAdmin && t("coord", "Coordinatore")}
       </div>
     );
   }
@@ -660,7 +677,15 @@ export default function App({ profile }: { profile: Profile }) {
         </p>
       );
     if (placing)
-      return <ProposeForm pos={draftPos} isAdmin={isAdmin} onCancel={cancelPropose} onSubmit={doPropose} />;
+      return (
+        <ProposeForm
+          pos={draftPos}
+          isAdmin={isAdmin}
+          onCancel={cancelPropose}
+          onSubmit={doPropose}
+          onPlace={(lat, lng) => setDraftPos({ lat, lng })}
+        />
+      );
     if (selected) {
       if (selected.kind === "user") {
         const u = users.find((x) => x.id === selected.id);
@@ -675,11 +700,13 @@ export default function App({ profile }: { profile: Profile }) {
                 .filter((l) => l.user_id === u.id && l.date !== today())
                 .sort((a, b) => b.date.localeCompare(a.date))}
               canRecord={canRecord}
+              canEditNote={isAdmin}
               orgs={orgs}
               readOnlyMsg={dutyMsg(
                 ". Con questo accesso puoi consultare la scheda, ma non registrare gli esiti."
               )}
               onSave={(v) => saveUserEntry(u.id, v)}
+              onSaveNote={(note) => saveUserNote(u.id, note)}
             />
             </Popup>
           );
@@ -733,6 +760,32 @@ export default function App({ profile }: { profile: Profile }) {
           <ReportView orgs={orgs} users={users} logs={logs} proposals={proposals} rep={rep} setRep={setRep} />
         ) : tab === "mine" && !isAdmin && myOrg ? (
           <OrgReport orgs={orgs} users={users} logs={logs} proposals={proposals} myOrg={myOrg} />
+        ) : tab === "coord" && isAdmin ? (
+          <AdminPanel
+            profile={profile}
+            orgs={orgs}
+            setOrgs={setOrgs}
+            profiles={profiles}
+            setProfiles={setProfiles}
+            users={users}
+            logs={logs}
+            proposals={proposals}
+            settings={settings}
+            overrides={overrides}
+            calAll={calAll}
+            setCalAll={setCalAll}
+            calMsg={calMsg}
+            onSetOverride={setOverride}
+            onSaveSettings={saveSettings}
+            onApplyText={applyCalText}
+            rep={rep}
+            setRep={setRep}
+            onToast={toast}
+            onBack={() => {
+              setSelected(null);
+              setTab("utenti");
+            }}
+          />
         ) : tab === "proposte" ? (
           propsTabHTML()
         ) : (
