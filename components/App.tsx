@@ -819,10 +819,8 @@ export default function App({ profile }: { profile: Profile }) {
   // --- legenda e layout ---
   const c = counts();
   const menuWide =
-    tab === "calendario" ||
-    (tab === "report" && isAdmin) ||
-    (tab === "mine" && !isAdmin && myOrg) ||
-    (tab === "coord" && isAdmin);
+    isAdmin &&
+    (tab === "calendario" || tab === "report" || tab === "coord");
   const legend = (
     <ul className="legend">
       <li>
