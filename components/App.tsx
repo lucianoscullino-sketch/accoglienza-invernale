@@ -366,6 +366,20 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Cancella definitivamente una proposta creata per errore (solo chi l'ha proposta)
+  async function deleteProposal(pid: string) {
+    try {
+      const { error } = await supabase().from("proposals").delete().eq("id", pid);
+      if (error) throw error;
+      setProposals((prev) => prev.filter((x) => x.id !== pid));
+      setSelected(null);
+      setTab("proposte");
+      toast("Proposta cancellata");
+    } catch (e) {
+      toast("Errore nella cancellazione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
   // val: id associazione, "" = nessuna uscita, undefined = torna alla regola fissa
   async function setOverride(dateKey: string, val: string | null | undefined) {
     try {
@@ -673,6 +687,9 @@ export default function App({ profile }: { profile: Profile }) {
               onSaveVer={(v) => saveVerification(p.id, v)}
               onValidate={() => validate(p)}
               onReject={() => reject(p)}
+              onDelete={!isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
+              canDelete={!isAdmin && !!myOrg && p.proposed_by === myOrg}
+              myOrg={myOrg}
               onBack={back}
             />
           );

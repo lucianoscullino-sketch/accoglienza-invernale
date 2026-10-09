@@ -6,6 +6,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
 import { allRecs, csvOf, filterRange } from "@/lib/report";
+import { downloadExcel, reportFileName } from "@/lib/excel";
 import { addDaysKey, fmtShort, orgName, today } from "@/lib/format";
 
 export default function ReportView({
@@ -25,6 +26,7 @@ export default function ReportView({
 }) {
   const [copied, setCopied] = useState(false);
   const [fallback, setFallback] = useState("");
+  const [busyXlsx, setBusyXlsx] = useState(false);
   const boxRef = useRef<HTMLDivElement | null>(null);
 
   const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
@@ -100,6 +102,15 @@ export default function ReportView({
       setTimeout(() => setCopied(false), 3200);
     } catch {
       setFallback(csv);
+    }
+  }
+
+  async function downloadXlsx() {
+    setBusyXlsx(true);
+    try {
+      await downloadExcel(rows, orgs, "Report", reportFileName("report_accoglienza", rep.to));
+    } finally {
+      setBusyXlsx(false);
     }
   }
 
@@ -242,10 +253,13 @@ export default function ReportView({
             <p className="notice">
               Il testo copiato contiene una riga per ogni uscita (data, associazione, nickname,
               trovato, fornito, richiesto, note, se è una proposta) e si incolla in Excel o Fogli
-              Google.
+              Google. Il file Excel usa le stesse righe e si scarica direttamente nel browser.
             </p>
             <button className="btn btn-primary" type="button" onClick={copyCsv}>
               {copied ? "Copiato!" : "Copia report in CSV"}
+            </button>
+            <button className="btn" type="button" onClick={downloadXlsx} disabled={busyXlsx}>
+              {busyXlsx ? "Genero…" : "Scarica report in Excel (.xlsx)"}
             </button>
             {fallback ? (
               <div>

@@ -6,7 +6,8 @@
 
 import { useMemo, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
-import { allRecs, csvOf } from "@/lib/report";
+import { allRecs } from "@/lib/report";
+import { downloadExcel, reportFileName } from "@/lib/excel";
 import { fmtShort, orgName, today } from "@/lib/format";
 
 export default function OrgReport({
@@ -23,8 +24,7 @@ export default function OrgReport({
   myOrg: string;
 }) {
   const [nightSel, setNightSel] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [fallback, setFallback] = useState("");
+  const [busyXlsx, setBusyXlsx] = useState(false);
 
   const mine = useMemo(
     () =>
@@ -60,15 +60,12 @@ export default function OrgReport({
     </div>
   );
 
-  async function copyCsv() {
-    const csv = csvOf(rows, orgs);
+  async function downloadXlsx() {
+    setBusyXlsx(true);
     try {
-      await navigator.clipboard.writeText(csv);
-      setCopied(true);
-      setFallback("");
-      setTimeout(() => setCopied(false), 3200);
-    } catch {
-      setFallback(csv);
+      await downloadExcel(rows, orgs, fmtShort(night), reportFileName(`report_${myOrg}`, night));
+    } finally {
+      setBusyXlsx(false);
     }
   }
 
@@ -135,21 +132,13 @@ export default function OrgReport({
       <div className="stack">
         <h3>Esporta</h3>
         <p className="notice">
-          Il testo copiato contiene una riga per ogni uscita della sera (data, associazione,
-          nickname, trovato, fornito, richiesto, note, se è una proposta) e si incolla in Excel o
-          Fogli Google.
+          Il file Excel contiene una riga per ogni uscita della sera (data, associazione,
+          nickname, trovato, fornito, richiesto, note, se è una proposta) e si scarica
+          direttamente nel browser: su telefono finisce in Download/File.
         </p>
-        <button className="btn btn-primary" type="button" onClick={copyCsv}>
-          {copied ? "Copiato!" : "Copia report della sera in CSV"}
+        <button className="btn btn-primary" type="button" onClick={downloadXlsx} disabled={busyXlsx}>
+          {busyXlsx ? "Genero…" : "Scarica report della sera in Excel (.xlsx)"}
         </button>
-        {fallback ? (
-          <div>
-            <label className="lb" htmlFor="mycsvta">
-              Copia il testo e incollalo in un foglio di calcolo
-            </label>
-            <textarea id="mycsvta" rows={6} readOnly value={fallback} />
-          </div>
-        ) : null}
       </div>
     </div>
   );

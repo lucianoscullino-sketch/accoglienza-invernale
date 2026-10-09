@@ -20,10 +20,11 @@ applicazione multi-utente:
 | Cambio colore una volta assistito | Salvando l'esito di stasera il pin diventa verde (o grigio se non trovato) |
 | Esito serale firmato | Ogni record salva data, `org_id` (chi ha scritto), trovato, fornito, richiesto, note |
 | Accesso per associazione | Login email/password; il profilo è collegato a un'organizzazione |
-| Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade |
+| Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade. Chi l'ha proposta può cancellarla (solo se ancora in attesa) |
 | Validazione admin | Solo il Coordinamento valida/rifiuta: la validazione crea l'utente regolare e riporta le visite nella storia |
 | Calendario uscite | Regola fissa settimanale + sabati a turno + eccezioni per singola sera (anche da file) |
-| Report | Solo admin: KPI, breakdown per associazione/utente, beni forniti, richieste, CSV |
+| Report | Solo admin (su periodo, con KPI): esportazione **CSV** (copia-incolla) o **file Excel (.xlsx)** da scaricare |
+| Il tuo report | Ogni associazione: attività di un suo turno (default l'ultima uscita, stasera inclusa) con **download Excel** |
 
 ## Struttura
 
@@ -101,6 +102,12 @@ npm run dev
 
 Apri <http://localhost:3000>.
 
+### Report in Excel
+
+I report (tab "Report" dell'amministratore e "Il tuo report" delle associazioni) si scaricano
+come veri file `.xlsx` generati nel browser (libreria `xlsx`, già in `package.json`, niente
+installazioni sul server). Su telefono il file finisce in Download/File.
+
 ## Deploy su Vercel
 
 1. Push del repository su GitHub/GitLab.
@@ -116,6 +123,8 @@ Tutte le tabelle hanno RLS attiva:
 - **daily_logs / proposal_verifications**: scrittura solo con `org_id` proprio (o admin) → gli
   esiti sono sempre firmati dall'associazione corretta;
 - **proposals**: inserimento solo propria o admin; modifica dello stato **solo admin**;
+  cancellazione di una proposta ancora in attesa da parte dell'associazione che l'ha creata
+  (policy `proposals owner delete` in `0004`, da eseguire se il database è già stato creato);
 - **service_users**: insert/update/delete **solo admin** (è la validazione a creare gli utenti);
 - **calendar_overrides / settings / organizations**: **solo admin**.
 

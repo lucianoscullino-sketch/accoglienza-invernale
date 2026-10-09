@@ -64,10 +64,10 @@ function pinHtml(it: MapItem, sel: boolean) {
           : '<text class="mk-tb" x="13.5" y="-36.2" text-anchor="middle">?</text>';
     badge = '<circle class="mk-b" cx="13.5" cy="-40" r="8.5"/>' + b;
   }
-  // Le proposte usano un pin più piccolo per non coprire gli utenti ordinari
+  // Le proposte usano un pin ancora più piccolo per non coprire gli utenti ordinari
   const small = it.kind === "prop" || it.kind === "draft";
-  const w = small ? 36 : 46;
-  const h = small ? 38 : 48;
+  const w = small ? 28 : 46;
+  const h = small ? 30 : 48;
   return (
     '<svg width="' +
     w +
@@ -170,8 +170,8 @@ export default function MapView({
         icon: L.divIcon({
           className: "mk-div",
           html: pinHtml(it, sel),
-          iconSize: small ? [36, 38] : [46, 48],
-          iconAnchor: small ? [14, 36] : [18, 46],
+          iconSize: small ? [28, 30] : [46, 48],
+          iconAnchor: small ? [11, 29] : [18, 46],
         }),
         title: it.name,
         riseOnHover: true,

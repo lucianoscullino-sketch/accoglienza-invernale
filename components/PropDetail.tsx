@@ -38,6 +38,9 @@ export default function PropDetail({
   onSaveVer,
   onValidate,
   onReject,
+  onDelete,
+  canDelete,
+  myOrg,
   onBack,
 }: {
   p: Proposal;
@@ -50,9 +53,13 @@ export default function PropDetail({
   onSaveVer: (v: EntryValues) => Promise<void>;
   onValidate: () => Promise<void>;
   onReject: () => Promise<void>;
+  onDelete: (() => Promise<void>) | null;
+  canDelete: boolean;
+  myOrg: string | null;
   onBack: () => void;
 }) {
-  const [busy, setBusy] = useState<"save" | "val" | "rej" | "">("");
+  const [busy, setBusy] = useState<"save" | "val" | "rej" | "del" | "">("");
+  const [confirmDel, setConfirmDel] = useState(false);
   const vs = p.verifications || [];
   const mine = vs.find((v) => v.date === today()) || null;
   const vref = useRef<EntryValues>(entryFrom(mine));
@@ -182,6 +189,44 @@ export default function PropDetail({
             sparisce dalla mappa alla scadenza.
           </p>
         )}
+        {canDelete && onDelete ? (
+          <div className="stack">
+            <h3>La tua proposta</h3>
+            <p className="notice">
+              L&apos;hai proposta tu
+              {p.proposed_by && myOrg && p.proposed_by === myOrg
+                ? ` (${orgName(p.proposed_by, orgs)})`
+                : ""}
+              . Se è stata creata per errore puoi cancellarla definitivamente: sparirà dalla mappa
+              e dall&apos;elenco.
+            </p>
+            {!confirmDel ? (
+              <button className="btn btn-sm" type="button" onClick={() => setConfirmDel(true)}>
+                Cancella questa proposta
+              </button>
+            ) : (
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  disabled={busy === "del"}
+                  onClick={() => {
+                    setBusy("del");
+                    onDelete().finally(() => {
+                      setBusy("");
+                      setConfirmDel(false);
+                    });
+                  }}
+                >
+                  {busy === "del" ? "Cancello…" : "Sì, cancella definitivamente"}
+                </button>
+                <button className="btn btn-sm" type="button" onClick={() => setConfirmDel(false)}>
+                  Annulla
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </>
   );
