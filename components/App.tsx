@@ -64,6 +64,7 @@ export default function App({ profile }: { profile: Profile }) {
   useEffect(() => {
     let dead = false;
     (async () => {
+      const problems: string[] = [];
       try {
         const sb = supabase();
         const [o, pr, u, l, p, c, s] = await Promise.all([
@@ -77,25 +78,42 @@ export default function App({ profile }: { profile: Profile }) {
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
         ]);
-        const err = o.error || pr.error || u.error || l.error || p.error || c.error || s.error;
-        if (err) throw err;
-        if (dead) return;
-        setOrgs((o.data || []) as Org[]);
-        setProfiles((pr.data || []) as Profile[]);
-        setUsers((u.data || []) as ServiceUser[]);
-        setLogs((l.data || []) as DailyLog[]);
-        setProposals(
-          (((p.data || []) as Proposal[])).map((x) => ({
-            ...x,
-            verifications: [...(x.verifications || [])].sort((a, b) => a.date.localeCompare(b.date)),
-          }))
-        );
-        setOverrides((c.data || []) as CalendarOverride[]);
-        if (s.data) setSettings(s.data as Settings);
+        // Carichiamo ogni tabella in modo indipendente: un errore su una query
+        // non deve più impedire il caricamento di tutte le altre (prima bastava
+        // una tabella in errore per svuotare l'intera app).
+        const msg = (e: unknown): string => {
+          if (!e) return "errore sconosciuto";
+          if (typeof e === "string") return e;
+          const m = (e as { message?: string }).message;
+          return m || JSON.stringify(e);
+        };
+        if (o.error) problems.push(`associazioni: ${msg(o.error)}`);
+        else setOrgs((o.data || []) as Org[]);
+        if (pr.error) problems.push(`profili: ${msg(pr.error)}`);
+        else setProfiles((pr.data || []) as Profile[]);
+        if (u.error) problems.push(`utenti: ${msg(u.error)}`);
+        else setUsers((u.data || []) as ServiceUser[]);
+        if (l.error) problems.push(`registri: ${msg(l.error)}`);
+        else setLogs((l.data || []) as DailyLog[]);
+        if (p.error) problems.push(`proposte: ${msg(p.error)}`);
+        else
+          setProposals(
+            ((p.data || []) as Proposal[]).map((x) => ({
+              ...x,
+              verifications: [...(x.verifications || [])].sort((a, b) => a.date.localeCompare(b.date)),
+            }))
+          );
+        if (c.error) problems.push(`calendario: ${msg(c.error)}`);
+        else setOverrides((c.data || []) as CalendarOverride[]);
+        if (s.error) problems.push(`impostazioni: ${msg(s.error)}`);
+        else if (s.data) setSettings(s.data as Settings);
       } catch (e) {
-        if (!dead) setLoadErr(e instanceof Error ? e.message : "Impossibile caricare i dati da Supabase.");
+        // Errore di rete/client (env mancanti, fetch fallito, ecc.)
+        problems.push(e instanceof Error ? e.message : String(e));
       } finally {
-        if (!dead) setLoading(false);
+        if (dead) return;
+        if (problems.length) setLoadErr(problems.join(" · "));
+        setLoading(false);
       }
     })();
     return () => {
@@ -818,9 +836,7 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- legenda e layout ---
   const c = counts();
-  const menuWide =
-    isAdmin &&
-    (tab === "calendario" || tab === "report" || tab === "coord");
+  const menuWide = isAdmin;
   const legend = (
     <ul className="legend">
       <li>
