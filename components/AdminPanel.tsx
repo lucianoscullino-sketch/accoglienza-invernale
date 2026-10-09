@@ -83,6 +83,8 @@ export default function AdminPanel({
   const [rename, setRename] = useState<Record<string, string>>({});
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [edit, setEdit] = useState<Record<string, { display_name: string; role: string; org_id: string }>>({});
+  // Email di accesso modificabile solo dall'admin (via API server con service-role).
+  const [mail, setMail] = useState<Record<string, string>>({});
 
   const orgUserCount = (id: string) => profiles.filter((p) => p.org_id === id).length;
 
@@ -165,6 +167,7 @@ export default function AdminPanel({
       ...prev,
       [p.id]: { display_name: p.display_name || "", role: p.role, org_id: p.org_id || "" },
     }));
+    setMail((prev) => ({ ...prev, [p.id]: p.email || "" }));
   }
 
   async function saveProfile(p: Profile) {
@@ -186,6 +189,30 @@ export default function AdminPanel({
         return n;
       });
       onToast("Account aggiornato.");
+    } catch (e) {
+      onToast("Errore: " + (e instanceof Error ? e.message : "riprova"));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function saveEmail(p: Profile) {
+    const email = (mail[p.id] ?? "").trim();
+    if (!email) {
+      onToast("Inserisci un indirizzo email.");
+      return;
+    }
+    setBusy("mail-" + p.id);
+    try {
+      const res = await fetch("/api/admin/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: p.id, email }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Errore sconosciuto");
+      setProfiles((prev) => prev.map((x) => (x.id === p.id ? { ...x, email } : x)));
+      onToast("Email di accesso aggiornata.");
     } catch (e) {
       onToast("Errore: " + (e instanceof Error ? e.message : "riprova"));
     } finally {
@@ -389,7 +416,34 @@ export default function AdminPanel({
                             ))}
                           </select>
                         </div>
+                        <div>
+                          <label className="lb" htmlFor={`pe-${p.id}`}>
+                            Email di accesso (username)
+                          </label>
+                          <input
+                            id={`pe-${p.id}`}
+                            type="email"
+                            autoComplete="off"
+                            value={mail[p.id] ?? p.email ?? ""}
+                            onChange={(e) =>
+                              setMail((prev) => ({ ...prev, [p.id]: e.target.value }))
+                            }
+                          />
+                          <p className="pgtxt" style={{ fontSize: "13px", opacity: 0.75, margin: "4px 0 0" }}>
+                            La password è quella di default comunicata all&apos;associazione; può essere
+                            cambiata solo dall&apos;interessato con &quot;Password dimenticata?&quot; nella
+                            schermata di accesso.
+                          </p>
+                        </div>
                         <div className="actions" style={{ padding: 0 }}>
+                          <button
+                            className="btn btn-sm"
+                            type="button"
+                            disabled={busy === "mail-" + p.id}
+                            onClick={() => saveEmail(p)}
+                          >
+                            {busy === "mail-" + p.id ? "Aggiorno…" : "Aggiorna email"}
+                          </button>
                           <button
                             className="btn btn-ok btn-sm"
                             type="button"
