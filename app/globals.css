@@ -269,6 +269,31 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
 
 
 
+.panelhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.panelhead h2 { margin: 0; flex: 1 1 auto; min-width: 0; }
+.panelhead-x {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+}
+.panelhead-x:active { background: var(--line); color: var(--ink); }
+
 /* Pannelli gestionali (Coordinamento, Calendario, Report, Il tuo report):
    su desktop si dà più spazio al menu restringendo la mappa,
    su mobile si riduce l'altezza della mappa. */
@@ -280,7 +305,7 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
 }
 @media (min-width: 900px) {
   .app.app-wide {
-    grid-template-columns: minmax(0, 1fr) 560px;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   }
 }
 
