@@ -12,6 +12,7 @@ import UserDetail from "@/components/UserDetail";
 import PropDetail from "@/components/PropDetail";
 import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
+import OrgReport from "@/components/OrgReport";
 import { supabase } from "@/lib/supabase";
 import type {
   CalendarOverride,
@@ -27,7 +28,7 @@ import type {
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
 
-type Tab = "utenti" | "proposte" | "calendario" | "report";
+type Tab = "utenti" | "proposte" | "calendario" | "report" | "mine";
 
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -508,6 +509,7 @@ export default function App({ profile }: { profile: Profile }) {
         {t("utenti", "Stasera", counts().t)}
         {t("proposte", "Proposte", visibleProps.length)}
         {t("calendario", "Calendario")}
+        {!isAdmin && myOrg ? t("mine", "Il tuo report") : null}
         {isAdmin && t("report", "Report")}
       </div>
     );
@@ -696,6 +698,8 @@ export default function App({ profile }: { profile: Profile }) {
           />
         ) : tab === "report" && isAdmin ? (
           <ReportView orgs={orgs} users={users} logs={logs} proposals={proposals} rep={rep} setRep={setRep} />
+        ) : tab === "mine" && !isAdmin && myOrg ? (
+          <OrgReport orgs={orgs} users={users} logs={logs} proposals={proposals} myOrg={myOrg} />
         ) : tab === "proposte" ? (
           propsTabHTML()
         ) : (
@@ -720,7 +724,7 @@ export default function App({ profile }: { profile: Profile }) {
       </li>
       {c.p ? (
         <li>
-          <span className="dot pr st-todo" /> Proposte (bordo tratteggiato) <b>{c.p}</b>
+          <span className="dot pr st-todo" /> Proposte (bordo tratteggiato, più piccole) <b>{c.p}</b>
         </li>
       ) : null}
     </ul>

@@ -126,6 +126,16 @@ export default function PropDetail({
           </div>
         </div>
         <p className="desc">{p.description || "Nessuna descrizione."}</p>
+        <div className="actions" style={{ padding: 0 }}>
+          <a
+            className="btn btn-sm"
+            href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Naviga con Maps
+          </a>
+        </div>
         <p className="signed">
           Proposto da <strong>{orgName(p.proposed_by, orgs)}</strong> il {fmtDM(p.created_at)}.{" "}
           {expired

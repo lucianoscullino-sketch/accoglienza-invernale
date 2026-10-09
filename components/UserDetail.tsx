@@ -111,6 +111,16 @@ export default function UserDetail({
           </div>
         </div>
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
+        <div className="actions" style={{ padding: 0 }}>
+          <a
+            className="btn btn-sm"
+            href={`https://www.google.com/maps/dir/?api=1&destination=${user.lat},${user.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Naviga con Maps
+          </a>
+        </div>
         {form}
         {hist}
       </div>

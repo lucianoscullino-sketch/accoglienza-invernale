@@ -64,8 +64,16 @@ function pinHtml(it: MapItem, sel: boolean) {
           : '<text class="mk-tb" x="13.5" y="-36.2" text-anchor="middle">?</text>';
     badge = '<circle class="mk-b" cx="13.5" cy="-40" r="8.5"/>' + b;
   }
+  // Le proposte usano un pin più piccolo per non coprire gli utenti ordinari
+  const small = it.kind === "prop" || it.kind === "draft";
+  const w = small ? 36 : 46;
+  const h = small ? 38 : 48;
   return (
-    '<svg width="46" height="48" viewBox="-18 -46 46 48" aria-hidden="true">' +
+    '<svg width="' +
+    w +
+    '" height="' +
+    h +
+    '" viewBox="-18 -46 46 48" aria-hidden="true">' +
     '<g class="mk st-' +
     it.st +
     (it.kind === "prop" || it.kind === "draft" ? " pr" : "") +
@@ -157,12 +165,13 @@ export default function MapView({
     );
     sorted.forEach((it) => {
       const sel = !!selected && selected.kind === it.kind && selected.id === it.id;
+      const small = it.kind === "prop" || it.kind === "draft";
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: L.divIcon({
           className: "mk-div",
           html: pinHtml(it, sel),
-          iconSize: [46, 48],
-          iconAnchor: [18, 46],
+          iconSize: small ? [36, 38] : [46, 48],
+          iconAnchor: small ? [14, 36] : [18, 46],
         }),
         title: it.name,
         riseOnHover: true,
