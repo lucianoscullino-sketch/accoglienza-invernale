@@ -724,6 +724,10 @@ export default function App({ profile }: { profile: Profile }) {
             onSetOverride={setOverride}
             onSaveSettings={saveSettings}
             onApplyText={applyCalText}
+            onBack={() => {
+              setSelected(null);
+              setTab("utenti");
+            }}
           />
         ) : tab === "report" && isAdmin ? (
           <ReportView orgs={orgs} users={users} logs={logs} proposals={proposals} rep={rep} setRep={setRep} />
