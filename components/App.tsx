@@ -1027,7 +1027,7 @@ export default function App({ profile }: { profile: Profile }) {
       </li>
       {c.p ? (
         <li>
-          <span className="dot pr st-todo" /> Proposte (bordo tratteggiato, più piccole) <b>{c.p}</b>
+          <span className="dot pr st-todo" /> Proposte (bordo tratteggiato) <b>{c.p}</b>
         </li>
       ) : null}
     </ul>

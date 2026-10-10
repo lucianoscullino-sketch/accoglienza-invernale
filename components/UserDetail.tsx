@@ -77,7 +77,7 @@ export default function UserDetail({
 
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
-  const form = isAdmin ? null : canRecord ? (
+  const form = canRecord ? (
     <form
       className="stack"
       onSubmit={(e) => {
@@ -215,9 +215,9 @@ export default function UserDetail({
             <p className="pgtxt mono">
               Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
             </p>
-            {form}
           </>
         )}
+        {form}
         {isAdmin && (
           <div className="stack">
             <h3>Azioni coordinamento</h3>
