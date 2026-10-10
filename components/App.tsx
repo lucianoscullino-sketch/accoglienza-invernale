@@ -364,16 +364,25 @@ export default function App({ profile }: { profile: Profile }) {
     // cancellarla, così il coordinamento può ancora rivederla su mappa col flag
     // "Eliminati" e, se serve, ripristinarla.
     try {
-      const { error } = await supabase()
+      // .select() per sapere quante righe ha toccato davvero l'UPDATE: senza,
+      // con RLS un update a vuoto non dà errore ma 0 righe → falso successo
+      // (l'utente "sparisce" in memoria ma ricompare al refresh).
+      const { data, error } = await supabase()
         .from("service_users")
         .update({ active: false, deleted: true, suspension_note: note })
-        .eq("id", u.id);
+        .eq("id", u.id)
+        .select("id");
       if (error) {
         if (/deleted/i.test(error.message || "")) {
           // Migrazione 0008 non applicata: fallback all'eliminazione definitiva.
           return hardDeleteUser(u);
         }
         throw error;
+      }
+      if (!data || data.length === 0) {
+        // Nessuna riga aggiornata (permessi/RLS): proviamo l'eliminazione
+        // definitiva, che il coordinamento può sempre fare.
+        return hardDeleteUser(u);
       }
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
       setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
@@ -1067,19 +1076,19 @@ export default function App({ profile }: { profile: Profile }) {
       </li>
       {c.p ? (
         <li>
-          <span className="dot pr st-todo" /> Proposte (bordo tratteggiato) <b>{c.p}</b>
+          <span className="dot pr st-todo" /> Proposte <b>{c.p}</b>
         </li>
       ) : null}
       {/* Voci aggiuntive: compaiono solo con i flag del coordinamento attivi,
           così la legenda descrive sempre anche ciò che è mostrato sulla mappa. */}
       {isAdmin && showSuspended ? (
         <li>
-          <span className="dot st-susp" /> Sospesi (pin tratteggiato) <b>{suspendedUsers.length}</b>
+          <span className="dot st-susp" /> Sospesi <b>{suspendedUsers.length}</b>
         </li>
       ) : null}
       {isAdmin && showDeleted ? (
         <li>
-          <span className="dot st-del" /> Eliminati (X) <b>{deletedUsers.length}</b>
+          <span className="dot st-del" /> Eliminati <b>{deletedUsers.length}</b>
         </li>
       ) : null}
     </ul>
