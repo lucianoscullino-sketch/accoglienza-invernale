@@ -129,6 +129,11 @@ Tutte le tabelle hanno RLS attiva:
   cancellazione di una proposta ancora in attesa da parte dell'associazione che l'ha creata
   (policy `proposals owner delete` in `0004`, da eseguire se il database è già stato creato);
 - **service_users**: insert/update/delete **solo admin** (è la validazione a creare gli utenti);
+  in più le associazioni possono **aggiornare solo i dati anagrafici** (nome, descrizione,
+  posizione, nota) degli utenti **da loro create** — tracciati nella colonna `created_by_org`
+  valorizzata alla validazione della proposta (policy `users owner update` in `0010`, da
+  eseguire se il database è già stato creato). Un trigger impedisce a un'associazione di
+  alterare stato (sospeso/eliminato) o proprietario, che restano competenza del coordinamento;
 - **calendar_overrides / settings / organizations**: **solo admin**.
 
 ## Note e limiti

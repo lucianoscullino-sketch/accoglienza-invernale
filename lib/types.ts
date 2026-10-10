@@ -26,6 +26,7 @@ export interface ServiceUser {
   note?: string; // nota stabile del coordinamento, distinta dalle note serali
   suspension_note?: string; // motivo dell'ultima sospensione (coordinamento)
   deleted?: boolean; // eliminato (soft-delete): nascosto, visibile solo con flag
+  created_by_org?: string | null; // associazione che ha proposto/creato l'utenza (null = non tracciato)
 }
 
 export interface DailyLog {

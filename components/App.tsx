@@ -277,6 +277,46 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Modifica dei dati anagrafici di un utente (nome, descrizione, posizione e
+  // nota stabile). Consentita al coordinamento su tutte le utenze e alle
+  // associazioni solo su quelle create da loro (RLS "users owner update").
+  // La nota stabile resta competenza del coordinamento, quindi per le
+  // associazioni la salviamo solo se l'utente è admin.
+  async function saveUserData(
+    uid: string,
+    patch: { name: string; description: string; lat: number; lng: number; note: string }
+  ) {
+    try {
+      const payload: Record<string, unknown> = {
+        name: patch.name,
+        description: patch.description,
+        lat: patch.lat,
+        lng: patch.lng,
+      };
+      if (isAdmin) payload.note = patch.note;
+      const { error } = await supabase().from("service_users").update(payload).eq("id", uid);
+      if (error) throw error;
+      setUsers((prev) =>
+        prev.map((x) =>
+          x.id === uid
+            ? {
+                ...x,
+                name: patch.name,
+                description: patch.description,
+                lat: patch.lat,
+                lng: patch.lng,
+                note: isAdmin ? patch.note : x.note,
+              }
+            : x
+        )
+      );
+      toast("Dati utente aggiornati");
+    } catch (e) {
+      toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+      throw e;
+    }
+  }
+
   // Sospendere nasconde da mappa ed elenchi ma tiene il record (reversibile);
   // eliminare cancella definitivamente (esiti via cascade). La colonna active
   // esiste già, quindi la sospensione funziona anche senza la migrazione 0007.
@@ -533,7 +573,7 @@ export default function App({ profile }: { profile: Profile }) {
       const sb = supabase();
       const { data: nu, error } = await sb
         .from("service_users")
-        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng })
+        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: p.proposed_by })
         .select()
         .single();
       if (error) throw error;
@@ -903,6 +943,16 @@ export default function App({ profile }: { profile: Profile }) {
               onResume={() => resumeUser(u)}
               onRestore={() => restoreUser(u)}
               onDelete={(note) => deleteUser(u, note)}
+              myOrg={myOrg}
+              canEditData={
+                isAdmin || (!!myOrg && !!u.created_by_org && u.created_by_org === myOrg)
+              }
+              editDeniedMsg={
+                u.created_by_org
+                  ? "Solo il coordinamento o l'associazione che ha creato questa utenza può modificarne i dati."
+                  : "Solo il coordinamento può modificare i dati di questa utenza."
+              }
+              onSaveData={(patch) => saveUserData(u.id, patch)}
             />
             </Popup>
           );

@@ -19,6 +19,10 @@ export default function UserDetail({
   onResume,
   onRestore,
   onDelete,
+  myOrg,
+  canEditData,
+  editDeniedMsg,
+  onSaveData,
 }: {
   user: ServiceUser;
   past: DailyLog[];
@@ -32,10 +36,67 @@ export default function UserDetail({
   onResume?: () => Promise<void>;
   onRestore?: () => Promise<void>;
   onDelete?: (note: string) => Promise<void>;
+  // Modifica dati anagrafici (nome, descrizione, posizione, nota): il tasto
+  // resta sempre visibile in fondo alla scheda; l'abilitazione dipende dal
+  // ruolo (coordinamento ovunque, associazioni solo sulle proprie utenze).
+  myOrg?: string | null;
+  canEditData?: boolean;
+  editDeniedMsg?: string;
+  onSaveData?: (patch: { name: string; description: string; lat: number; lng: number; note: string }) => Promise<void>;
 }) {
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
+
+  // --- Modifica dati anagrafici: sempre visibile in fondo alla scheda ---
+  // Coordinamento su tutte le utenze, associazioni solo sulle proprie.
+  const resolvedCanEdit =
+    typeof canEditData === "boolean"
+      ? canEditData
+      : !!isAdmin || (!!myOrg && !!user.created_by_org && user.created_by_org === myOrg);
+  const [editing, setEditing] = useState(false);
+  const [edName, setEdName] = useState(user.name);
+  const [edDesc, setEdDesc] = useState(user.description || "");
+  const [edLat, setEdLat] = useState(String(user.lat));
+  const [edLng, setEdLng] = useState(String(user.lng));
+  const [edNote, setEdNote] = useState(user.note || "");
+  const [editErr, setEditErr] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+
+  function openEdit() {
+    setEdName(user.name);
+    setEdDesc(user.description || "");
+    setEdLat(String(user.lat));
+    setEdLng(String(user.lng));
+    setEdNote(user.note || "");
+    setEditErr("");
+    setEditing(true);
+  }
+
+  async function submitEdit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = edName.trim();
+    if (!name) {
+      setEditErr("Scrivi il nickname dell'utente.");
+      return;
+    }
+    const lat = Number(String(edLat).replace(",", "."));
+    const lng = Number(String(edLng).replace(",", "."));
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      setEditErr("Coordinate non valide (latitudine -90…90, longitudine -180…180).");
+      return;
+    }
+    setEditErr("");
+    setEditBusy(true);
+    try {
+      if (onSaveData) await onSaveData({ name, description: edDesc.trim(), lat, lng, note: edNote });
+      setEditing(false);
+    } catch (err) {
+      setEditErr(err instanceof Error ? err.message : "Salvataggio non riuscito.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
 
   // --- Azioni coordinamento (solo admin): sospendi / riattiva / elimina ---
   const [actOp, setActOp] = useState<"suspend" | "delete" | null>(null);
@@ -252,6 +313,120 @@ export default function UserDetail({
           </div>
         )}
         {hist}
+        <div className="stack">
+          <h3>Modifica dati</h3>
+          {editing ? (
+            <form className="stack" style={{ gap: 8 }} onSubmit={submitEdit}>
+              {editErr ? <p className="err">{editErr}</p> : null}
+              <div>
+                <label className="lb" htmlFor="user-edit-name">
+                  Nickname (come vuole essere chiamato)
+                </label>
+                <input
+                  id="user-edit-name"
+                  type="text"
+                  autoComplete="off"
+                  value={edName}
+                  onChange={(e) => setEdName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="lb" htmlFor="user-edit-desc">
+                  Descrizione e punto in cui dorme
+                </label>
+                <textarea
+                  id="user-edit-desc"
+                  rows={3}
+                  value={edDesc}
+                  onChange={(e) => setEdDesc(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <label className="lb" htmlFor="user-edit-lat">
+                    Latitudine
+                  </label>
+                  <input
+                    id="user-edit-lat"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={edLat}
+                    onChange={(e) => setEdLat(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="lb" htmlFor="user-edit-lng">
+                    Longitudine
+                  </label>
+                  <input
+                    id="user-edit-lng"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={edLng}
+                    onChange={(e) => setEdLng(e.target.value)}
+                  />
+                </div>
+              </div>
+              {(isAdmin || resolvedCanEdit) ? (
+                <div>
+                  <label className="lb" htmlFor="user-edit-note">
+                    Nota del coordinamento (visibile a tutte le associazioni)
+                  </label>
+                  <textarea
+                    id="user-edit-note"
+                    rows={2}
+                    value={edNote}
+                    placeholder="Es. avvicinare con cautela, non accetta cibo, chiamare i servizi sociali…"
+                    onChange={(e) => setEdNote(e.target.value)}
+                  />
+                </div>
+              ) : null}
+              <div className="actions" style={{ padding: 0 }}>
+                <button className="btn btn-primary btn-sm" type="submit" disabled={editBusy}>
+                  {editBusy ? "Salvo…" : "Salva modifiche"}
+                </button>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  disabled={editBusy}
+                  onClick={() => {
+                    setEditing(false);
+                    setEditErr("");
+                  }}
+                >
+                  Annulla
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  disabled={!resolvedCanEdit}
+                  title={
+                    resolvedCanEdit
+                      ? "Modifica nome, descrizione, posizione e nota"
+                      : (editDeniedMsg ||
+                          "Solo il coordinamento o l'associazione che ha creato questa utenza può modificarne i dati.")
+                  }
+                  onClick={openEdit}
+                >
+                  Modifica
+                </button>
+              </div>
+              {!resolvedCanEdit ? (
+                <p className="notice">
+                  {editDeniedMsg ||
+                    "Solo il coordinamento o l'associazione che ha creato questa utenza può modificarne i dati."}
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
       </div>
     );
 }
