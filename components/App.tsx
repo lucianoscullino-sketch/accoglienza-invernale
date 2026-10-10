@@ -189,6 +189,9 @@ export default function App({ profile }: { profile: Profile }) {
     (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
   );
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
+  // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
+  // elenchi di default, ma rivisibili con il flag "Eliminati" come le utenze.
+  const deletedProps = proposals.filter((p) => p.suspended && p.status === "rejected");
   const propVer = (p: Proposal): "ok" | "no" | "none" => {
     const vs = p.verifications || [];
     return vs.length ? (vs[vs.length - 1].found ? "ok" : "no") : "none";
@@ -223,6 +226,10 @@ export default function App({ profile }: { profile: Profile }) {
       : []),
     ...(isAdmin && showDeleted
       ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato", inactive: "del" as const }))
+      : []),
+    // Proposte eliminate dal coordinamento, visibili col flag "Eliminati".
+    ...(isAdmin && showDeleted
+      ? deletedProps.map((p) => ({ kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st: "missing" as Status, name: p.name, tip: "proposta eliminata", inactive: "del" as const }))
       : []),
     ...(placing && draftPos
       ? [{ kind: "draft" as const, id: "draft", lat: draftPos.lat, lng: draftPos.lng, st: "prop" as const, name: "Nuova proposta" }]
@@ -653,16 +660,38 @@ export default function App({ profile }: { profile: Profile }) {
   // stato (in attesa, validata, rifiutata, scaduta o già sospesa). La togliamo
   // da mappa ed elenchi marcandola suspended + status="rejected": così resta
   // tracciata nel DB e sparisce dalla lista "in attesa" (che filtra le
-  // suspended). Riusa la colonna suspended della migrazione 0007 → nessuna
-  // nuova migrazione.
+  // suspended). Rivedibile col flag "Eliminati" su mappa.
   async function deleteProposalAdmin(pid: string) {
     try {
+      // .select("id") ci dice quante righe ha toccato davvero l'UPDATE.
       const { data, error } = await supabase()
         .from("proposals")
         .update({ status: "rejected", suspended: true, suspension_note: "eliminata dal coordinamento" })
         .eq("id", pid)
         .select("id");
-      if (error) throw error;
+      if (error) {
+        // Colonna suspended/suspension_note assente (migrazione 0007/0012 non
+        // applicata): ripieghiamo sul solo status="rejected", che la toglie
+        // comunque da mappa ed elenchi (senza poterla rivedere tra gli Eliminati).
+        if (/suspended|suspension_note/i.test(error.message || "")) {
+          const r2 = await supabase()
+            .from("proposals")
+            .update({ status: "rejected" })
+            .eq("id", pid)
+            .select("id");
+          if (r2.error) throw r2.error;
+          if (!r2.data || r2.data.length === 0) {
+            toast("Impossibile eliminare la proposta: permessi insufficienti.");
+            return;
+          }
+          setProposals((prev) => prev.map((x) => (x.id === pid ? { ...x, status: "rejected" } : x)));
+          setSelected(null);
+          setTab("proposte");
+          toast("Proposta rimossa dalla mappa. Per rivederla tra gli «Eliminati» esegui la migrazione 0012.");
+          return;
+        }
+        throw error;
+      }
       if (!data || data.length === 0) {
         toast("Impossibile eliminare la proposta: permessi insufficienti.");
         return;
@@ -1125,7 +1154,7 @@ export default function App({ profile }: { profile: Profile }) {
       ) : null}
       {isAdmin && showDeleted ? (
         <li>
-          <span className="dot st-del" /> Eliminati <b>{deletedUsers.length}</b>
+          <span className="dot st-del" /> Eliminati <b>{deletedUsers.length + deletedProps.length}</b>
         </li>
       ) : null}
     </ul>
