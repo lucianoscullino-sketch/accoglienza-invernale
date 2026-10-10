@@ -200,13 +200,6 @@ export default function MapView({
     const map = mapRef.current;
     if (map) map.setZoom(map.getZoom() + f);
   }
-  function fitAll() {
-    const map = mapRef.current;
-    const L = Lref.current;
-    if (!map || !L || !items.length) return;
-    const b = L.latLngBounds(items.map((i) => [i.lat, i.lng] as [number, number]));
-    map.fitBounds(b.pad(0.25), { maxZoom: 17 });
-  }
 
   return (
     <section className="mapcard" aria-label="Mappa degli utenti">
@@ -222,9 +215,6 @@ export default function MapView({
         </button>
         <button type="button" aria-label="Riduci" onClick={() => zoomBy(-1)}>
           &minus;
-        </button>
-        <button type="button" className="txt" aria-label="Mostra tutti gli utenti" onClick={fitAll}>
-          Tutti
         </button>
       </div>
       {overlays}

@@ -30,7 +30,14 @@ import type {
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
 
-type Tab = "utenti" | "proposte" | "calendario" | "report" | "mine" | "coord";
+type Tab =
+  | "utenti"
+  | "proposte"
+  | "associazioni"
+  | "account"
+  | "calendario"
+  | "report"
+  | "mine";
 
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -720,10 +727,11 @@ export default function App({ profile }: { profile: Profile }) {
       <div className="tabs" role="tablist">
         {t("utenti", "Stasera", counts().t)}
         {t("proposte", "Proposte", visibleProps.length)}
+        {isAdmin && t("associazioni", "Associazioni")}
+        {isAdmin && t("account", "Account")}
         {t("calendario", "Calendario")}
         {!isAdmin && myOrg ? t("mine", "Il tuo report") : null}
         {isAdmin && t("report", "Report")}
-        {isAdmin && t("coord", "Coordinatore")}
       </div>
     );
   }
@@ -980,26 +988,14 @@ export default function App({ profile }: { profile: Profile }) {
               setTab("utenti");
             }}
           />
-        ) : tab === "coord" && isAdmin ? (
+        ) : (tab === "associazioni" || tab === "account") && isAdmin ? (
           <AdminPanel
+            section={tab === "account" ? "account" : "associazioni"}
             profile={profile}
             orgs={orgs}
             setOrgs={setOrgs}
             profiles={profiles}
             setProfiles={setProfiles}
-            users={users}
-            logs={logs}
-            proposals={proposals}
-            settings={settings}
-            overrides={overrides}
-            calAll={calAll}
-            setCalAll={setCalAll}
-            calMsg={calMsg}
-            onSetOverride={setOverride}
-            onSaveSettings={saveSettings}
-            onApplyText={applyCalText}
-            rep={rep}
-            setRep={setRep}
             onToast={toast}
             onBack={() => {
               setSelected(null);
@@ -1066,9 +1062,9 @@ export default function App({ profile }: { profile: Profile }) {
         onPlace={(lat, lng) => setDraftPos({ lat, lng })}
         overlays={
           <>
-            {isAdmin && (
-              <div className="maptoggles" role="group" aria-label="Mostra utenze non attive">
-                <label className="chip">
+            {isAdmin && !placing && (
+              <div className="mapflags" role="group" aria-label="Mostra utenze non attive">
+                <label className="mapflag">
                   <input
                     type="checkbox"
                     checked={showSuspended}
@@ -1076,7 +1072,7 @@ export default function App({ profile }: { profile: Profile }) {
                   />
                   <span>Sospesi</span>
                 </label>
-                <label className="chip">
+                <label className="mapflag">
                   <input
                     type="checkbox"
                     checked={showDeleted}

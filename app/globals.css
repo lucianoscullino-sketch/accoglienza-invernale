@@ -67,22 +67,37 @@ textarea { resize: vertical; min-height: 64px; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .legend b { font-family: var(--font-mono); font-weight: 500; }
 
-/* Interruttori sulla mappa (solo coordinamento): mostra sospesi / eliminati */
-.maptoggles {
+/* Interruttori sulla mappa (solo coordinamento): mostra sospesi / eliminati.
+   Checkbox reali, in alto a sinistra, così non coprono i tasti di zoom. */
+.mapflags {
   position: absolute;
   top: 10px;
-  right: 10px;
+  left: 10px;
   z-index: 500;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 6px;
 }
-.maptoggles .chip span {
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 12px;
+.mapflag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+.mapflag input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
 }
 .bdg { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--prop); color: #fff; font: 700 10px var(--font-mono); }
 

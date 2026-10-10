@@ -1,29 +1,19 @@
 "use client";
 
-// Menu speciale del coordinamento (solo admin). Raggruppa in un unico posto:
+// Menu del coordinamento (solo admin). Gestisce:
 //  - Associazioni: crea / rinomina / elimina le organizzazioni.
 //  - Account: associa un profilo a un'organizzazione, ne cambia ruolo o nome.
-//  - Calendario e Report: riuso delle viste esistenti, già limitate all'admin.
-// Le scritture passano dal client Supabase: la sicurezza è garantita dalle
-// policy RLS ("orgs admin write" e "profiles admin update").
+// Calendario e Report hanno ormai tab propri di primo livello e non passano più
+// da qui. Le scritture passano dal client Supabase: la sicurezza è garantita
+// dalle policy RLS ("orgs admin write" e "profiles admin update").
 
 import { useState } from "react";
-import type {
-  CalendarOverride,
-  DailyLog,
-  Org,
-  Profile,
-  Proposal,
-  ServiceUser,
-  Settings,
-} from "@/lib/types";
-import CalendarView from "@/components/CalendarView";
-import ReportView from "@/components/ReportView";
+import type { Org, Profile } from "@/lib/types";
 import PanelHeader from "@/components/PanelHeader";
 import { supabase } from "@/lib/supabase";
 import { orgName } from "@/lib/format";
 
-type Section = "associazioni" | "account" | "calendario" | "report";
+type Section = "associazioni" | "account";
 
 const slug = (s: string) =>
   s
@@ -36,49 +26,25 @@ const slug = (s: string) =>
 
 
 export default function AdminPanel({
+  section: sectionProp,
   profile,
   orgs,
   setOrgs,
   profiles,
   setProfiles,
-  users,
-  logs,
-  proposals,
-  settings,
-  overrides,
-  calAll,
-  setCalAll,
-  calMsg,
-  onSetOverride,
-  onSaveSettings,
-  onApplyText,
-  rep,
-  setRep,
   onToast,
   onBack,
 }: {
+  section: Section;
   profile: Profile;
   orgs: Org[];
   setOrgs: React.Dispatch<React.SetStateAction<Org[]>>;
   profiles: Profile[];
   setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
-  users: ServiceUser[];
-  logs: DailyLog[];
-  proposals: Proposal[];
-  settings: Settings | null;
-  overrides: CalendarOverride[];
-  calAll: boolean;
-  setCalAll: (v: boolean) => void;
-  calMsg: string;
-  onSetOverride: (dateKey: string, val: string | null | undefined) => Promise<void>;
-  onSaveSettings: (patch: Partial<Pick<Settings, "weekly" | "sat">>) => Promise<void>;
-  onApplyText: (text: string) => Promise<void>;
-  rep: { from: string; to: string };
-  setRep: React.Dispatch<React.SetStateAction<{ from: string; to: string }>>;
   onToast: (msg: string) => void;
   onBack: () => void;
 }) {
-  const [section, setSection] = useState<Section>("associazioni");
+  const section = sectionProp;
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");
   const [rename, setRename] = useState<Record<string, string>>({});
@@ -220,39 +186,21 @@ export default function AdminPanel({
     }
   }
 
-  const secBtn = (id: Section, label: string) => (
-    <button
-      key={id}
-      type="button"
-      className={"tab" + (section === id ? " sel" : "")}
-      role="tab"
-      aria-selected={section === id}
-      style={section === id ? { borderColor: "var(--accent)", color: "var(--accent)" } : undefined}
-      onClick={() => setSection(id)}
-    >
-      {label}
-    </button>
-  );
-
   return (
     <div className="detail stack">
       <PanelHeader
-        title="Menu coordinamento"
+        title={section === "account" ? "Account" : "Associazioni"}
         subtitle={
           <>
-            Accesso come <strong>{profile.display_name || "Coordinamento"}</strong>. Gestione di
-            associazioni, account, calendario e report.
+            Accesso come <strong>{profile.display_name || "Coordinamento"}</strong>.{" "}
+            {section === "account"
+              ? "Gestisci associazione, ruolo e nome di ogni account."
+              : "Crea, rinomina o elimina le organizzazioni."}
           </>
         }
         onClose={onBack}
       />
 
-      <div className="tabs" role="tablist" aria-label="Sezioni del coordinamento">
-        {secBtn("associazioni", "Associazioni")}
-        {secBtn("account", "Account")}
-        {secBtn("calendario", "Calendario")}
-        {secBtn("report", "Report")}
-      </div>
       {section === "associazioni" && (
         <div className="stack">
           <div className="stack">
@@ -482,35 +430,6 @@ export default function AdminPanel({
             <p className="notice">Nessun account trovato.</p>
           )}
         </div>
-      )}
-
-      {section === "calendario" && (
-        <CalendarView
-          orgs={orgs}
-          settings={settings}
-          overrides={overrides}
-          isAdmin
-          myOrg={null}
-          calAll={calAll}
-          setCalAll={setCalAll}
-          calMsg={calMsg}
-          onSetOverride={onSetOverride}
-          onSaveSettings={onSaveSettings}
-          onApplyText={onApplyText}
-          onBack={() => setSection("associazioni")}
-        />
-      )}
-
-      {section === "report" && (
-        <ReportView
-          orgs={orgs}
-          users={users}
-          logs={logs}
-          proposals={proposals}
-          rep={rep}
-          setRep={setRep}
-          onBack={() => setSection("associazioni")}
-        />
       )}
     </div>
   );
