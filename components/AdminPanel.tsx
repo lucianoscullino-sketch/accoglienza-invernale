@@ -203,26 +203,8 @@ export default function AdminPanel({
 
       {section === "associazioni" && (
         <div className="stack">
-          <div className="stack">
-            <h3>Nuova associazione</h3>
-            <div>
-              <label className="lb" htmlFor="org-name">
-                Nome dell&apos;associazione
-              </label>
-              <input
-                id="org-name"
-                type="text"
-                autoComplete="off"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="es. Croce Rossa"
-              />
-            </div>
-          </div>
-
-          <div className="stack">
-            <h3>Associazioni esistenti</h3>
-            {orgs.length ? (
+          <h3>Associazioni esistenti</h3>
+          {orgs.length ? (
               <ul className="list">
                 {orgs.map((o) => (
                   <li key={o.id} className="hist">
@@ -281,10 +263,22 @@ export default function AdminPanel({
             ) : (
               <p className="notice">Nessuna associazione presente.</p>
             )}
+            <div>
+              <label className="lb" htmlFor="org-name">
+                Nome della nuova associazione
+              </label>
+              <input
+                id="org-name"
+                type="text"
+                autoComplete="off"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="es. Croce Rossa"
+              />
+            </div>
             <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
               {busy === "new" ? "Creo…" : "Aggiungi associazione"}
             </button>
-          </div>
         </div>
       )}
 
