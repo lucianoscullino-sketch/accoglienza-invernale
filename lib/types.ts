@@ -24,6 +24,7 @@ export interface ServiceUser {
   lng: number;
   active: boolean;
   note?: string; // nota stabile del coordinamento, distinta dalle note serali
+  suspension_note?: string; // motivo dell'ultima sospensione (coordinamento)
 }
 
 export interface DailyLog {
@@ -62,6 +63,8 @@ export interface Proposal {
   status: ProposalStatus;
   validated_into: string | null;
   created_at: string; // ISO
+  suspended?: boolean; // sospesa dal coordinamento: fuori da mappa ed elenchi
+  suspension_note?: string; // motivo della sospensione
   verifications?: ProposalVerification[];
 }
 

@@ -6,6 +6,7 @@
   --bg: #e9edf1; --surface: #fbfcfd; --surface2: #f0f3f6; --ink: #17202d; --muted: #5b6778; --line: #d3dae2;
   --accent: #1f4b7a; --accent-ink: #ffffff;
   --todo: #d9480f; --done: #23806a; --missing: #6c7889; --prop: #6f4bd8; --on-status: #ffffff;
+  --danger: #b02a37;
   --map-bg: #dfe6ec; --map-label: #5f6c7d;
   --font-display: var(--font-bricolage), "IBM Plex Sans", system-ui, sans-serif;
   --font-body: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -17,6 +18,7 @@
     --bg: #0f151d; --surface: #18212c; --surface2: #1f2a37; --ink: #e8edf3; --muted: #9aa7b8; --line: #2c3948;
     --accent: #7fb0e6; --accent-ink: #0f151d;
     --todo: #ff8a4c; --done: #4fc3a1; --missing: #8d9aae; --prop: #a48cff; --on-status: #10161e;
+    --danger: #ff7b81;
     --map-bg: #131b25; --map-label: #8795a8;
     color-scheme: dark;
   }
@@ -100,6 +102,7 @@ textarea { resize: vertical; min-height: 64px; }
 .tag-prop { border: 1px dashed var(--prop); color: var(--prop); background: transparent; }
 .tag-done { color: var(--done); border-color: var(--done); background: transparent; }
 .tag-todo { color: var(--todo); border-color: var(--todo); background: transparent; }
+.tag-danger { color: var(--danger); border-color: var(--danger); background: transparent; }
 .tag-muted { color: var(--muted); }
 .progress { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface2); gap: 2px; }
 .progress span { display: block; min-width: 0; }
@@ -130,6 +133,7 @@ input[type=file] { width: 100%; font-size: 14px; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn-prop { border: 1px dashed var(--prop); color: var(--prop); }
 .btn-ok { background: var(--done); color: var(--on-status); border-color: var(--done); }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-sm { min-height: 40px; padding: 6px 12px; }
 .linkbtn { background: none; border: 0; padding: 6px 0; color: var(--accent); text-decoration: underline; cursor: pointer; text-align: left; }

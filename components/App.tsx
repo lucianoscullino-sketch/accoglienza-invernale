@@ -39,6 +39,7 @@ export default function App({ profile }: { profile: Profile }) {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [users, setUsers] = useState<ServiceUser[]>([]);
+  const [suspendedUsers, setSuspendedUsers] = useState<ServiceUser[]>([]);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
@@ -79,7 +80,7 @@ export default function App({ profile }: { profile: Profile }) {
           }
           return ordered;
         })();
-        const [o, pr, u, l, p, c, s] = await Promise.all([
+        const [o, pr, u, l, p, c, s, su] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
@@ -89,6 +90,11 @@ export default function App({ profile }: { profile: Profile }) {
             .order("created_at", { ascending: false }),
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
+          // Le utenze sospese (active=false) servono solo al coordinamento per
+          // poterle riattivare o eliminare; per gli altri ruoli non le carichiamo.
+          isAdmin
+            ? sb.from("service_users").select("*").eq("active", false)
+            : Promise.resolve({ data: [], error: null }),
         ]);
         // Carichiamo ogni tabella in modo indipendente: un errore su una query
         // non deve più impedire il caricamento di tutte le altre (prima bastava
@@ -105,6 +111,8 @@ export default function App({ profile }: { profile: Profile }) {
         else setProfiles((pr.data || []) as Profile[]);
         if (u.error) problems.push(`utenti: ${msg(u.error)}`);
         else setUsers((u.data || []) as ServiceUser[]);
+        if (su.error) problems.push(`utenze sospese: ${msg(su.error)}`);
+        else setSuspendedUsers((su.data || []) as ServiceUser[]);
         if (l.error) problems.push(`registri: ${msg(l.error)}`);
         else setLogs((l.data || []) as DailyLog[]);
         if (p.error) problems.push(`proposte: ${msg(p.error)}`);
@@ -159,8 +167,12 @@ export default function App({ profile }: { profile: Profile }) {
     return !l ? "todo" : l.found ? "done" : "missing";
   };
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
-  const visibleProps = proposals.filter((p) => p.status === "pending" && Date.now() < expTime(p));
-  const expiredProps = proposals.filter((p) => p.status === "pending" && Date.now() >= expTime(p));
+  const visibleProps = proposals.filter(
+    (p) => p.status === "pending" && !p.suspended && Date.now() < expTime(p)
+  );
+  const expiredProps = proposals.filter(
+    (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
+  );
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   const propVer = (p: Proposal): "ok" | "no" | "none" => {
     const vs = p.verifications || [];
@@ -819,8 +831,12 @@ export default function App({ profile }: { profile: Profile }) {
             profiles={profiles}
             setProfiles={setProfiles}
             users={users}
+            setUsers={setUsers}
+            suspendedUsers={suspendedUsers}
+            setSuspendedUsers={setSuspendedUsers}
             logs={logs}
             proposals={proposals}
+            setProposals={setProposals}
             settings={settings}
             overrides={overrides}
             calAll={calAll}
