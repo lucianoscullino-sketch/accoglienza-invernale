@@ -630,13 +630,55 @@ export default function App({ profile }: { profile: Profile }) {
 
   async function reject(p: Proposal) {
     try {
-      const { error } = await supabase().from("proposals").update({ status: "rejected" }).eq("id", p.id);
+      // .select("id"): senza, con RLS un update a vuoto non dà errore ma 0 righe.
+      const { data, error } = await supabase()
+        .from("proposals")
+        .update({ status: "rejected" })
+        .eq("id", p.id)
+        .select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile rifiutare la proposta: permessi insufficienti.");
+        return;
+      }
       setProposals((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "rejected" } : x)));
       setSelected(null);
       toast("Proposta rimossa");
     } catch (e) {
       toast("Errore: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // "Elimina" (solo coordinamento): soft-delete di una proposta da QUALUNQUE
+  // stato (in attesa, validata, rifiutata, scaduta o già sospesa). La togliamo
+  // da mappa ed elenchi marcandola suspended + status="rejected": così resta
+  // tracciata nel DB e sparisce dalla lista "in attesa" (che filtra le
+  // suspended). Riusa la colonna suspended della migrazione 0007 → nessuna
+  // nuova migrazione.
+  async function deleteProposalAdmin(pid: string) {
+    try {
+      const { data, error } = await supabase()
+        .from("proposals")
+        .update({ status: "rejected", suspended: true, suspension_note: "eliminata dal coordinamento" })
+        .eq("id", pid)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile eliminare la proposta: permessi insufficienti.");
+        return;
+      }
+      setProposals((prev) =>
+        prev.map((x) =>
+          x.id === pid
+            ? { ...x, status: "rejected", suspended: true, suspension_note: "eliminata dal coordinamento" }
+            : x
+        )
+      );
+      setSelected(null);
+      setTab("proposte");
+      toast("Proposta eliminata: non sarà più visibile su mappa ed elenchi.");
+    } catch (e) {
+      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
     }
   }
 
@@ -976,6 +1018,7 @@ export default function App({ profile }: { profile: Profile }) {
               onReject={() => reject(p)}
               onDelete={!isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
               canDelete={!isAdmin && !!myOrg && p.proposed_by === myOrg}
+              onDeleteAdmin={isAdmin ? () => deleteProposalAdmin(p.id) : null}
               myOrg={myOrg}
               onUpdateProp={(patch) => updateProposal(p.id, patch)}
               onUpdateVer={(v, vals) => updateVerification(v, vals)}

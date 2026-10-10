@@ -20,6 +20,7 @@ export default function PropDetail({
   onReject,
   onDelete,
   canDelete,
+  onDeleteAdmin,
   myOrg,
   onUpdateProp,
   onUpdateVer,
@@ -35,12 +36,17 @@ export default function PropDetail({
   onReject: () => Promise<void>;
   onDelete: (() => Promise<void>) | null;
   canDelete: boolean;
+  // Eliminazione (soft-delete) da parte del solo coordinamento, possibile da
+  // QUALUNQUE stato della proposta (in attesa, validata, rifiutata, scaduta).
+  onDeleteAdmin: (() => Promise<void>) | null;
   myOrg: string | null;
   onUpdateProp: (patch: { name: string; description: string }) => Promise<void>;
   onUpdateVer: (v: ProposalVerification, vals: EntryValues) => Promise<void>;
 }) {
   const [busy, setBusy] = useState<"save" | "val" | "rej" | "del" | "prop" | "ver" | "">("");
   const [confirmDel, setConfirmDel] = useState(false);
+  // Conferma dell'eliminazione (solo coordinamento).
+  const [confirmDelAdmin, setConfirmDelAdmin] = useState(false);
   // Modifica nome/descrizione della proposta (coordinamento o proponente).
   const [editProp, setEditProp] = useState(false);
   const [edName, setEdName] = useState(p.name);
@@ -306,6 +312,46 @@ export default function PropDetail({
             sparisce dalla mappa alla scadenza.
           </p>
         )}
+        {onDeleteAdmin ? (
+          <div className="stack">
+            <h3>Azioni coordinamento</h3>
+            <p className="notice">
+              L&apos;eliminazione toglie la proposta da mappa ed elenchi, da qualsiasi stato si
+              trovi (in attesa, validata o rifiutata). Resta tracciata nel sistema.
+            </p>
+            {!confirmDelAdmin ? (
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-danger btn-sm"
+                  type="button"
+                  onClick={() => setConfirmDelAdmin(true)}
+                >
+                  Elimina
+                </button>
+              </div>
+            ) : (
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-danger btn-sm"
+                  type="button"
+                  disabled={busy === "del"}
+                  onClick={() => {
+                    setBusy("del");
+                    onDeleteAdmin().finally(() => {
+                      setBusy("");
+                      setConfirmDelAdmin(false);
+                    });
+                  }}
+                >
+                  {busy === "del" ? "Elimino…" : "Sì, elimina"}
+                </button>
+                <button className="btn btn-sm" type="button" onClick={() => setConfirmDelAdmin(false)}>
+                  Annulla
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
         {canDelete && onDelete ? (
           <div className="stack">
             <h3>La tua proposta</h3>
