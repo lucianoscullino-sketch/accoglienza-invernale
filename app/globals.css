@@ -66,6 +66,24 @@ textarea { resize: vertical; min-height: 64px; }
 .legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; max-width: calc(100% - 20px); margin: 0; padding: 7px 11px; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .legend b { font-family: var(--font-mono); font-weight: 500; }
+
+/* Interruttori sulla mappa (solo coordinamento): mostra sospesi / eliminati */
+.maptoggles {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.maptoggles .chip span {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
 .bdg { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--prop); color: #fff; font: 700 10px var(--font-mono); }
 
 .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; display: inline-block; }

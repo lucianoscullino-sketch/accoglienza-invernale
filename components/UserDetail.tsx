@@ -18,6 +18,13 @@ export default function UserDetail({
   readOnlyMsg,
   onSave,
   onSaveNote,
+  isAdmin,
+  suspended,
+  deleted,
+  onSuspend,
+  onResume,
+  onRestore,
+  onDelete,
 }: {
   user: ServiceUser;
   status: Status;
@@ -29,6 +36,13 @@ export default function UserDetail({
   readOnlyMsg: string;
   onSave: (v: EntryValues) => Promise<void>;
   onSaveNote?: (note: string) => Promise<void>;
+  isAdmin?: boolean;
+  suspended?: boolean;
+  deleted?: boolean;
+  onSuspend?: (note: string) => Promise<void>;
+  onResume?: () => Promise<void>;
+  onRestore?: () => Promise<void>;
+  onDelete?: (note: string) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
@@ -36,9 +50,34 @@ export default function UserDetail({
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
 
+  // --- Azioni coordinamento (solo admin): sospendi / riattiva / elimina ---
+  const [actOp, setActOp] = useState<"suspend" | "delete" | null>(null);
+  const [actNote, setActNote] = useState("");
+  const [actBusy, setActBusy] = useState(false);
+
+  function openAct(op: "suspend" | "delete") {
+    setActOp(op);
+    setActNote("");
+  }
+  function closeAct() {
+    setActOp(null);
+    setActNote("");
+  }
+  async function runAct() {
+    if (!actOp) return;
+    setActBusy(true);
+    try {
+      if (actOp === "suspend" && onSuspend) await onSuspend(actNote.trim());
+      else if (actOp === "delete" && onDelete) await onDelete(actNote.trim());
+      closeAct();
+    } finally {
+      setActBusy(false);
+    }
+  }
+
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
-  const form = canRecord ? (
+  const form = isAdmin ? null : canRecord ? (
     <form
       className="stack"
       onSubmit={(e) => {
@@ -161,20 +200,118 @@ export default function UserDetail({
         </div>
       ) : null}
 
-        <div className="actions" style={{ padding: 0 }}>
-          <a
-            className="btn btn-sm"
-            href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${user.lat},${user.lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Naviga con Maps
-          </a>
-        </div>
-        <p className="pgtxt mono">
-          Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
-        </p>
-        {form}
+        {!isAdmin && (
+          <>
+            <div className="actions" style={{ padding: 0 }}>
+              <a
+                className="btn btn-sm"
+                href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${user.lat},${user.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Naviga con Maps
+              </a>
+            </div>
+            <p className="pgtxt mono">
+              Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
+            </p>
+            {form}
+          </>
+        )}
+        {isAdmin && (
+          <div className="stack">
+            <h3>Azioni coordinamento</h3>
+            {deleted ? (
+              <>
+                <p className="signed">
+                  Utenza eliminata: non è visibile su mappa ed elenchi.
+                  {user.suspension_note ? <> Motivo: {user.suspension_note}</> : null}
+                </p>
+                <div className="actions" style={{ padding: 0 }}>
+                  <button
+                    className="btn btn-ok btn-sm"
+                    type="button"
+                    onClick={() => onRestore && onRestore()}
+                  >
+                    Ripristina
+                  </button>
+                </div>
+                <p className="notice">
+                  Puoi riportare l&apos;utenza in elenco con «Ripristina». La rivedrai su mappa
+                  anche con il flag «Eliminati» attivo.
+                </p>
+              </>
+            ) : (
+              <>
+                {suspended ? (
+                  <p className="signed">
+                    Utenza sospesa: non è visibile su mappa ed elenchi.
+                    {user.suspension_note ? <> Motivo: {user.suspension_note}</> : null}
+                  </p>
+                ) : null}
+                {actOp ? (
+                  <div className="stack" style={{ gap: 8 }}>
+                    <label className="lb" htmlFor="act-note">
+                      Motivazione (facoltativa)
+                    </label>
+                    <textarea
+                      id="act-note"
+                      rows={2}
+                      value={actNote}
+                      placeholder={`Motivo della ${actOp === "delete" ? "eliminazione" : "sospensione"}…`}
+                      onChange={(e) => setActNote(e.target.value)}
+                    />
+                    <div className="actions" style={{ padding: 0 }}>
+                      <button
+                        className={`btn btn-sm ${actOp === "delete" ? "btn-danger" : "btn-primary"}`}
+                        type="button"
+                        disabled={actBusy}
+                        onClick={runAct}
+                      >
+                        {actBusy
+                          ? "Attendo…"
+                          : actOp === "delete"
+                            ? "Sì, elimina"
+                            : "Conferma sospensione"}
+                      </button>
+                      <button className="btn btn-sm" type="button" onClick={closeAct}>
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="actions" style={{ padding: 0 }}>
+                    {suspended ? (
+                      <button
+                        className="btn btn-ok btn-sm"
+                        type="button"
+                        onClick={() => onResume && onResume()}
+                      >
+                        Riattiva
+                      </button>
+                    ) : (
+                      <button className="btn btn-sm" type="button" onClick={() => openAct("suspend")}>
+                        Sospendi
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-danger btn-sm"
+                      type="button"
+                      onClick={() => openAct("delete")}
+                    >
+                      Elimina
+                    </button>
+                  </div>
+                )}
+                <p className="notice">
+                  Sospendere nasconde l&apos;utenza da mappa ed elenchi ed è reversibile (Riattiva).
+                  Eliminare la nasconde e la sposta fra gli «Eliminati» su mappa: potrai sempre
+                  ripristinarla dalla sua scheda.
+                </p>
+              </>
+            )}
+          </div>
+        )}
         {hist}
       </div>
     );

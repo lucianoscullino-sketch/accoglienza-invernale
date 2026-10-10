@@ -40,6 +40,9 @@ export default function App({ profile }: { profile: Profile }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [users, setUsers] = useState<ServiceUser[]>([]);
   const [suspendedUsers, setSuspendedUsers] = useState<ServiceUser[]>([]);
+  const [deletedUsers, setDeletedUsers] = useState<ServiceUser[]>([]);
+  const [showSuspended, setShowSuspended] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
@@ -90,8 +93,9 @@ export default function App({ profile }: { profile: Profile }) {
             .order("created_at", { ascending: false }),
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
-          // Le utenze sospese (active=false) servono solo al coordinamento per
-          // poterle riattivare o eliminare; per gli altri ruoli non le carichiamo.
+          // Le utenze non attive (sospese o eliminate) servono solo al
+          // coordinamento per riattivarle/ripristinarle o rimuoverle; per gli
+          // altri ruoli non le carichiamo.
           isAdmin
             ? sb.from("service_users").select("*").eq("active", false)
             : Promise.resolve({ data: [], error: null }),
@@ -112,7 +116,12 @@ export default function App({ profile }: { profile: Profile }) {
         if (u.error) problems.push(`utenti: ${msg(u.error)}`);
         else setUsers((u.data || []) as ServiceUser[]);
         if (su.error) problems.push(`utenze sospese: ${msg(su.error)}`);
-        else setSuspendedUsers((su.data || []) as ServiceUser[]);
+        else {
+          // Separiamo le sospese (reversibili) dalle eliminate (soft-delete).
+          const inactive = (su.data || []) as ServiceUser[];
+          setSuspendedUsers(inactive.filter((x) => !x.deleted));
+          setDeletedUsers(inactive.filter((x) => !!x.deleted));
+        }
         if (l.error) problems.push(`registri: ${msg(l.error)}`);
         else setLogs((l.data || []) as DailyLog[]);
         if (p.error) problems.push(`proposte: ${msg(p.error)}`);
@@ -204,6 +213,14 @@ export default function App({ profile }: { profile: Profile }) {
       const st = propTonight(p), v = propVer(p);
       return { kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st, name: p.name, ver: v, tip: `proposta, ${ST_LABEL[st].toLowerCase()}, ${VER_TXT[v]}` };
     }),
+    // Solo il coordinamento, e solo con l'apposito flag attivo, vede su mappa le
+    // utenze sospese o eliminate (di default nascoste).
+    ...(isAdmin && showSuspended
+      ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "sospeso" }))
+      : []),
+    ...(isAdmin && showDeleted
+      ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato" }))
+      : []),
     ...(placing && draftPos
       ? [{ kind: "draft" as const, id: "draft", lat: draftPos.lat, lng: draftPos.lng, st: "prop" as const, name: "Nuova proposta" }]
       : []),
@@ -279,6 +296,118 @@ export default function App({ profile }: { profile: Profile }) {
       toast("Nota salvata");
     } catch (e) {
       toast("Errore nel salvataggio della nota: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // Sospendere nasconde da mappa ed elenchi ma tiene il record (reversibile);
+  // eliminare cancella definitivamente (esiti via cascade). La colonna active
+  // esiste già, quindi la sospensione funziona anche senza la migrazione 0007.
+  async function suspendUser(u: ServiceUser, note: string) {
+    try {
+      const { error } = await supabase()
+        .from("service_users")
+        .update({ active: false, suspension_note: note })
+        .eq("id", u.id);
+      if (error) {
+        if (/suspension_note/i.test(error.message || "")) {
+          // Colonna nota assente: sospendiamo comunque senza motivo.
+          const r2 = await supabase().from("service_users").update({ active: false }).eq("id", u.id);
+          if (r2.error) throw r2.error;
+        } else throw error;
+      }
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setSuspendedUsers((prev) => [{ ...u, active: false, suspension_note: note }, ...prev]);
+      toast(`Utenza "${u.name}" sospesa: non sarà più visualizzata su mappa ed elenchi.`);
+    } catch (e) {
+      toast("Errore nella sospensione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  async function resumeUser(u: ServiceUser) {
+    try {
+      const { error } = await supabase()
+        .from("service_users")
+        .update({ active: true, suspension_note: "" })
+        .eq("id", u.id);
+      if (error && /suspension_note/i.test(error.message || "")) {
+        const r2 = await supabase().from("service_users").update({ active: true }).eq("id", u.id);
+        if (r2.error) throw r2.error;
+      } else if (error) throw error;
+      setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setUsers((prev) => [{ ...u, active: true, suspension_note: "" }, ...prev]);
+      toast(`Utenza "${u.name}" riattivata: torna su mappa ed elenchi.`);
+    } catch (e) {
+      toast("Errore nella riattivazione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  async function deleteUser(u: ServiceUser, note: string) {
+    // Soft-delete: nascondiamo l'utenza (deleted=true, active=false) invece di
+    // cancellarla, così il coordinamento può ancora rivederla su mappa col flag
+    // "Eliminati" e, se serve, ripristinarla.
+    try {
+      const { error } = await supabase()
+        .from("service_users")
+        .update({ active: false, deleted: true, suspension_note: note })
+        .eq("id", u.id);
+      if (error) {
+        if (/deleted/i.test(error.message || "")) {
+          // Migrazione 0008 non applicata: fallback all'eliminazione definitiva.
+          return hardDeleteUser(u);
+        }
+        throw error;
+      }
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setDeletedUsers((prev) => [{ ...u, active: false, deleted: true, suspension_note: note }, ...prev]);
+      toast(`Utenza "${u.name}" eliminata: non sarà più visibile (la ritrovi col flag "Eliminati" su mappa).`);
+      setSelected(null);
+    } catch (e) {
+      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // Eliminazione fisica (usata solo se la migrazione 0008 non è applicata).
+  async function hardDeleteUser(u: ServiceUser) {
+    try {
+      const { data, error } = await supabase()
+        .from("service_users")
+        .delete()
+        .eq("id", u.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile eliminare l'utenza (permessi o dati collegati).");
+        return;
+      }
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setDeletedUsers((prev) => prev.filter((x) => x.id !== u.id));
+      toast(`Utenza "${u.name}" eliminata definitivamente.`);
+      setSelected(null);
+    } catch (e) {
+      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // Ripristina un'utenza eliminata (soft-delete) riportandola attiva.
+  async function restoreUser(u: ServiceUser) {
+    try {
+      const { error } = await supabase()
+        .from("service_users")
+        .update({ active: true, deleted: false, suspension_note: "" })
+        .eq("id", u.id);
+      if (error) {
+        if (/deleted/i.test(error.message || "")) {
+          const r2 = await supabase().from("service_users").update({ active: true }).eq("id", u.id);
+          if (r2.error) throw r2.error;
+        } else throw error;
+      }
+      setDeletedUsers((prev) => prev.filter((x) => x.id !== u.id));
+      setUsers((prev) => [{ ...u, active: true, deleted: false, suspension_note: "" }, ...prev]);
+      toast(`Utenza "${u.name}" ripristinata: torna su mappa ed elenchi.`);
+    } catch (e) {
+      toast("Errore nel ripristino: " + (e instanceof Error ? e.message : "riprova"));
     }
   }
 
@@ -601,9 +730,17 @@ export default function App({ profile }: { profile: Profile }) {
 
   function listHTML() {
     const order: Record<Status, number> = { todo: 0, missing: 1, done: 2 };
+    // Il coordinamento vede anche le utenze sospese o eliminate, per poterle
+    // riattivare / ripristinare o rimuovere: le aggiungiamo in fondo alla lista.
     const items = [
-      ...users.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description, s: statusOf(u) })),
-      ...visibleProps.map((p) => ({ kind: "prop" as const, id: p.id, name: p.name, desc: p.description, s: propTonight(p) })),
+      ...users.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description, s: statusOf(u), susp: false })),
+      ...visibleProps.map((p) => ({ kind: "prop" as const, id: p.id, name: p.name, desc: p.description, s: propTonight(p), susp: false })),
+      ...(isAdmin
+        ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description || "Utenza sospesa", s: "missing" as Status, susp: true }))
+        : []),
+      ...(isAdmin
+        ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description || "Utenza eliminata", s: "missing" as Status, susp: true }))
+        : []),
     ].sort((a, b) => order[a.s] - order[b.s] || a.name.localeCompare(b.name));
     return (
       <>
@@ -620,13 +757,23 @@ export default function App({ profile }: { profile: Profile }) {
                   <span className="rowdesc">{it.desc}</span>
                 </span>
                 <span className="rowst">
-                  {ST_LABEL[it.s]}
-                  {it.kind === "prop" ? (
+                  {it.susp ? (
                     <>
+                      Sospeso
                       <br />
-                      proposta
+                      non su mappa
                     </>
-                  ) : null}
+                  ) : (
+                    <>
+                      {ST_LABEL[it.s]}
+                      {it.kind === "prop" ? (
+                        <>
+                          <br />
+                          proposta
+                        </>
+                      ) : null}
+                    </>
+                  )}
                 </span>
               </button>
             </li>
@@ -730,7 +877,10 @@ export default function App({ profile }: { profile: Profile }) {
       );
     if (selected) {
       if (selected.kind === "user") {
-        const u = users.find((x) => x.id === selected.id);
+        const u =
+          users.find((x) => x.id === selected.id) ||
+          suspendedUsers.find((x) => x.id === selected.id) ||
+          deletedUsers.find((x) => x.id === selected.id);
         if (u)
           return (
             <Popup title={u.name} onClose={back}>
@@ -749,6 +899,13 @@ export default function App({ profile }: { profile: Profile }) {
               )}
               onSave={(v) => saveUserEntry(u.id, v)}
               onSaveNote={(note) => saveUserNote(u.id, note)}
+              isAdmin={isAdmin}
+              suspended={!u.active}
+              deleted={!!u.deleted}
+              onSuspend={(note) => suspendUser(u, note)}
+              onResume={() => resumeUser(u)}
+              onRestore={() => restoreUser(u)}
+              onDelete={(note) => deleteUser(u, note)}
             />
             </Popup>
           );
@@ -831,12 +988,8 @@ export default function App({ profile }: { profile: Profile }) {
             profiles={profiles}
             setProfiles={setProfiles}
             users={users}
-            setUsers={setUsers}
-            suspendedUsers={suspendedUsers}
-            setSuspendedUsers={setSuspendedUsers}
             logs={logs}
             proposals={proposals}
-            setProposals={setProposals}
             settings={settings}
             overrides={overrides}
             calAll={calAll}
@@ -913,6 +1066,26 @@ export default function App({ profile }: { profile: Profile }) {
         onPlace={(lat, lng) => setDraftPos({ lat, lng })}
         overlays={
           <>
+            {isAdmin && (
+              <div className="maptoggles" role="group" aria-label="Mostra utenze non attive">
+                <label className="chip">
+                  <input
+                    type="checkbox"
+                    checked={showSuspended}
+                    onChange={(e) => setShowSuspended(e.target.checked)}
+                  />
+                  <span>Sospesi</span>
+                </label>
+                <label className="chip">
+                  <input
+                    type="checkbox"
+                    checked={showDeleted}
+                    onChange={(e) => setShowDeleted(e.target.checked)}
+                  />
+                  <span>Eliminati</span>
+                </label>
+              </div>
+            )}
             {placing && <div className="hint">Tocca la mappa per indicare dove dorme l&apos;utente.</div>}
             {legend}
           </>
