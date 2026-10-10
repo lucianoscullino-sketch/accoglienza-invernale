@@ -209,9 +209,6 @@ export default function App({ profile }: { profile: Profile }) {
     visibleProps.forEach((p) => add(propTonight(p), true));
     return c;
   }
-  /* totale con parziali, per esempio 10 (7+3) = 7 utenti + 3 proposte */
-  const part = (c: Record<string, number>, k: string) =>
-    c.p ? `${c[k]} (${c[k + "u"]}+${c[k + "p"]})` : String(c[k]);
 
   const mapItems: MapItem[] = [
     ...users.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: statusOf(u), name: u.name })),
@@ -364,25 +361,41 @@ export default function App({ profile }: { profile: Profile }) {
     // cancellarla, così il coordinamento può ancora rivederla su mappa col flag
     // "Eliminati" e, se serve, ripristinarla.
     try {
-      // .select() per sapere quante righe ha toccato davvero l'UPDATE: senza,
-      // con RLS un update a vuoto non dà errore ma 0 righe → falso successo
-      // (l'utente "sparisce" in memoria ma ricompare al refresh).
+      // .select() è indispensabile: senza, con RLS un update a vuoto non dà
+      // errore ma 0 righe → falso successo (l'utente "sparisce" in memoria ma
+      // ricompare al refresh). Così distinguiamo il successo reale.
       const { data, error } = await supabase()
         .from("service_users")
         .update({ active: false, deleted: true, suspension_note: note })
         .eq("id", u.id)
         .select("id");
       if (error) {
+        // Colonna "deleted" assente (migrazione 0008 non applicata): ripieghiamo
+        // sulla disattivazione, che resta comunque un soft-delete reversibile.
         if (/deleted/i.test(error.message || "")) {
-          // Migrazione 0008 non applicata: fallback all'eliminazione definitiva.
-          return hardDeleteUser(u);
+          const r2 = await supabase()
+            .from("service_users")
+            .update({ active: false })
+            .eq("id", u.id)
+            .select("id");
+          if (r2.error) throw r2.error;
+          if (!r2.data || r2.data.length === 0) {
+            toast("Impossibile nascondere l'utenza: permessi insufficienti. Esegui la migrazione 0011.");
+            return;
+          }
+          setUsers((prev) => prev.filter((x) => x.id !== u.id));
+          setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
+          toast(`Utenza "${u.name}" nascosta. Per rivederla tra gli «Eliminati» esegui la migrazione 0011.`);
+          setSelected(null);
+          return;
         }
         throw error;
       }
       if (!data || data.length === 0) {
-        // Nessuna riga aggiornata (permessi/RLS): proviamo l'eliminazione
-        // definitiva, che il coordinamento può sempre fare.
-        return hardDeleteUser(u);
+        // Nessuna riga aggiornata: la policy RLS ha "nascosto" la riga oppure
+        // manca la migrazione. Messaggio esplicito invece del silenzio.
+        toast("Impossibile aggiornare lo stato dell'utenza (permessi o migrazione 0011 non applicata).");
+        return;
       }
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
       setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
@@ -394,28 +407,9 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Eliminazione fisica (usata solo se la migrazione 0008 non è applicata).
-  async function hardDeleteUser(u: ServiceUser) {
-    try {
-      const { data, error } = await supabase()
-        .from("service_users")
-        .delete()
-        .eq("id", u.id)
-        .select("id");
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        toast("Impossibile eliminare l'utenza (permessi o dati collegati).");
-        return;
-      }
-      setUsers((prev) => prev.filter((x) => x.id !== u.id));
-      setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
-      setDeletedUsers((prev) => prev.filter((x) => x.id !== u.id));
-      toast(`Utenza "${u.name}" eliminata definitivamente.`);
-      setSelected(null);
-    } catch (e) {
-      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
-    }
-  }
+  // Nota: l'eliminazione è sempre soft (reversibile). L'eliminazione fisica non
+  // è più usata dall'app perché rischia di fallire sui vincoli (proposals) e di
+  // perdere dati; la migrazione 0011 garantisce lo schema del soft-delete.
 
   // Ripristina un'utenza eliminata (soft-delete) riportandola attiva.
   async function restoreUser(u: ServiceUser) {
@@ -1066,13 +1060,13 @@ export default function App({ profile }: { profile: Profile }) {
   const legend = (
     <ul className="legend">
       <li>
-        <span className="dot st-todo" /> Da servire <b>{part(c, "t")}</b>
+        <span className="dot st-todo" /> Da servire <b>{c.t}</b>
       </li>
       <li>
-        <span className="dot st-done" /> Serviti <b>{part(c, "d")}</b>
+        <span className="dot st-done" /> Serviti <b>{c.d}</b>
       </li>
       <li>
-        <span className="dot st-missing" /> Non trovati <b>{part(c, "m")}</b>
+        <span className="dot st-missing" /> Non trovati <b>{c.m}</b>
       </li>
       {c.p ? (
         <li>
