@@ -20,7 +20,7 @@ applicazione multi-utente:
 | Cambio colore una volta assistito | Salvando l'esito di stasera il pin diventa verde (o grigio se non trovato) |
 | Esito serale firmato | Ogni record salva data, `org_id` (chi ha scritto), trovato, fornito, richiesto, note |
 | Accesso per associazione | Login email/password; il profilo è collegato a un'organizzazione |
-| Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade. Chi l'ha proposta può cancellarla (solo se ancora in attesa) |
+| Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade. Chi l'ha proposta può cancellarla (solo se ancora in attesa) e correggerne nome/descrizione; le visite già registrate sono correggibili dal Coordinamento (tutte) e dall'associazione (le proprie) |
 | Validazione admin | Solo il Coordinamento valida/rifiuta: la validazione crea l'utente regolare e riporta le visite nella storia |
 | Calendario uscite | Regola fissa settimanale + sabati a turno + eccezioni per singola sera (anche da file) |
 | Report | Solo admin (su periodo, con KPI): esportazione **CSV** (copia-incolla) o **file Excel (.xlsx)** da scaricare |
@@ -122,7 +122,10 @@ Tutte le tabelle hanno RLS attiva:
 - **lettura**: qualsiasi utente autenticato (serve per la mappa e le liste);
 - **daily_logs / proposal_verifications**: scrittura solo con `org_id` proprio (o admin) → gli
   esiti sono sempre firmati dall'associazione corretta;
-- **proposals**: inserimento solo propria o admin; modifica dello stato **solo admin**;
+- **proposals**: inserimento solo propria o admin; modifica del testo (nome/descrizione) solo
+  admin, oppure dall'associazione proponente se la proposta è ancora in attesa (policy
+  `proposals owner update` in `0009`, da eseguire se il database è già stato creato);
+  modifica dello stato **solo admin**;
   cancellazione di una proposta ancora in attesa da parte dell'associazione che l'ha creata
   (policy `proposals owner delete` in `0004`, da eseguire se il database è già stato creato);
 - **service_users**: insert/update/delete **solo admin** (è la validazione a creare gli utenti);

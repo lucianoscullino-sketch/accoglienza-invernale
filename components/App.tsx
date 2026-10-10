@@ -450,6 +450,71 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Correzione di nome/descrizione di una proposta già inserita (refusi):
+  // il Coordinamento su qualsiasi proposta, l'associazione su quelle che ha
+  // proposto (policy "proposals owner update" in 0009).
+  async function updateProposal(pid: string, patch: { name: string; description: string }) {
+    try {
+      const { data, error } = await supabase()
+        .from("proposals")
+        .update(patch)
+        .eq("id", pid)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Non puoi modificare questa proposta (permessi o proposta non più in attesa).");
+        return;
+      }
+      setProposals((prev) => prev.map((x) => (x.id === pid ? { ...x, ...patch } : x)));
+      toast("Proposta aggiornata");
+    } catch (e) {
+      toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
+  // Correzione di una visita già registrata su una proposta: il Coordinamento
+  // può correggere tutte le righe, l'associazione solo le proprie (già
+  // consentito dalla policy "verifs update"). La firma (org_id) non cambia.
+  async function updateVerification(v: ProposalVerification, vals: EntryValues) {
+    try {
+      if (!v.id) {
+        toast("Questa visita non è ancora sincronizzata: attendi il ricaricamento e riprova.");
+        return;
+      }
+      const patch = {
+        found: vals.found,
+        provided: vals.provided,
+        requested: vals.requested,
+        note: vals.note,
+      };
+      const { data, error } = await supabase()
+        .from("proposal_verifications")
+        .update(patch)
+        .eq("id", v.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Non puoi modificare questa visita (permessi).");
+        return;
+      }
+      setProposals((prev) =>
+        prev.map((p) =>
+          p.id === v.proposal_id
+            ? {
+                ...p,
+                verifications: (p.verifications || []).map((x) =>
+                  x.id === v.id ? { ...x, ...patch } : x
+                ),
+              }
+            : p
+        )
+      );
+      toast("Visita corretta");
+    } catch (e) {
+      toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
   async function doPropose(v: { name: string; desc: string; entry: EntryValues }) {
     if (!draftPos) return;
     try {
@@ -936,6 +1001,8 @@ export default function App({ profile }: { profile: Profile }) {
               onDelete={!isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
               canDelete={!isAdmin && !!myOrg && p.proposed_by === myOrg}
               myOrg={myOrg}
+              onUpdateProp={(patch) => updateProposal(p.id, patch)}
+              onUpdateVer={(v, vals) => updateVerification(v, vals)}
             />
             </Popup>
           );
