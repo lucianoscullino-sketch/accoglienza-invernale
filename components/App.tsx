@@ -223,10 +223,10 @@ export default function App({ profile }: { profile: Profile }) {
     // Solo il coordinamento, e solo con l'apposito flag attivo, vede su mappa le
     // utenze sospese o eliminate (di default nascoste).
     ...(isAdmin && showSuspended
-      ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "sospeso" }))
+      ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "sospeso", inactive: "susp" as const }))
       : []),
     ...(isAdmin && showDeleted
-      ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato" }))
+      ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato", inactive: "del" as const }))
       : []),
     ...(placing && draftPos
       ? [{ kind: "draft" as const, id: "draft", lat: draftPos.lat, lng: draftPos.lng, st: "prop" as const, name: "Nuova proposta" }]
@@ -994,7 +994,6 @@ export default function App({ profile }: { profile: Profile }) {
               expired={daysLeft(p) <= 0}
               canVerify={!isAdmin && !!duty && duty.id === myOrg}
               verifyMsg={dutyMsg(": tocca a loro andare a trovare l'utente.")}
-              expTime={expTime(p)}
               onSaveVer={(v) => saveVerification(p.id, v)}
               onValidate={() => validate(p)}
               onReject={() => reject(p)}
@@ -1095,6 +1094,18 @@ export default function App({ profile }: { profile: Profile }) {
       {c.p ? (
         <li>
           <span className="dot pr st-todo" /> Proposte (bordo tratteggiato) <b>{c.p}</b>
+        </li>
+      ) : null}
+      {/* Voci aggiuntive: compaiono solo con i flag del coordinamento attivi,
+          così la legenda descrive sempre anche ciò che è mostrato sulla mappa. */}
+      {isAdmin && showSuspended ? (
+        <li>
+          <span className="dot st-susp" /> Sospesi (pin tratteggiato) <b>{suspendedUsers.length}</b>
+        </li>
+      ) : null}
+      {isAdmin && showDeleted ? (
+        <li>
+          <span className="dot st-del" /> Eliminati (X) <b>{deletedUsers.length}</b>
         </li>
       ) : null}
     </ul>

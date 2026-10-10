@@ -63,7 +63,8 @@ textarea { resize: vertical; min-height: 64px; }
 .zoom button { min-width: 44px; height: 44px; padding: 0 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--ink); }
 .zoom button.txt { font-size: 12px; font-family: var(--font-mono); }
 .hint { position: absolute; top: 10px; left: 10px; right: 70px; z-index: 500; background: var(--prop); color: #fff; padding: 9px 12px; border-radius: 8px; font-weight: 500; }
-.legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; max-width: calc(100% - 20px); margin: 0; padding: 7px 11px; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+/* Legenda: sempre 2 colonne (2 simboli per riga), anche con 5-6 voci. */
+.legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; max-width: calc(100% - 20px); margin: 0; padding: 7px 11px; list-style: none; display: grid; grid-template-columns: repeat(2, auto); gap: 4px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .legend b { font-family: var(--font-mono); font-weight: 500; }
 
@@ -107,6 +108,16 @@ textarea { resize: vertical; min-height: 64px; }
 .dot.st-missing { background: var(--missing); }
 .dot.st-prop { background: var(--surface); border: 2px dashed var(--prop); }
 .dot.pr { width: 10px; height: 10px; margin: 2px; border: 1.5px dashed var(--prop); }
+/* Sospeso: cerchio vuoto tratteggiato (nascosto ma reversibile). */
+.dot.st-susp { background: var(--surface); border: 2.5px dashed var(--missing); }
+/* Eliminato: cerchio spento con una X bianca. */
+.dot.st-del { background: var(--missing); position: relative; }
+.dot.st-del::before, .dot.st-del::after {
+  content: ""; position: absolute; left: 1.5px; right: 1.5px; top: 50%; height: 2.5px;
+  background: var(--surface); border-radius: 2px; transform-origin: center;
+}
+.dot.st-del::before { transform: translateY(-50%) rotate(45deg); }
+.dot.st-del::after { transform: translateY(-50%) rotate(-45deg); }
 
 /* Pin della mappa (divIcon Leaflet) */
 .mk-div { background: none !important; border: none !important; }
@@ -125,6 +136,12 @@ textarea { resize: vertical; min-height: 64px; }
 .mk .mk-tb { font: 700 11px var(--font-body); fill: var(--on-status); }
 .mk .mk-g { fill: none; stroke: var(--on-status); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
 .mk.sel .mk-c { stroke: var(--ink); stroke-width: 3.5; }
+/* Utenze sospese/eliminate (flag del coordinamento): pin hollow tratteggiato
+   per i sospesi, pin spento semitrasparente per gli eliminati. */
+.mk.in-susp .mk-c { fill: var(--surface); stroke: var(--missing); stroke-width: 2.5; stroke-dasharray: 5 4; }
+.mk.in-susp .mk-g { stroke: var(--missing); }
+.mk.in-del { opacity: .55; }
+.mk.in-del .mk-c { fill: var(--missing); }
 
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .eyebrow { margin: 0; font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }

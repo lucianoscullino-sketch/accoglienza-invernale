@@ -20,6 +20,9 @@ export interface MapItem {
   name: string;
   ver?: "ok" | "no" | "none";
   tip?: string;
+  // Utente sospeso o eliminato mostrato con il flag del coordinamento:
+  // pin con glifo e stile propri (barra diagonale / X).
+  inactive?: "susp" | "del";
 }
 
 export interface Selection {
@@ -34,6 +37,10 @@ const CENTER_ZOOM = Number(process.env.NEXT_PUBLIC_MAP_CENTER_ZOOM ?? 14);
 const PIN = "M0 0C-5 -9 -17 -15 -17 -27a17 17 0 1 1 34 0C17 -15 5 -9 0 0Z";
 const CHK = '<path class="mk-g" d="M-6.5 -27l4.5 5 9 -11"/>';
 const DASH = '<path class="mk-g" d="M-6 -27H6"/>';
+// Glifi per utenze sospese (barra diagonale) ed eliminate (X): ben
+// distinti dal check e dalla barra orizzontale del "non trovato".
+const SLASH = '<path class="mk-g" d="M-7 -21L7 -33"/>';
+const CROSS = '<path class="mk-g" d="M-6 -22L6 -33M6 -22L-6 -33"/>';
 
 function esc(s: string) {
   return String(s ?? "").replace(/[&<>"]/g, (c) =>
@@ -43,7 +50,9 @@ function esc(s: string) {
 
 function pinHtml(it: MapItem, sel: boolean) {
   let glyph: string;
-  if (it.st === "done") glyph = CHK;
+  if (it.inactive === "susp") glyph = SLASH;
+  else if (it.inactive === "del") glyph = CROSS;
+  else if (it.st === "done") glyph = CHK;
   else if (it.st === "missing") glyph = DASH;
   else
     glyph =
@@ -76,6 +85,7 @@ function pinHtml(it: MapItem, sel: boolean) {
     '" viewBox="-18 -46 46 48" aria-hidden="true">' +
     '<g class="mk st-' +
     it.st +
+    (it.inactive ? " in-" + it.inactive : "") +
     (it.kind === "prop" || it.kind === "draft" ? " pr" : "") +
     (sel ? " sel" : "") +
     '"><title>' +

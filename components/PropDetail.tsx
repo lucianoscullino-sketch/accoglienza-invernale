@@ -6,26 +6,7 @@
 import { useRef, useState } from "react";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 import type { Org, Proposal, ProposalVerification } from "@/lib/types";
-import { VER_TXT, fmtDM, fmtShort, orgName, today } from "@/lib/format";
-
-const propStatusTag = (p: Proposal) => {
-  const vs = p.verifications || [];
-  const last = vs.length ? vs[vs.length - 1] : null;
-  if (!last) return <span className="tag">Mai verificata</span>;
-  return last.found ? (
-    <span className="tag tag-done">Ultima verifica: trovato</span>
-  ) : (
-    <span className="tag tag-muted">Ultima verifica: non trovato</span>
-  );
-};
-
-const tonightTag = (p: Proposal) => {
-  const v = (p.verifications || []).find((x) => x.date === today());
-  const s = !v ? "todo" : v.found ? "done" : "missing";
-  const cls = s === "done" ? "tag tag-done" : s === "todo" ? "tag tag-todo" : "tag tag-muted";
-  const label = s === "todo" ? "Da servire stasera" : s === "done" ? "Servita stasera" : "Non trovata stasera";
-  return <span className={cls}>{label}</span>;
-};
+import { fmtDM, fmtShort, orgName, today } from "@/lib/format";
 
 export default function PropDetail({
   p,
@@ -34,7 +15,6 @@ export default function PropDetail({
   expired,
   canVerify,
   verifyMsg,
-  expTime,
   onSaveVer,
   onValidate,
   onReject,
@@ -50,7 +30,6 @@ export default function PropDetail({
   expired: boolean;
   canVerify: boolean;
   verifyMsg: string;
-  expTime: number;
   onSaveVer: (v: EntryValues) => Promise<void>;
   onValidate: () => Promise<void>;
   onReject: () => Promise<void>;
@@ -78,12 +57,6 @@ export default function PropDetail({
   // su quelle firmate con il proprio org_id (è quanto consentono le RLS).
   const canEditProp = isAdmin || (!!myOrg && p.proposed_by === myOrg);
   const canEditVer = (v: ProposalVerification) => isAdmin || (!!myOrg && v.org_id === myOrg);
-
-  const verStatus: "ok" | "no" | "none" = vs.length
-    ? vs[vs.length - 1].found
-      ? "ok"
-      : "no"
-    : "none";
 
   const list = vs.length ? (
     <ul className="hist">
@@ -198,92 +171,10 @@ export default function PropDetail({
   return (
     <>
       <div className="detail stack">
-        {editProp ? (
-          <form
-            className="stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!edName.trim()) return;
-              setBusy("prop");
-              onUpdateProp({ name: edName.trim(), description: edDesc }).finally(() => {
-                setBusy("");
-                setEditProp(false);
-              });
-            }}
-          >
-            <div>
-              <label className="lb" htmlFor="prop-edit-name">
-                Nickname (come vuole essere chiamato)
-              </label>
-              <input
-                id="prop-edit-name"
-                type="text"
-                autoComplete="off"
-                value={edName}
-                onChange={(e) => setEdName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="lb" htmlFor="prop-edit-desc">
-                Descrizione e punto in cui dorme
-              </label>
-              <textarea
-                id="prop-edit-desc"
-                rows={4}
-                value={edDesc}
-                onChange={(e) => setEdDesc(e.target.value)}
-              />
-            </div>
-            <div className="actions" style={{ padding: 0 }}>
-              <button
-                className="btn btn-primary btn-sm"
-                type="submit"
-                disabled={busy === "prop" || !edName.trim()}
-              >
-                {busy === "prop" ? "Salvo…" : "Salva correzione"}
-              </button>
-              <button
-                className="btn btn-sm"
-                type="button"
-                disabled={busy === "prop"}
-                onClick={() => {
-                  setEdName(p.name);
-                  setEdDesc(p.description);
-                  setEditProp(false);
-                }}
-              >
-                Annulla
-              </button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <div>
-              <h2>{p.name}</h2>
-              <div className="meta">
-                <span className="tag tag-prop">In attesa di validazione</span>
-                {!expired && tonightTag(p)}
-                {propStatusTag(p)}
-              </div>
-            </div>
-            <p className="desc">{p.description || "Nessuna descrizione."}</p>
-            {canEditProp ? (
-              <div className="actions" style={{ padding: 0 }}>
-                <button
-                  className="btn btn-sm"
-                  type="button"
-                  onClick={() => {
-                    setEdName(p.name);
-                    setEdDesc(p.description);
-                    setEditProp(true);
-                  }}
-                >
-                  Modifica nome e descrizione
-                </button>
-              </div>
-            ) : null}
-          </>
-        )}
+        <div>
+          <h2>{p.name}</h2>
+        </div>
+        <p className="desc">{p.description || "Nessuna descrizione."}</p>
         {!isAdmin && (
           <>
             <div className="actions" style={{ padding: 0 }}>
@@ -302,17 +193,88 @@ export default function PropDetail({
           </>
         )}
         <p className="signed">
-          Proposto da <strong>{orgName(p.proposed_by, orgs)}</strong> il {fmtDM(p.created_at)}.{" "}
-          {expired
-            ? `Scaduta il ${fmtDM(expTime)}: non è più visibile sulla mappa.`
-            : `Visibile sulla mappa ancora fino al ${fmtDM(expTime)}.`}
-          {" "}Ultima verifica: {VER_TXT[verStatus]}.
+          Proposto da <strong>{orgName(p.proposed_by, orgs)}</strong> il {fmtDM(p.created_at)}.
         </p>
         <div className="stack">
           <h3>Visite in campo</h3>
           {list}
           {form}
         </div>
+        {canEditProp ? (
+          editProp ? (
+            <form
+              className="stack"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!edName.trim()) return;
+                setBusy("prop");
+                onUpdateProp({ name: edName.trim(), description: edDesc }).finally(() => {
+                  setBusy("");
+                  setEditProp(false);
+                });
+              }}
+            >
+              <div>
+                <label className="lb" htmlFor="prop-edit-name">
+                  Nickname (come vuole essere chiamato)
+                </label>
+                <input
+                  id="prop-edit-name"
+                  type="text"
+                  autoComplete="off"
+                  value={edName}
+                  onChange={(e) => setEdName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="lb" htmlFor="prop-edit-desc">
+                  Descrizione e punto in cui dorme
+                </label>
+                <textarea
+                  id="prop-edit-desc"
+                  rows={4}
+                  value={edDesc}
+                  onChange={(e) => setEdDesc(e.target.value)}
+                />
+              </div>
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="submit"
+                  disabled={busy === "prop" || !edName.trim()}
+                >
+                  {busy === "prop" ? "Salvo…" : "Salva correzione"}
+                </button>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  disabled={busy === "prop"}
+                  onClick={() => {
+                    setEdName(p.name);
+                    setEdDesc(p.description);
+                    setEditProp(false);
+                  }}
+                >
+                  Annulla
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="actions" style={{ padding: 0 }}>
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => {
+                  setEdName(p.name);
+                  setEdDesc(p.description);
+                  setEditProp(true);
+                }}
+              >
+                Modifica
+              </button>
+            </div>
+          )
+        ) : null}
         {isAdmin ? (
           <div className="actions" style={{ padding: 0 }}>
             <button
