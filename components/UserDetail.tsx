@@ -1,22 +1,16 @@
 "use client";
 
-// Scheda di un utente regolare: descrizione, esito di stasera (firmato) e uscite precedenti.
+// Scheda di un utente regolare: descrizione, nota del coordinamento e uscite precedenti.
 
-import { useRef, useState } from "react";
-import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
-import type { DailyLog, Org, ServiceUser, Status } from "@/lib/types";
-import { ST_LABEL, fmtShort, fmtTime, orgName } from "@/lib/format";
+import { useState } from "react";
+import type { DailyLog, Org, ServiceUser } from "@/lib/types";
+import { fmtShort, orgName } from "@/lib/format";
 
 export default function UserDetail({
   user,
-  status,
-  tonight,
   past,
-  canRecord,
   canEditNote,
   orgs,
-  readOnlyMsg,
-  onSave,
   onSaveNote,
   isAdmin,
   suspended,
@@ -27,14 +21,9 @@ export default function UserDetail({
   onDelete,
 }: {
   user: ServiceUser;
-  status: Status;
-  tonight: DailyLog | null;
   past: DailyLog[];
-  canRecord: boolean;
   canEditNote: boolean;
   orgs: Org[];
-  readOnlyMsg: string;
-  onSave: (v: EntryValues) => Promise<void>;
   onSaveNote?: (note: string) => Promise<void>;
   isAdmin?: boolean;
   suspended?: boolean;
@@ -44,11 +33,9 @@ export default function UserDetail({
   onRestore?: () => Promise<void>;
   onDelete?: (note: string) => Promise<void>;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [showAllPast, setShowAllPast] = useState(false);
-  const vref = useRef<EntryValues>(entryFrom(tonight));
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
+  const [showAllPast, setShowAllPast] = useState(false);
 
   // --- Azioni coordinamento (solo admin): sospendi / riattiva / elimina ---
   const [actOp, setActOp] = useState<"suspend" | "delete" | null>(null);
@@ -75,47 +62,6 @@ export default function UserDetail({
     }
   }
 
-  const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
-
-  const form = canRecord ? (
-    <form
-      className="stack"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setBusy(true);
-        onSave(vref.current).finally(() => setBusy(false));
-      }}
-    >
-      <h3>Esito di stasera</h3>
-      {tonight && (
-        <p className="signed">
-          Firmato da <strong>{orgName(tonight.org_id, orgs)}</strong>
-          {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}. Puoi modificarlo.
-        </p>
-      )}
-      <EntryFields initial={entryFrom(tonight)} idPrefix="f" onValues={(v) => (vref.current = v)} />
-      <button className="btn btn-primary" type="submit" disabled={busy}>
-        {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
-      </button>
-    </form>
-  ) : (
-    <div className="stack">
-      <h3>Esito di stasera</h3>
-      <p className="notice">{readOnlyMsg}</p>
-      {tonight && (
-        <p className="signed">
-          Registrato da <strong>{orgName(tonight.org_id, orgs)}</strong>
-          {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}:{" "}
-          {tonight.found ? "trovato" : "non trovato"}
-          {tonight.provided.length
-            ? (tonight.found ? ", fornito " : ", lasciato sul posto ") + tonight.provided.join(", ").toLowerCase()
-            : ""}
-          .
-        </p>
-      )}
-    </div>
-  );
-
   const PAST_PREVIEW = 5;
   const hasMorePast = past.length > PAST_PREVIEW;
   const visiblePast = showAllPast ? past : past.slice(0, PAST_PREVIEW);
@@ -128,9 +74,6 @@ export default function UserDetail({
             <div className="h-top">
               <span className="mono">{fmtShort(l.date)}</span>
               <span className="h-org">{orgName(l.org_id, orgs)}</span>
-              <span className={`tag ${l.found ? "tag-done" : "tag-muted"}`}>
-                {l.found ? "Trovato" : "Non trovato"}
-              </span>
             </div>
             {l.provided.length ? (
               <p>
@@ -160,10 +103,7 @@ export default function UserDetail({
     <div className="detail stack">
       <div>
         <h2>{user.name}</h2>
-          <div className="meta">
-            <span className={tagCls}>{ST_LABEL[status]}</span>
-          </div>
-        </div>
+      </div>
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
       {canEditNote ? (
         <div className="stack" style={{ gap: 6 }}>
@@ -217,7 +157,6 @@ export default function UserDetail({
             </p>
           </>
         )}
-        {form}
         {isAdmin && (
           <div className="stack">
             <h3>Azioni coordinamento</h3>

@@ -173,7 +173,6 @@ export default function App({ profile }: { profile: Profile }) {
   };
   const duty = dutyOrg(today());
   const dutyName = duty ? duty.name : "Nessuna uscita in calendario";
-  const canRecord = isAdmin || (!!duty && duty.id === myOrg);
   const dutyMsg = (suffix: string) =>
     duty ? `Stasera è in uscita ${duty.name}${suffix}` : "Stasera non c'è un'uscita in calendario.";
 
@@ -265,34 +264,6 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- azioni: scritture su Supabase ---
   const myOrgId = () => (isAdmin ? "admin" : myOrg || "admin");
-
-  async function saveUserEntry(uid: string, v: EntryValues) {
-    try {
-      const row = {
-        user_id: uid,
-        date: today(),
-        org_id: myOrgId(),
-        found: v.found,
-        provided: v.provided,
-        requested: v.requested,
-        note: v.note,
-        created_by: profile.id,
-      };
-      const { data, error } = await supabase()
-        .from("daily_logs")
-        .upsert(row, { onConflict: "user_id,date" })
-        .select()
-        .single();
-      if (error) throw error;
-      const rec = data as DailyLog;
-      setLogs((prev) => [...prev.filter((l) => !(l.user_id === uid && l.date === row.date)), rec]);
-      const u = users.find((x) => x.id === uid);
-      toast(`Esito registrato per ${u ? u.name : "utente"}, firmato ${orgName(row.org_id, orgs)}`);
-      back();
-    } catch (e) {
-      toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
-    }
-  }
 
   // Nota stabile del coordinamento su un utente (solo admin può modificarla).
   async function saveUserNote(uid: string, note: string) {
@@ -730,7 +701,6 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- render: pannello ---
   function headHTML() {
-    const c = counts();
     const mine = !!duty && duty.id === myOrg && !isAdmin;
     const tag = mine ? (
       <span className="tag tag-me">Tocca a voi</span>
@@ -748,25 +718,6 @@ export default function App({ profile }: { profile: Profile }) {
           </div>
           {tag}
         </div>
-        <div
-          className="progress"
-          role="img"
-          aria-label={`${c.d} serviti, ${c.m} non trovati, ${c.t} da servire`}
-        >
-          <span className="pg-done" style={{ flex: c.d }} />
-          <span className="pg-missing" style={{ flex: c.m }} />
-          <span className="pg-todo" style={{ flex: c.t }} />
-        </div>
-        <p className="pgtxt">
-          <strong>{part(c, "t")}</strong> da servire · <strong>{part(c, "d")}</strong> serviti ·{" "}
-          <strong>{part(c, "m")}</strong> non trovati
-          {c.p ? (
-            <>
-              <br />
-              <span className="pgnote">tra parentesi: utenti + proposte</span>
-            </>
-          ) : null}
-        </p>
       </>
     );
   }
@@ -790,8 +741,8 @@ export default function App({ profile }: { profile: Profile }) {
     );
     return (
       <div className="tabs" role="tablist">
-        {t("utenti", "Stasera", counts().t)}
-        {t("proposte", "Proposte", visibleProps.length)}
+        {t("utenti", "Stasera")}
+        {t("proposte", "Proposte")}
         {isAdmin && t("associazioni", "Associazioni")}
         {isAdmin && t("account", "Account")}
         {t("calendario", "Calendario")}
@@ -824,29 +775,9 @@ export default function App({ profile }: { profile: Profile }) {
           {items.map((it) => (
             <li key={it.kind + it.id}>
               <button className="row" type="button" onClick={() => select(it.kind, it.id, false)}>
-                <span className={`dot${it.kind === "prop" ? " pr" : ""} st-${it.s}`} />
                 <span className="rowmain">
                   <span className="rowname">{it.name}</span>
                   <span className="rowdesc">{it.desc}</span>
-                </span>
-                <span className="rowst">
-                  {it.susp ? (
-                    <>
-                      Sospeso
-                      <br />
-                      non su mappa
-                    </>
-                  ) : (
-                    <>
-                      {ST_LABEL[it.s]}
-                      {it.kind === "prop" ? (
-                        <>
-                          <br />
-                          proposta
-                        </>
-                      ) : null}
-                    </>
-                  )}
                 </span>
               </button>
             </li>
@@ -959,18 +890,11 @@ export default function App({ profile }: { profile: Profile }) {
             <Popup title={u.name} onClose={back}>
             <UserDetail
               user={u}
-              status={statusOf(u)}
-              tonight={tonightLog(u.id) || null}
               past={logs
                 .filter((l) => l.user_id === u.id && l.date !== today())
                 .sort((a, b) => b.date.localeCompare(a.date))}
-              canRecord={canRecord}
               canEditNote={isAdmin}
               orgs={orgs}
-              readOnlyMsg={dutyMsg(
-                ". Con questo accesso puoi consultare la scheda, ma non registrare gli esiti."
-              )}
-              onSave={(v) => saveUserEntry(u.id, v)}
               onSaveNote={(note) => saveUserNote(u.id, note)}
               isAdmin={isAdmin}
               suspended={!u.active}
