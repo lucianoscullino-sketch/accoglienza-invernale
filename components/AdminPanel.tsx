@@ -1,9 +1,9 @@
 "use client";
 
-// Menu del coordinamento (solo admin). Gestisce in un unico elenco:
-//  - Associazioni: crea / rinomina / elimina le organizzazioni.
-//  - Account: assegna ruolo, organizzazione e nome a ogni profilo, dentro la
-//    riga della sua associazione (gli account senza associazione non sono elencati).
+// Menu del coordinamento (solo admin). Elenco unico dove ogni riga è
+// un'associazione con il SUO account (l'account è un attributo della riga):
+// sotto ogni riga i tasti Modifica / Salva Nome / Elimina; «Modifica» apre
+// nome associazione e email dell'account. In fondo l'account del coordinamento.
 // Calendario e Report hanno ormai tab propri di primo livello e non passano più
 // da qui. Le scritture passano dal client Supabase: la sicurezza è garantita
 // dalle policy RLS ("orgs admin write" e "profiles admin update").
@@ -47,10 +47,8 @@ export default function AdminPanel({
   // premendo «Modifica», così il nome si scrive una volta sola.
   const [renameOpen, setRenameOpen] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
-  const [edit, setEdit] = useState<Record<string, { display_name: string; role: string; org_id: string }>>({});
   // Email di accesso modificabile solo dall'admin (via API server con service-role).
   const [mail, setMail] = useState<Record<string, string>>({});
-  const orgUserCount = (id: string) => profiles.filter((p) => p.org_id === id).length;
 
   async function createOrg() {
     const name = newName.trim();
@@ -82,17 +80,67 @@ export default function AdminPanel({
     }
   }
 
-  async function saveRename(o: Org) {
-    const name = (rename[o.id] ?? o.name).trim();
-    if (!name || name === o.name) return;
+  // Apre/chiude il form di riga (nome associazione + email account).
+  function toggleEdit(o: Org) {
+    if (renameOpen === o.id) {
+      setRenameOpen(null);
+      setRename((prev) => ({ ...prev, [o.id]: "" }));
+    } else {
+      setConfirmDel(null);
+      setRenameOpen(o.id);
+      setRename((prev) => ({ ...prev, [o.id]: o.name }));
+    }
+  }
+
+  // Salva in un colpo nome associazione e email dell'account della riga.
+  async function saveRow(o: Org) {
+    const name = (rename[o.id] ?? "").trim();
+    if (!name) {
+      onToast("Il nome dell'associazione non può essere vuoto.");
+      return;
+    }
+    const accs = profiles.filter((p) => p.org_id === o.id);
+    for (const p of accs) {
+      if (mail[p.id] !== undefined && !(mail[p.id] ?? "").trim()) {
+        onToast(`Inserisci un indirizzo email per ${p.display_name || "l'account"}.`);
+        return;
+      }
+    }
+    const nameChanged = name !== o.name;
+    const mailChanged = accs.filter(
+      (p) => (mail[p.id] ?? p.email ?? "").trim() !== (p.email ?? "").trim()
+    );
+    if (!nameChanged && mailChanged.length === 0) {
+      setRenameOpen(null);
+      return;
+    }
     setBusy("ren-" + o.id);
     try {
-      const { error } = await supabase().from("organizations").update({ name }).eq("id", o.id);
-      if (error) throw error;
-      setOrgs((prev) => prev.map((x) => (x.id === o.id ? { ...x, name } : x)));
+      if (nameChanged) {
+        const { error } = await supabase().from("organizations").update({ name }).eq("id", o.id);
+        if (error) throw error;
+        setOrgs((prev) => prev.map((x) => (x.id === o.id ? { ...x, name } : x)));
+      }
+      for (const p of mailChanged) {
+        const email = (mail[p.id] ?? "").trim();
+        const res = await fetch("/api/admin/account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: p.id, email }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "Errore nell'aggiornamento dell'email");
+        setProfiles((prev) => prev.map((x) => (x.id === p.id ? { ...x, email } : x)));
+      }
       setRename((prev) => ({ ...prev, [o.id]: "" }));
       setRenameOpen(null);
-      onToast("Nome aggiornato.");
+      onToast(
+        nameChanged && mailChanged.length
+          ? "Nome e account aggiornati."
+          : nameChanged
+            ? "Nome aggiornato."
+            : "Account aggiornato."
+      );
     } catch (e) {
       onToast("Errore: " + (e instanceof Error ? e.message : "riprova"));
     } finally {
@@ -127,40 +175,6 @@ export default function AdminPanel({
     }
   }
 
-  function startEdit(p: Profile) {
-    setEdit((prev) => ({
-      ...prev,
-      [p.id]: { display_name: p.display_name || "", role: p.role, org_id: p.org_id || "" },
-    }));
-    setMail((prev) => ({ ...prev, [p.id]: p.email || "" }));
-  }
-
-  async function saveProfile(p: Profile) {
-    const d = edit[p.id];
-    if (!d) return;
-    const patch = {
-      display_name: d.display_name.trim(),
-      role: d.role as Profile["role"],
-      org_id: d.org_id || null,
-    };
-    setBusy("prof-" + p.id);
-    try {
-      const { error } = await supabase().from("profiles").update(patch).eq("id", p.id);
-      if (error) throw error;
-      setProfiles((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
-      setEdit((prev) => {
-        const n = { ...prev };
-        delete n[p.id];
-        return n;
-      });
-      onToast("Account aggiornato.");
-    } catch (e) {
-      onToast("Errore: " + (e instanceof Error ? e.message : "riprova"));
-    } finally {
-      setBusy("");
-    }
-  }
-
   async function saveEmail(p: Profile) {
     const email = (mail[p.id] ?? "").trim();
     if (!email) {
@@ -177,6 +191,7 @@ export default function AdminPanel({
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Errore sconosciuto");
       setProfiles((prev) => prev.map((x) => (x.id === p.id ? { ...x, email } : x)));
+      setRenameOpen(null);
       onToast("Email di accesso aggiornata.");
     } catch (e) {
       onToast("Errore: " + (e instanceof Error ? e.message : "riprova"));
@@ -184,133 +199,17 @@ export default function AdminPanel({
       setBusy("");
     }
   }
+  const admins = profiles.filter((p) => p.role === "admin");
+  const adminKey = (id: string) => "admin:" + id;
 
-  // Rendering di un singolo account (profilo): mostrato dentro la riga
-  // della sua associazione, con nome, ruolo, email e form di modifica.
-  const renderAccount = (p: Profile) => {
-    const d = edit[p.id];
-    return (
-      <div className="acct">
-        <div className="h-top">
-          <span className="h-org">{p.display_name || "(senza nome)"}</span>
-          <span className="tag">{p.role === "admin" ? "Coordinamento" : "Associazione"}</span>
-        </div>
-        {p.email ? <p className="h-note mono">{p.email}</p> : null}
-        {p.id === profile.id ? (
-          <p className="pgtxt pgnote">Questo è il tuo account (sei connesso).</p>
-        ) : null}
-        {d ? (
-          <div className="stack" style={{ gap: 8 }}>
-            <div>
-              <label className="lb" htmlFor={`pn-${p.id}`}>
-                Nome mostrato
-              </label>
-              <input
-                id={`pn-${p.id}`}
-                type="text"
-                value={d.display_name}
-                onChange={(e) =>
-                  setEdit((prev) => ({
-                    ...prev,
-                    [p.id]: { ...prev[p.id], display_name: e.target.value },
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <label className="lb" htmlFor={`pr-${p.id}`}>
-                Ruolo
-              </label>
-              <select
-                id={`pr-${p.id}`}
-                value={d.role}
-                onChange={(e) =>
-                  setEdit((prev) => ({ ...prev, [p.id]: { ...prev[p.id], role: e.target.value } }))
-                }
-              >
-                <option value="org">Associazione</option>
-                <option value="admin">Coordinamento</option>
-              </select>
-            </div>
-            <div>
-              <label className="lb" htmlFor={`po-${p.id}`}>
-                Associazione
-              </label>
-              <select
-                id={`po-${p.id}`}
-                value={d.org_id}
-                onChange={(e) =>
-                  setEdit((prev) => ({ ...prev, [p.id]: { ...prev[p.id], org_id: e.target.value } }))
-                }
-              >
-                <option value="">Nessuna (sola consultazione)</option>
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="lb" htmlFor={`pe-${p.id}`}>
-                Email di accesso (username)
-              </label>
-              <input
-                id={`pe-${p.id}`}
-                type="email"
-                autoComplete="off"
-                value={mail[p.id] ?? p.email ?? ""}
-                onChange={(e) =>
-                  setMail((prev) => ({ ...prev, [p.id]: e.target.value }))
-                }
-              />
-              <p className="pgtxt" style={{ fontSize: "13px", opacity: 0.75, margin: "4px 0 0" }}>
-                La password è quella di default comunicata all&apos;associazione; può essere
-                cambiata solo dall&apos;interessato con &quot;Password dimenticata?&quot; nella
-                schermata di accesso.
-              </p>
-            </div>
-            <div className="actions" style={{ padding: 0 }}>
-              <button
-                className="btn btn-sm"
-                type="button"
-                disabled={busy === "mail-" + p.id}
-                onClick={() => saveEmail(p)}
-              >
-                {busy === "mail-" + p.id ? "Aggiorno…" : "Aggiorna email"}
-              </button>
-              <button
-                className="btn btn-ok btn-sm"
-                type="button"
-                disabled={busy === "prof-" + p.id}
-                onClick={() => saveProfile(p)}
-              >
-                {busy === "prof-" + p.id ? "Salvo…" : "Salva"}
-              </button>
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={() =>
-                  setEdit((prev) => {
-                    const n = { ...prev };
-                    delete n[p.id];
-                    return n;
-                  })
-                }
-              >
-                Annulla
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="actions" style={{ padding: 0 }}>
-            <button className="btn btn-sm" type="button" onClick={() => startEdit(p)}>
-              Modifica
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  // Quanto è "sporco" il form di una riga org (nome o qualche email cambiata).
+  const rowDirty = (o: Org) => {
+    const name = (rename[o.id] ?? "").trim();
+    if (!name) return false;
+    if (name !== o.name) return true;
+    return profiles
+      .filter((p) => p.org_id === o.id)
+      .some((p) => (mail[p.id] ?? p.email ?? "").trim() !== (p.email ?? "").trim());
   };
 
   return (
@@ -320,129 +219,228 @@ export default function AdminPanel({
         subtitle={
           <>
             Accesso come <strong>{profile.display_name || "Coordinamento"}</strong>.{" "}
-            Gestisci associazioni, account, ruoli e abbinamenti in un unico elenco.
+            Ogni riga è un&apos;associazione con il suo account: con «Modifica» cambi nome e
+            email di accesso.
           </>
         }
         onClose={onBack}
       />
 
       <div className="stack">
-        <h3>Associazioni esistenti</h3>
-          {orgs.length ? (
-              <ul className="list">
-                {orgs.map((o) => (
-                  <li key={o.id} className="hist">
-                    <div className="h-top">
-                      <span className="h-org">{o.name}</span>
-                      <span className="tag">
-                        {orgUserCount(o.id)} account · id: {o.id}
-                      </span>
-                    </div>
+        <h3>Associazioni e account</h3>
+        {orgs.length ? (
+          <ul className="list">
+            {orgs.map((o) => {
+              const accs = profiles.filter((p) => p.org_id === o.id);
+              const open = renameOpen === o.id;
+              return (
+                <li key={o.id} className="hist">
+                  <div className="h-top">
+                    <span className="h-org">{o.name}</span>
+                    <span className="tag tag-muted">
+                      {accs.length
+                        ? accs
+                            .map(
+                              (p) =>
+                                `${p.display_name || "(senza nome)"}${
+                                  p.email ? " · " + p.email : ""
+                                }`
+                            )
+                            .join("   |   ")
+                        : "Nessun account"}
+                    </span>
+                  </div>
+                  {open ? (
                     <div className="stack" style={{ gap: 8 }}>
-                      <div className="actions" style={{ padding: 0 }}>
-                        <button
-                          className="btn btn-sm"
-                          type="button"
-                          onClick={() => {
-                            if (renameOpen === o.id) {
-                              setRenameOpen(null);
-                              setRename((prev) => ({ ...prev, [o.id]: "" }));
-                            } else {
-                              setRename((prev) => ({ ...prev, [o.id]: o.name }));
-                              setRenameOpen(o.id);
-                            }
+                      <div>
+                        <label className="lb" htmlFor={`ren-${o.id}`}>
+                          Nome dell&apos;associazione
+                        </label>
+                        <input
+                          id={`ren-${o.id}`}
+                          type="text"
+                          autoComplete="off"
+                          autoFocus
+                          value={rename[o.id] ?? ""}
+                          onChange={(e) => setRename((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && rowDirty(o)) saveRow(o);
                           }}
-                        >
-                          {renameOpen === o.id ? "Chiudi" : "Modifica"}
-                        </button>
-                        <button
-                          className="btn btn-sm"
-                          type="button"
-                          disabled={
-                            renameOpen !== o.id ||
-                            busy === "ren-" + o.id ||
-                            !(rename[o.id] || "").trim() ||
-                            (rename[o.id] || "").trim() === o.name
-                          }
-                          onClick={() => saveRename(o)}
-                        >
-                          {busy === "ren-" + o.id ? "Salvo…" : "Salva nome"}
-                        </button>
-                        {confirmDel === o.id ? (
-                          <>
-                            <button
-                              className="btn btn-sm"
-                              type="button"
-                              disabled={busy === "del-" + o.id}
-                              onClick={() => deleteOrg(o)}
-                            >
-                              {busy === "del-" + o.id ? "Elimino…" : "Sì, elimina"}
-                            </button>
-                            <button className="btn btn-sm" type="button" onClick={() => setConfirmDel(null)}>
-                              Annulla
-                            </button>
-                          </>
-                        ) : (
-                          <button className="btn btn-sm" type="button" onClick={() => setConfirmDel(o.id)}>
-                            Elimina
-                          </button>
-                        )}
+                        />
                       </div>
-                      {renameOpen === o.id ? (
-                        <div>
-                          <label className="lb" htmlFor={`ren-${o.id}`}>
-                            Nuovo nome
+                      {accs.map((p) => (
+                        <div key={`me-${p.id}`}>
+                          <label className="lb" htmlFor={`me-${p.id}`}>
+                            Email di accesso ({p.display_name || "account"})
                           </label>
                           <input
-                            id={`ren-${o.id}`}
-                            type="text"
+                            id={`me-${p.id}`}
+                            type="email"
                             autoComplete="off"
-                            autoFocus
-                            value={rename[o.id] ?? ""}
-                            onChange={(e) => setRename((prev) => ({ ...prev, [o.id]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && (rename[o.id] || "").trim() && (rename[o.id] || "").trim() !== o.name) {
-                                saveRename(o);
-                              }
-                            }}
+                            value={mail[p.id] ?? p.email ?? ""}
+                            onChange={(e) => setMail((prev) => ({ ...prev, [p.id]: e.target.value }))}
                           />
+                          <p
+                            className="pgtxt"
+                            style={{ fontSize: "13px", opacity: 0.75, margin: "4px 0 0" }}
+                          >
+                            La password è quella di default comunicata all&apos;associazione; può
+                            essere cambiata solo dall&apos;interessato con &quot;Password
+                            dimenticata?&quot; nella schermata di accesso.
+                          </p>
                         </div>
-                      ) : null}
-                      <div className="org-accounts">
-                        {profiles.filter((p) => p.org_id === o.id).length ? (
-                          profiles
-                            .filter((p) => p.org_id === o.id)
-                            .map((p) => (
-                              <div key={p.id}>{renderAccount(p)}</div>
-                            ))
-                        ) : (
-                          <p className="notice">Nessun account assegnato a questa associazione.</p>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="notice">Nessuna associazione presente.</p>
-            )}
-            <div>
-              <label className="lb" htmlFor="org-name">
-                Nome della nuova associazione
-              </label>
-              <input
-                id="org-name"
-                type="text"
-                autoComplete="off"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="es. Croce Rossa"
-              />
-            </div>
-            <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
-              {busy === "new" ? "Creo…" : "Aggiungi associazione"}
-            </button>
+                  ) : null}
+                  <div className="actions" style={{ padding: 0 }}>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => toggleEdit(o)}
+                    >
+                      {open ? "Chiudi" : "Modifica"}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      disabled={!open || !rowDirty(o) || busy === "ren-" + o.id}
+                      onClick={() => saveRow(o)}
+                    >
+                      {busy === "ren-" + o.id ? "Salvo…" : "Salva Nome"}
+                    </button>
+                    {confirmDel === o.id ? (
+                      <>
+                        <button
+                          className="btn btn-sm"
+                          type="button"
+                          disabled={busy === "del-" + o.id}
+                          onClick={() => deleteOrg(o)}
+                        >
+                          {busy === "del-" + o.id ? "Elimino…" : "Sì, elimina"}
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          type="button"
+                          onClick={() => setConfirmDel(null)}
+                        >
+                          Annulla
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        onClick={() => {
+                          setRenameOpen(null);
+                          setConfirmDel(o.id);
+                        }}
+                      >
+                        Elimina
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="notice">Nessuna associazione presente.</p>
+        )}
+
+        <div>
+          <label className="lb" htmlFor="org-name">
+            Nome della nuova associazione
+          </label>
+          <input
+            id="org-name"
+            type="text"
+            autoComplete="off"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="es. Croce Rossa"
+          />
         </div>
+        <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
+          {busy === "new" ? "Creo…" : "Aggiungi associazione"}
+        </button>
+      </div>
+
+      <div className="stack">
+        <h3>Coordinamento</h3>
+        {admins.length ? (
+          admins.map((p) => {
+            const open = renameOpen === adminKey(p.id);
+            return (
+              <div key={p.id} className="hist">
+                <div className="h-top">
+                  <span className="h-org">{p.display_name || "(senza nome)"}</span>
+                  <span className="tag tag-muted">{p.email || "nessuna email"}</span>
+                </div>
+                {p.id === profile.id ? (
+                  <p className="pgtxt pgnote">Questo è il tuo account (sei connesso).</p>
+                ) : null}
+                {open ? (
+                  <div className="stack" style={{ gap: 8 }}>
+                    <div>
+                      <label className="lb" htmlFor={`me-${p.id}`}>
+                        Email di accesso
+                      </label>
+                      <input
+                        id={`me-${p.id}`}
+                        type="email"
+                        autoComplete="off"
+                        autoFocus
+                        value={mail[p.id] ?? p.email ?? ""}
+                        onChange={(e) => setMail((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                      />
+                      <p
+                        className="pgtxt"
+                        style={{ fontSize: "13px", opacity: 0.75, margin: "4px 0 0" }}
+                      >
+                        La password è quella di default; può essere cambiata solo
+                        dall&apos;interessato con &quot;Password dimenticata?&quot; nella
+                        schermata di accesso.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="actions" style={{ padding: 0 }}>
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    onClick={() => {
+                      if (open) setRenameOpen(null);
+                      else {
+                        setConfirmDel(null);
+                        setRenameOpen(adminKey(p.id));
+                      }
+                    }}
+                  >
+                    {open ? "Chiudi" : "Modifica"}
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    disabled={
+                      !open ||
+                      busy === "mail-" + p.id ||
+                      (mail[p.id] ?? p.email ?? "").trim() === (p.email ?? "").trim() ||
+                      !(mail[p.id] ?? p.email ?? "").trim()
+                    }
+                    onClick={() => saveEmail(p)}
+                  >
+                    {busy === "mail-" + p.id ? "Salvo…" : "Salva email"}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <p className="notice">Nessun account di coordinamento presente.</p>
+        )}
+      </div>
     </div>
   );
 }
+
+
