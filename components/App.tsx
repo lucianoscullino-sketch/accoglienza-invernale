@@ -34,7 +34,6 @@ type Tab =
   | "utenti"
   | "proposte"
   | "associazioni"
-  | "account"
   | "calendario"
   | "report"
   | "mine";
@@ -858,7 +857,6 @@ export default function App({ profile }: { profile: Profile }) {
         {t("utenti", "Stasera")}
         {t("proposte", "Proposte")}
         {isAdmin && t("associazioni", "Associazioni")}
-        {isAdmin && t("account", "Account")}
         {t("calendario", "Calendario")}
         {!isAdmin && myOrg ? t("mine", "Il tuo report") : null}
         {isAdmin && t("report", "Report")}
@@ -1103,9 +1101,8 @@ export default function App({ profile }: { profile: Profile }) {
               setTab("utenti");
             }}
           />
-        ) : (tab === "associazioni" || tab === "account") && isAdmin ? (
+        ) : tab === "associazioni" && isAdmin ? (
           <AdminPanel
-            section={tab === "account" ? "account" : "associazioni"}
             profile={profile}
             orgs={orgs}
             setOrgs={setOrgs}
