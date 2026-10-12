@@ -99,12 +99,10 @@ export default function App({ profile }: { profile: Profile }) {
             .order("created_at", { ascending: false }),
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
-          // Le utenze non attive (sospese o eliminate) servono solo al
-          // coordinamento per riattivarle/ripristinarle o rimuoverle; per gli
-          // altri ruoli non le carichiamo.
-          isAdmin
-            ? sb.from("service_users").select("*").eq("active", false)
-            : Promise.resolve({ data: [], error: null }),
+          // Le utenze non attive (sospese o eliminate): servono al coordinamento
+          // per riattivarle/ripristinarle e, per tutti i ruoli, per poterle
+          // mostrare su mappa con i flag "Sospesi"/"Eliminati" (off di default).
+          sb.from("service_users").select("*").eq("active", false),
         ]);
         // Carichiamo ogni tabella in modo indipendente: un errore su una query
         // non deve più impedire il caricamento di tutte le altre (prima bastava
@@ -218,16 +216,16 @@ export default function App({ profile }: { profile: Profile }) {
       const st = propTonight(p), v = propVer(p);
       return { kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st, name: p.name, ver: v, tip: `proposta, ${ST_LABEL[st].toLowerCase()}, ${VER_TXT[v]}` };
     }),
-    // Solo il coordinamento, e solo con l'apposito flag attivo, vede su mappa le
-    // utenze sospese o eliminate (di default nascoste).
-    ...(isAdmin && showSuspended
+    // Solo con l'apposito flag attivo (off di default) si vedono su mappa le
+    // utenze sospese o eliminate, tanto dal coordinamento quanto dalle associazioni.
+    ...(showSuspended
       ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "sospeso", inactive: "susp" as const }))
       : []),
-    ...(isAdmin && showDeleted
+    ...(showDeleted
       ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato", inactive: "del" as const }))
       : []),
-    // Proposte eliminate dal coordinamento, visibili col flag "Eliminati".
-    ...(isAdmin && showDeleted
+    // Proposte eliminate, visibili col flag "Eliminati".
+    ...(showDeleted
       ? deletedProps.map((p) => ({ kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st: "missing" as Status, name: p.name, tip: "proposta eliminata", inactive: "del" as const }))
       : []),
     ...(placing && draftPos
@@ -1183,14 +1181,14 @@ export default function App({ profile }: { profile: Profile }) {
           <span className="dot pr st-todo" /> Proposte <b>{c.p}</b>
         </li>
       ) : null}
-      {/* Voci aggiuntive: compaiono solo con i flag del coordinamento attivi,
-          così la legenda descrive sempre anche ciò che è mostrato sulla mappa. */}
-      {isAdmin && showSuspended ? (
+      {/* Voci aggiuntive: compaiono solo con i flag attivi, così la legenda
+          descrive sempre anche ciò che è mostrato sulla mappa. */}
+      {showSuspended ? (
         <li>
           <span className="dot st-susp" /> Sospesi <b>{suspendedUsers.length}</b>
         </li>
       ) : null}
-      {isAdmin && showDeleted ? (
+      {showDeleted ? (
         <li>
           <span className="dot st-del" /> Eliminati <b>{deletedUsers.length + deletedProps.length}</b>
         </li>
@@ -1227,7 +1225,7 @@ export default function App({ profile }: { profile: Profile }) {
         onPlace={(lat, lng) => setDraftPos({ lat, lng })}
         overlays={
           <>
-            {isAdmin && !placing && (
+            {!placing && (
               <div className="mapflags" role="group" aria-label="Mostra utenze non attive">
                 <label className="mapflag">
                   <input
