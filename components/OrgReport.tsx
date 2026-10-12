@@ -45,8 +45,7 @@ export default function OrgReport({
       <div className="detail stack">
         <PanelHeader title="Il tuo report" onClose={onBack} />
         <p className="notice">
-          La tua associazione non ha ancora registrato uscite. Il report di una sera compare qui
-          dopo la prima registrazione.
+          La tua associazione non ha ancora registrato uscite.
         </p>
       </div>
     );

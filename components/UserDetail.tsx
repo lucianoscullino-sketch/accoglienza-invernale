@@ -57,7 +57,7 @@ export default function UserDetail({
 }) {
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
-  const [showAllPast, setShowAllPast] = useState(false);
+  const [viewLog, setViewLog] = useState<number | null>(null);
 
   // --- Modifica dati anagrafici: sempre visibile in fondo alla scheda ---
   // Coordinamento su tutte le utenze, associazioni solo sulle proprie.
@@ -138,40 +138,74 @@ export default function UserDetail({
     }
   }
 
-  const PAST_PREVIEW = 5;
-  const hasMorePast = past.length > PAST_PREVIEW;
-  const visiblePast = showAllPast ? past : past.slice(0, PAST_PREVIEW);
+  // Sintesi degli ultimi 3 giorni; da lì si apre il dettaglio di un report e
+  // lo si scorre avanti/indietro per data fra tutti i report dell'utente.
+  const last3 = past.slice(0, 3);
+  const viewed = viewLog != null ? past[viewLog] : null;
+  const stepLog = (d: number) =>
+    setViewLog((v) => (v == null ? null : Math.min(past.length - 1, Math.max(0, v + d))));
   const hist = past.length ? (
     <div className="stack">
       <h3>Report giorni precedenti</h3>
-      <ul className="hist">
-        {visiblePast.map((l, i) => (
-          <li key={l.id || i}>
-            <div className="h-top">
-              <span className="mono">{fmtShort(l.date)}</span>
-              <span className="h-org">{orgName(l.org_id, orgs)}</span>
-            </div>
-            {l.provided.length ? (
-              <p>
-                {l.found ? "Fornito" : "Lasciato sul posto"}: {l.provided.join(", ").toLowerCase()}
+      {viewed ? (
+        <>
+          <div className="h-top" style={{ alignItems: "center", gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={(viewLog ?? 0) <= 0}
+              onClick={() => stepLog(-1)}
+            >
+              ← Precedente
+            </button>
+            <span className="mono" style={{ flex: 1, textAlign: "center" }}>
+              {fmtShort(viewed.date)} · {(viewLog ?? 0) + 1}/{past.length}
+            </span>
+            <button
+              className="btn btn-sm"
+              type="button"
+              disabled={(viewLog ?? 0) >= past.length - 1}
+              onClick={() => stepLog(1)}
+            >
+              Successivo →
+            </button>
+          </div>
+          <p className="signed">
+            {viewed.found ? "Trovato" : "Non trovato"} · {orgName(viewed.org_id, orgs)}
+          </p>
+          {viewed.provided.length ? (
+            <p>
+              {viewed.found ? "Fornito" : "Lasciato sul posto"}:{" "}
+              {viewed.provided.join(", ").toLowerCase()}
+            </p>
+          ) : null}
+          {viewed.requested ? <p>Richiesto: {viewed.requested}</p> : null}
+          {viewed.note ? <p className="h-note">{viewed.note}</p> : null}
+          <div className="actions" style={{ padding: 0 }}>
+            <button className="btn btn-sm" type="button" onClick={() => setViewLog(null)}>
+              ← Torna all&apos;elenco
+            </button>
+          </div>
+        </>
+      ) : (
+        <ul className="hist">
+          {last3.map((l, i) => (
+            <li key={l.id || i}>
+              <div className="h-top">
+                <span className="mono">{fmtShort(l.date)}</span>
+                <span className="h-org">{orgName(l.org_id, orgs)}</span>
+              </div>
+              <p style={{ margin: 0 }}>
+                {l.found ? "Trovato" : "Non trovato"}
+                {l.provided.length ? " · " + l.provided.join(", ").toLowerCase() : ""}
               </p>
-            ) : null}
-            {l.requested ? <p>Richiesto: {l.requested}</p> : null}
-            {l.note ? <p className="h-note">{l.note}</p> : null}
-          </li>
-        ))}
-      </ul>
-      {hasMorePast ? (
-        <button
-          className="btn btn-sm"
-          type="button"
-          onClick={() => setShowAllPast((v) => !v)}
-        >
-          {showAllPast
-            ? "Mostra meno"
-            : `Mostra tutte le uscite precedenti (${past.length})`}
-        </button>
-      ) : null}
+              <button className="linkbtn" type="button" onClick={() => setViewLog(i)}>
+                Vedi dettaglio →
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   ) : null;
 
@@ -236,10 +270,6 @@ export default function UserDetail({
         {canRecord ? (
           <div className="stack">
             <h3>Esito di stasera</h3>
-            <p className="notice">
-              Registra l&apos;esito della visita: il pin diventa verde (trovato) o grigio
-              (non trovato) sulla mappa.
-            </p>
             <form
               className="stack"
               onSubmit={(e) => {
@@ -285,10 +315,6 @@ export default function UserDetail({
                     Ripristina
                   </button>
                 </div>
-                <p className="notice">
-                  Puoi riportare l&apos;utenza in elenco con «Ripristina». La rivedrai su mappa
-                  anche con il flag «Eliminati» attivo.
-                </p>
               </>
             ) : (
               <>
@@ -352,11 +378,6 @@ export default function UserDetail({
                     </button>
                   </div>
                 )}
-                <p className="notice">
-                  Sospendere nasconde l&apos;utenza da mappa ed elenchi ed è reversibile (Riattiva).
-                  Eliminare la nasconde e la sposta fra gli «Eliminati» su mappa: potrai sempre
-                  ripristinarla dalla sua scheda.
-                </p>
               </>
             )}
           </div>
@@ -467,12 +488,6 @@ export default function UserDetail({
                   Modifica
                 </button>
               </div>
-              {!resolvedCanEdit ? (
-                <p className="notice">
-                  {editDeniedMsg ||
-                    "Solo il coordinamento o l'associazione che ha creato questa utenza può modificarne i dati."}
-                </p>
-              ) : null}
             </>
           )}
         </div>

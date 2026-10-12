@@ -26,6 +26,55 @@ applicazione multi-utente:
 | Report | Solo admin (su periodo, con KPI): esportazione **CSV** (copia-incolla) o **file Excel (.xlsx)** da scaricare |
 | Il tuo report | Ogni associazione: attività di un suo turno (default l'ultima uscita, stasera inclusa) con **download Excel** |
 
+## Guida rapida all'interfaccia
+
+Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono raccolte qui.
+
+### Mappa
+- **Pin**: arancio = da servire, verde = servito stasera, grigio = non trovato, viola
+  tratteggiato = proposta; per le utenze non attive, tratteggiato = **sospeso** e **X** =
+  eliminato.
+- **Flag «Sospesi» / «Eliminati»** (in alto a sinistra sulla mappa, spenti di default):
+  mostrano le utenze sospese o eliminate e le proposte eliminate. Sono visibili a tutte le
+  associazioni, ma solo il coordinamento può sospendere/eliminare/ripristinare.
+- Cliccando un pin si apre la scheda di quell'utente o proposta (anche per quelle eliminate,
+  che si mostrano in **sola lettura**).
+
+### Esito di stasera
+- Chi è in uscita (o il coordinamento) registra l'esito: **trovato**, cosa è stato
+  **fornito**, cosa **chiede** e note. Salvando, il pin diventa **verde** (trovato) o
+  **grigio** (non trovato).
+- Per le proposte si registra dalla scheda proposta; per gli utenti regolari dalla scheda
+  utente.
+
+### Scheda utente — "Report giorni precedenti"
+- Mostra la **sintesi degli ultimi 3 giorni**. Cliccando «Vedi dettaglio» si apre il report
+  completo e lo si può scorrere **avanti e indietro per data** («Precedente» / «Successivo»).
+
+### Scheda utente — Modifica dati
+- Il tasto «Modifica» è sempre presente in fondo. Il **coordinamento** modifica tutte le
+  utenze; le **associazioni** solo quelle da loro create (nome, descrizione, posizione, nota).
+
+### Sospendi / Elimina utente (solo coordinamento)
+- **Sospendere** nasconde l'utenza da mappa ed elenchi ed è reversibile («Riattiva»).
+- **Eliminare** la nasconde e la sposta fra gli «Eliminati» (flag mappa): è sempre
+  ripristinabile con «Ripristina». Un utente può passare a "eliminato" da qualsiasi stato.
+
+### Proposte di nuovi utenti
+- Una proposta resta sulla mappa **7 giorni** e va servita ogni sera; se non viene validata,
+  scade e sparisce dalla mappa.
+- Il **coordinamento** valida o rifiuta dalla scheda; la validazione crea l'utente regolare e
+  riporta le visite nella sua storia.
+- Chi ha proposto può **cancellare** la proposta (solo se ancora in attesa) e correggerne
+  nome/descrizione.
+- Il coordinamento può **eliminare** una proposta da **qualsiasi stato**: resta tracciata nel
+  sistema e si rivede col flag «Eliminati», in **sola lettura**.
+
+### Password
+- «Password dimenticata?» invia un link per impostare una nuova password (pagina
+  `/reset-password`). Su Supabase quell'URL va aggiunto tra i Redirect URL autorizzati
+  (Authentication → URL Configuration).
+
 ## Struttura
 
 ```

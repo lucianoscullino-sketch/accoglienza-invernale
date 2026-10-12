@@ -937,7 +937,7 @@ export default function App({ profile }: { profile: Profile }) {
           Proponi un nuovo utente
         </button>
         {!v.length && (
-          <p className="notice">Nessuna proposta in attesa. Le proposte restano sulla mappa per 7 giorni.</p>
+          <p className="notice">Nessuna proposta in attesa.</p>
         )}
         {!!v.length && (
           <ul className="list">

@@ -135,10 +135,6 @@ export default function ProposeForm({
       {!isAdmin && (
         <>
           <h3>Servizio svolto stasera</h3>
-          <p className="pgtxt" style={{ margin: "-6px 0 0" }}>
-            L&apos;utente risulta trovato. Il servizio viene registrato come prima visita della
-            proposta, che poi va ripetuta ogni sera finché non viene validata.
-          </p>
           <EntryFields
             initial={emptyEntry()}
             idPrefix="p"
@@ -148,11 +144,6 @@ export default function ProposeForm({
           />
         </>
       )}
-      <p className="notice">
-        {isAdmin
-          ? "La proposta resta sulla mappa per 7 giorni e va servita ogni sera dalle associazioni. La puoi validare o rifiutare dalla sua scheda; se non viene validata, scompare dalla mappa."
-          : "La proposta resta sulla mappa per 7 giorni e va servita ogni sera finché l'amministratore non la valida o la rifiuta; se non viene validata, scompare dalla mappa."}
-      </p>
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {busy ? "Invio…" : "Invia proposta"}
       </button>
