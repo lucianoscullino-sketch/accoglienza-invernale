@@ -105,11 +105,20 @@ textarea { resize: vertical; min-height: 64px; }
 .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; display: inline-block; }
 .dot.st-todo { background: var(--todo); }
 .dot.st-done { background: var(--done); }
-.dot.st-missing { background: var(--missing); }
+/* Non trovato: cerchio grigio con una barretta bianca orizzontale "-". */
+.dot.st-missing { background: var(--missing); position: relative; }
+.dot.st-missing::before {
+  content: ""; position: absolute; left: 3px; right: 3px; top: 50%; height: 2.5px;
+  background: var(--surface); border-radius: 2px; transform: translateY(-50%);
+}
 .dot.st-prop { background: var(--surface); border: 2px dashed var(--prop); }
 .dot.pr { width: 10px; height: 10px; margin: 2px; border: 1.5px dashed var(--prop); }
-/* Sospeso: cerchio vuoto tratteggiato (nascosto ma reversibile). */
-.dot.st-susp { background: var(--surface); border: 2.5px dashed var(--missing); }
+/* Sospeso: cerchio bianco bordato tratteggiato con una barra diagonale "/". */
+.dot.st-susp { background: var(--surface); border: 2.5px dashed var(--missing); position: relative; }
+.dot.st-susp::before {
+  content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 2.5px;
+  background: var(--missing); border-radius: 2px; transform: translateY(-50%) rotate(45deg);
+}
 /* Eliminato: cerchio spento con una X bianca. */
 .dot.st-del { background: var(--missing); position: relative; }
 .dot.st-del::before, .dot.st-del::after {
