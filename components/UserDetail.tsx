@@ -28,6 +28,7 @@ export default function UserDetail({
   todayLog,
   onSaveEntry,
   recordMsg,
+  onReportFound,
 }: {
   user: ServiceUser;
   past: DailyLog[];
@@ -54,10 +55,15 @@ export default function UserDetail({
   todayLog?: DailyLog | null;
   onSaveEntry?: (v: EntryValues) => Promise<void>;
   recordMsg?: string;
+  // Segnalazione al coordinamento per utenti sospesi/eliminati ritrovati in
+  // strada: registra il ritrovamento di oggi (log "trovato") senza riattivare
+  // l'utenza (la riattivazione resta decisione del coordinamento).
+  onReportFound?: () => Promise<void>;
 }) {
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
   const [viewLog, setViewLog] = useState<number | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
 
   // --- Modifica dati anagrafici: sempre visibile in fondo alla scheda ---
   // Coordinamento su tutte le utenze, associazioni solo sulle proprie.
@@ -267,7 +273,31 @@ export default function UserDetail({
             </p>
           </>
         )}
-        {canRecord ? (
+        {suspended || deleted ? (
+          onReportFound ? (
+            <div className="stack">
+              <h3>Utenza {deleted ? "eliminata" : "sospesa"}</h3>
+              <p className="notice">
+                Questa utenza non è attiva e non prevede il servizio di stasera. Se l&apos;hai
+                trovata per strada, segnalalo al coordinamento: registreremo il ritrovamento
+                di oggi come traccia per la riattivazione.
+              </p>
+              <div className="actions" style={{ padding: 0 }}>
+                <button
+                  className="btn btn-sm"
+                  type="button"
+                  disabled={reportBusy}
+                  onClick={() => {
+                    setReportBusy(true);
+                    onReportFound().finally(() => setReportBusy(false));
+                  }}
+                >
+                  {reportBusy ? "Invio…" : "Segnala al coordinamento: trovato"}
+                </button>
+              </div>
+            </div>
+          ) : null
+        ) : canRecord ? (
           <div className="stack">
             <h3>Esito di stasera</h3>
             <form

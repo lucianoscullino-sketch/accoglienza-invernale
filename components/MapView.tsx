@@ -188,8 +188,6 @@ export default function MapView({
       });
       marker.on("click", () => {
         if (it.kind === "draft") return;
-        // Le proposte eliminate sono solo un segnaposto su mappa: non apribile.
-        if (it.inactive && it.kind === "prop") return;
         cbRef.current.onSelect(it.kind as "user" | "prop", it.id, true);
       });
       marker.addTo(lg);

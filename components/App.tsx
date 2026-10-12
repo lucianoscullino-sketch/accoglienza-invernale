@@ -500,6 +500,40 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Segnalazione al coordinamento per un'utenza sospesa/eliminata ritrovata in
+  // strada: registriamo un log "trovato" di oggi firmato dall'associazione, senza
+  // riattivare l'utenza (la decisione spetta al coordinamento). Nessuna
+  // migrazione: riusiamo daily_logs come traccia (policy "logs insert" consente
+  // org_id proprio), così il coordinamento la vede in scheda e nei report.
+  async function reportUserFound(uid: string) {
+    try {
+      const row = {
+        user_id: uid,
+        date: today(),
+        org_id: myOrgId(),
+        found: true,
+        provided: [] as string[],
+        requested: "",
+        note: "Segnalazione associazione: utenza non attiva ritrovata in strada. Valutare la riattivazione col coordinamento.",
+        created_by: profile.id,
+      };
+      const { data, error } = await supabase()
+        .from("daily_logs")
+        .upsert(row, { onConflict: "user_id,date" })
+        .select()
+        .single();
+      if (error) throw error;
+      const rec = data as DailyLog;
+      setLogs((prev) => [
+        ...prev.filter((l) => !(l.user_id === uid && l.date === row.date)),
+        rec,
+      ]);
+      toast("Segnalazione inviata al coordinamento: grazie.");
+    } catch (e) {
+      toast("Errore nella segnalazione: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
   // Correzione di nome/descrizione di una proposta già inserita (refusi):
   // il Coordinamento su qualsiasi proposta, l'associazione su quelle che ha
   // proposto (policy "proposals owner update" in 0009).
@@ -1064,6 +1098,7 @@ export default function App({ profile }: { profile: Profile }) {
                   : "Stasera non c'è un'uscita in calendario."
               }
               onSaveEntry={(v) => saveUserLog(u.id, v)}
+              onReportFound={!isAdmin ? () => reportUserFound(u.id) : undefined}
             />
             </Popup>
           );
