@@ -117,7 +117,7 @@ textarea { resize: vertical; min-height: 64px; }
 .dot.st-susp { background: var(--surface); border: 2.5px dashed var(--missing); position: relative; }
 .dot.st-susp::before {
   content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 2.5px;
-  background: var(--missing); border-radius: 2px; transform: translateY(-50%) rotate(45deg);
+  background: var(--missing); border-radius: 2px; transform: translateY(-50%) rotate(-45deg);
 }
 /* Eliminato: cerchio spento con una X bianca. */
 .dot.st-del { background: var(--missing); position: relative; }
