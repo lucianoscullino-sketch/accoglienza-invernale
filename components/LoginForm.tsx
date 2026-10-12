@@ -32,7 +32,7 @@ export default function LoginForm() {
         router.refresh();
       } else {
         const { error } = await supabase().auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin,
+          redirectTo: window.location.origin + "/reset-password",
         });
         if (error) throw error;
         setMsg("Se l'indirizzo esiste, abbiamo inviato una email per reimpostare la password.");

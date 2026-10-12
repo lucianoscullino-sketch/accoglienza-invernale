@@ -470,6 +470,38 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Esito di stasera di un utente REGOLARE: upsert su daily_logs (unique su
+  // user_id,date), firmato dall'organizzazione che registra. È ciò che fa
+  // accendere il pin verde/grigio sulla mappa (statusOf legge proprio questi log).
+  async function saveUserLog(uid: string, v: EntryValues) {
+    try {
+      const row = {
+        user_id: uid,
+        date: today(),
+        org_id: myOrgId(),
+        found: v.found,
+        provided: v.provided,
+        requested: v.requested,
+        note: v.note,
+        created_by: profile.id,
+      };
+      const { data, error } = await supabase()
+        .from("daily_logs")
+        .upsert(row, { onConflict: "user_id,date" })
+        .select()
+        .single();
+      if (error) throw error;
+      const rec = data as DailyLog;
+      setLogs((prev) => [
+        ...prev.filter((l) => !(l.user_id === uid && l.date === row.date)),
+        rec,
+      ]);
+      toast("Esito registrato, firmato " + orgName(row.org_id, orgs));
+    } catch (e) {
+      toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+    }
+  }
+
   // Correzione di nome/descrizione di una proposta già inserita (refusi):
   // il Coordinamento su qualsiasi proposta, l'associazione su quelle che ha
   // proposto (policy "proposals owner update" in 0009).
@@ -1001,6 +1033,7 @@ export default function App({ profile }: { profile: Profile }) {
           return (
             <Popup title={u.name} onClose={back}>
             <UserDetail
+              key={u.id}
               user={u}
               past={logs
                 .filter((l) => l.user_id === u.id && l.date !== today())
@@ -1025,6 +1058,14 @@ export default function App({ profile }: { profile: Profile }) {
                   : "Solo il coordinamento può modificare i dati di questa utenza."
               }
               onSaveData={(patch) => saveUserData(u.id, patch)}
+              canRecord={isAdmin || (!!duty && duty.id === myOrg)}
+              todayLog={tonightLog(u.id)}
+              recordMsg={
+                duty
+                  ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito.`
+                  : "Stasera non c'è un'uscita in calendario."
+              }
+              onSaveEntry={(v) => saveUserLog(u.id, v)}
             />
             </Popup>
           );

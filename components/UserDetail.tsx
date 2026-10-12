@@ -2,9 +2,10 @@
 
 // Scheda di un utente regolare: descrizione, nota del coordinamento e uscite precedenti.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { DailyLog, Org, ServiceUser } from "@/lib/types";
-import { fmtShort, orgName } from "@/lib/format";
+import { fmtShort, orgName, today } from "@/lib/format";
+import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 
 export default function UserDetail({
   user,
@@ -23,6 +24,10 @@ export default function UserDetail({
   canEditData,
   editDeniedMsg,
   onSaveData,
+  canRecord,
+  todayLog,
+  onSaveEntry,
+  recordMsg,
 }: {
   user: ServiceUser;
   past: DailyLog[];
@@ -43,6 +48,12 @@ export default function UserDetail({
   canEditData?: boolean;
   editDeniedMsg?: string;
   onSaveData?: (patch: { name: string; description: string; lat: number; lng: number; note: string }) => Promise<void>;
+  // Esito di stasera: chi è in uscita (o il coordinamento) registra trovato/
+  // fornito/richiesto/note; questo fa diventare il pin verde o grigio.
+  canRecord?: boolean;
+  todayLog?: DailyLog | null;
+  onSaveEntry?: (v: EntryValues) => Promise<void>;
+  recordMsg?: string;
 }) {
   const [note, setNote] = useState(user.note || "");
   const [noteBusy, setNoteBusy] = useState(false);
@@ -62,6 +73,10 @@ export default function UserDetail({
   const [edNote, setEdNote] = useState(user.note || "");
   const [editErr, setEditErr] = useState("");
   const [editBusy, setEditBusy] = useState(false);
+
+  // --- Esito di stasera (upsert su daily_logs, firmato da chi registra) ---
+  const entryRef = useRef<EntryValues>(entryFrom(todayLog));
+  const [entryBusy, setEntryBusy] = useState(false);
 
   function openEdit() {
     setEdName(user.name);
@@ -217,6 +232,40 @@ export default function UserDetail({
               Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
             </p>
           </>
+        )}
+        {canRecord ? (
+          <div className="stack">
+            <h3>Esito di stasera</h3>
+            <p className="notice">
+              Registra l&apos;esito della visita: il pin diventa verde (trovato) o grigio
+              (non trovato) sulla mappa.
+            </p>
+            <form
+              className="stack"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setEntryBusy(true);
+                (onSaveEntry ? onSaveEntry(entryRef.current) : Promise.resolve()).finally(
+                  () => setEntryBusy(false)
+                );
+              }}
+            >
+              <EntryFields
+                initial={entryFrom(todayLog)}
+                idPrefix="ue"
+                onValues={(v) => (entryRef.current = v)}
+              />
+              <div className="actions" style={{ padding: 0 }}>
+                <button className="btn btn-primary btn-sm" type="submit" disabled={entryBusy}>
+                  {entryBusy ? "Salvo…" : todayLog ? "Aggiorna esito" : "Salva esito"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <p className="notice">
+            {recordMsg || "Stasera non è a te questa uscita: chi è in turno registra l'esito."}
+          </p>
         )}
         {isAdmin && (
           <div className="stack">
