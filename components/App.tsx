@@ -1068,8 +1068,13 @@ export default function App({ profile }: { profile: Profile }) {
             </Popup>
           );
       } else {
-        const p = proposals.find((x) => x.id === selected.id && x.status === "pending");
-        if (p)
+        // Ogni proposta cliccata su mappa apre la scheda: quelle eliminate
+        // (visibili col flag "Eliminati") hanno status="rejected" e vengono
+        // mostrate in sola lettura, perché le azioni di validazione non
+        // avrebbero più senso.
+        const p = proposals.find((x) => x.id === selected.id);
+        if (p) {
+          const propReadOnly = p.status !== "pending";
           return (
             <Popup title={p.name} onClose={back}>
             <PropDetail
@@ -1077,20 +1082,22 @@ export default function App({ profile }: { profile: Profile }) {
               orgs={orgs}
               isAdmin={isAdmin}
               expired={daysLeft(p) <= 0}
-              canVerify={!isAdmin && !!duty && duty.id === myOrg}
+              canVerify={!propReadOnly && !isAdmin && !!duty && duty.id === myOrg}
               verifyMsg={dutyMsg(": tocca a loro andare a trovare l'utente.")}
               onSaveVer={(v) => saveVerification(p.id, v)}
               onValidate={() => validate(p)}
               onReject={() => reject(p)}
-              onDelete={!isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
-              canDelete={!isAdmin && !!myOrg && p.proposed_by === myOrg}
-              onDeleteAdmin={isAdmin ? () => deleteProposalAdmin(p.id) : null}
+              onDelete={!propReadOnly && !isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
+              canDelete={!propReadOnly && !isAdmin && !!myOrg && p.proposed_by === myOrg}
+              onDeleteAdmin={!propReadOnly && isAdmin ? () => deleteProposalAdmin(p.id) : null}
               myOrg={myOrg}
+              readOnly={propReadOnly}
               onUpdateProp={(patch) => updateProposal(p.id, patch)}
               onUpdateVer={(v, vals) => updateVerification(v, vals)}
             />
             </Popup>
           );
+        }
       }
     }
     return (

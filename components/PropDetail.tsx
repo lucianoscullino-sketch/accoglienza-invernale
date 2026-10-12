@@ -24,6 +24,7 @@ export default function PropDetail({
   myOrg,
   onUpdateProp,
   onUpdateVer,
+  readOnly,
 }: {
   p: Proposal;
   orgs: Org[];
@@ -42,6 +43,9 @@ export default function PropDetail({
   myOrg: string | null;
   onUpdateProp: (patch: { name: string; description: string }) => Promise<void>;
   onUpdateVer: (v: ProposalVerification, vals: EntryValues) => Promise<void>;
+  // Modalità sola lettura (es. proposta eliminata rivista dal flag "Eliminati"):
+  // mostra solo le informazioni, nascondendo ogni azione.
+  readOnly?: boolean;
 }) {
   const [busy, setBusy] = useState<"save" | "val" | "rej" | "del" | "prop" | "ver" | "">("");
   const [confirmDel, setConfirmDel] = useState(false);
@@ -61,8 +65,9 @@ export default function PropDetail({
   // Nome/descrizione: il Coordinamento su tutte, l'associazione solo su quelle
   // che ha proposto. Le visite: il Coordinamento su tutte, l'associazione solo
   // su quelle firmate con il proprio org_id (è quanto consentono le RLS).
-  const canEditProp = isAdmin || (!!myOrg && p.proposed_by === myOrg);
-  const canEditVer = (v: ProposalVerification) => isAdmin || (!!myOrg && v.org_id === myOrg);
+  const canEditProp = !readOnly && (isAdmin || (!!myOrg && p.proposed_by === myOrg));
+  const canEditVer = (v: ProposalVerification) =>
+    !readOnly && (isAdmin || (!!myOrg && v.org_id === myOrg));
 
   const list = vs.length ? (
     <ul className="hist">
@@ -148,14 +153,11 @@ export default function PropDetail({
       })}
     </ul>
   ) : (
-    <p className="notice">
-      Nessuna visita registrata. La proposta resta da servire ogni sera finché non viene validata,
-      rifiutata o scade.
-    </p>
+    <p className="notice">Nessuna visita registrata.</p>
   );
 
   const form =
-    canVerify && !expired ? (
+    readOnly ? null : canVerify && !expired ? (
       <form
         className="stack"
         onSubmit={(e) => {
@@ -281,7 +283,7 @@ export default function PropDetail({
             </div>
           )
         ) : null}
-        {isAdmin ? (
+        {isAdmin && !readOnly ? (
           <div className="actions" style={{ padding: 0 }}>
             <button
               className="btn btn-ok"
@@ -306,19 +308,10 @@ export default function PropDetail({
               {busy === "rej" ? "Rimuovo…" : "Rifiuta"}
             </button>
           </div>
-        ) : (
-          <p className="notice">
-            Solo l&apos;amministratore può validare o rifiutare la proposta. Se non viene validata,
-            sparisce dalla mappa alla scadenza.
-          </p>
-        )}
-        {onDeleteAdmin ? (
+        ) : null}
+        {onDeleteAdmin && !readOnly ? (
           <div className="stack">
             <h3>Azioni coordinamento</h3>
-            <p className="notice">
-              L&apos;eliminazione toglie la proposta da mappa ed elenchi, da qualsiasi stato si
-              trovi (in attesa, validata o rifiutata). Resta tracciata nel sistema.
-            </p>
             {!confirmDelAdmin ? (
               <div className="actions" style={{ padding: 0 }}>
                 <button
@@ -352,17 +345,9 @@ export default function PropDetail({
             )}
           </div>
         ) : null}
-        {canDelete && onDelete ? (
+        {canDelete && onDelete && !readOnly ? (
           <div className="stack">
             <h3>La tua proposta</h3>
-            <p className="notice">
-              L&apos;hai proposta tu
-              {p.proposed_by && myOrg && p.proposed_by === myOrg
-                ? ` (${orgName(p.proposed_by, orgs)})`
-                : ""}
-              . Se è stata creata per errore puoi cancellarla definitivamente: sparirà dalla mappa
-              e dall&apos;elenco.
-            </p>
             {!confirmDel ? (
               <button className="btn btn-sm" type="button" onClick={() => setConfirmDel(true)}>
                 Cancella questa proposta
