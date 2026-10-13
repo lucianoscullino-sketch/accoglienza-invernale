@@ -909,6 +909,9 @@ export default function App({ profile }: { profile: Profile }) {
         aria-selected={tab === id}
         onClick={() => {
           setSelected(null);
+          // Uscita anche dalla modalità "posiziona sulla mappa" di una proposta,
+          // così cambiare tab non lascia l'app bloccata in placement.
+          cancelPropose();
           setTab(id);
         }}
       >
@@ -1137,8 +1140,6 @@ export default function App({ profile }: { profile: Profile }) {
     }
     return (
       <>
-        {headHTML()}
-        {tabsHTML()}
         {tab === "calendario" ? (
           <CalendarView
             orgs={orgs}
@@ -1278,6 +1279,10 @@ export default function App({ profile }: { profile: Profile }) {
       />
 
       <aside className="panel" id="panel" aria-live="polite">
+        {/* Testata + barra dei tab sempre presenti, in tutti i tab e in tutti
+            gli stati: la navigazione non sparisce mai. */}
+        {headHTML()}
+        {tabsHTML()}
         {panelBody()}
         <div className="foot">
           <p>Dati salvati su Supabase · mappa © OpenStreetMap contributors</p>
