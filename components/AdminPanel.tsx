@@ -269,7 +269,7 @@ export default function AdminPanel({
                         />
                       </div>
                       {accs.map((p) => (
-                        <div key={`me-${p.id}`}>
+                        <div key={`me-${p.id}`} className="stack" style={{ gap: 6 }}>
                           <label className="lb" htmlFor={`me-${p.id}`}>
                             Email di accesso ({p.display_name || "account"})
                           </label>
@@ -282,12 +282,27 @@ export default function AdminPanel({
                           />
                           <p
                             className="pgtxt"
-                            style={{ fontSize: "13px", opacity: 0.75, margin: "4px 0 0" }}
+                            style={{ fontSize: "13px", opacity: 0.75, margin: "0 0 4px" }}
                           >
-                            La password è quella di default comunicata all&apos;associazione; può
-                            essere cambiata solo dall&apos;interessato con &quot;Password
+                            La password è quella di default comunicata
+                            all&apos;associazione; può essere cambiata
+                            dall&apos;interessato con &quot;Password
                             dimenticata?&quot; nella schermata di accesso.
                           </p>
+                          <button
+                            className="btn btn-sm"
+                            type="button"
+                            disabled={
+                              !open ||
+                              busy === "mail-" + p.id ||
+                              (mail[p.id] ?? p.email ?? "").trim() ===
+                                (p.email ?? "").trim() ||
+                              !(mail[p.id] ?? p.email ?? "").trim()
+                            }
+                            onClick={() => saveEmail(p)}
+                          >
+                            {busy === "mail-" + p.id ? "Salvo…" : "Salva email"}
+                          </button>
                         </div>
                       ))}
                     </div>
