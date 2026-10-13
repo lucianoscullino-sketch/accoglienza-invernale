@@ -69,19 +69,28 @@ export default function LoginForm() {
           onChange={(e) => setEmail(e.target.value)}
         />
       </div>
-      <div>
-        <label className="lb" htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
+      {/* In modalità reset la password NON va chiesta (non è nota a chi la
+          dimentica): serve solo l'email, il link di ripristino arriva via posta. */}
+      {mode === "login" ? (
+        <div>
+          <label className="lb" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+      ) : (
+        <p className="sub">
+          Inserisci l&apos;indirizzo email dell&apos;utenza: ti invieremo un link per impostare
+          una nuova password.
+        </p>
+      )}
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {busy ? "Attendi…" : mode === "login" ? "Accedi" : "Invia link di ripristino"}
       </button>
