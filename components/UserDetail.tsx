@@ -4,7 +4,7 @@
 
 import { useRef, useState } from "react";
 import type { DailyLog, Org, ServiceUser } from "@/lib/types";
-import { fmtShort, orgName, today } from "@/lib/format";
+import { fmtShort, orgName } from "@/lib/format";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 
 export default function UserDetail({

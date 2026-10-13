@@ -12,25 +12,22 @@ import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 export function ResetPasswordForm() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(!supabaseConfigured);
   const [sessionOk, setSessionOk] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState(
+    supabaseConfigured ? "" : "Configurazione Supabase mancante: controlla .env.local."
+  );
   const [busy, setBusy] = useState(false);
 
   // Apre la sessione di recupero dal link (PKCE ?code= oppure #access_token=).
   useEffect(() => {
-    if (!supabaseConfigured) {
-      setErr("Configurazione Supabase mancante: controlla .env.local.");
-      setReady(true);
-      return;
-    }
+    if (!supabaseConfigured) return;
     (async () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       try {
         if (code) {
           const { error } = await supabase().auth.exchangeCodeForSession(code);
