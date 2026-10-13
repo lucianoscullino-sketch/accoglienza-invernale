@@ -23,7 +23,6 @@ export default function CalendarView({
   onSetOverride,
   onSaveSettings,
   onApplyText,
-  onBack,
 }: {
   orgs: Org[];
   settings: Settings | null;
@@ -36,7 +35,6 @@ export default function CalendarView({
   onSetOverride: (dateKey: string, val: string | null | undefined) => Promise<void>;
   onSaveSettings: (patch: Partial<Pick<Settings, "weekly" | "sat">>) => Promise<void>;
   onApplyText: (text: string) => Promise<void>;
-  onBack: () => void;
 }) {
   const [text, setText] = useState("");
   const [applied, setApplied] = useState(false);
@@ -268,7 +266,6 @@ export default function CalendarView({
             ? "Il calendario fisso vale ogni settimana. Qui sotto puoi cambiare una singola sera quando serve."
             : "Le sere in cui esce la tua associazione sono evidenziate."
         }
-        onClose={onBack}
       />
 
       <details className="caltools wkbox" open>

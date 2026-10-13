@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 
-// Intestazione standard dei pannelli di menu (Calendario, Report, Coordinamento,
-// Il tuo report): titolo e sottotitolo a sinistra, "X" a destra per tornare alla
-// schermata principale. Coerente con la "X" del popup.
+// Intestazione standard dei pannelli di tab (Calendario, Report, Associazioni,
+// Il tuo report): titolo e sottotitolo a sinistra. La "X" per uscire è opzionale:
+// di default la navigazione avviene con la striscia dei tab in alto, come su
+// "Stasera"/"Proposte"; passando onClose compare il tasto di chiusura.
 
 export default function PanelHeader({
   title,
@@ -11,7 +12,7 @@ export default function PanelHeader({
 }: {
   title: string;
   subtitle?: ReactNode;
-  onClose: () => void;
+  onClose?: () => void;
 }) {
   return (
     <div className="panelhead">
@@ -23,14 +24,16 @@ export default function PanelHeader({
           </p>
         ) : null}
       </div>
-      <button
-        className="panelhead-x"
-        type="button"
-        onClick={onClose}
-        aria-label="Chiudi e torna alla schermata principale"
-      >
-        &times;
-      </button>
+      {onClose ? (
+        <button
+          className="panelhead-x"
+          type="button"
+          onClick={onClose}
+          aria-label="Chiudi e torna alla schermata principale"
+        >
+          &times;
+        </button>
+      ) : null}
     </div>
   );
 }

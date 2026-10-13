@@ -17,7 +17,6 @@ export default function ReportView({
   proposals,
   rep,
   setRep,
-  onBack,
 }: {
   orgs: Org[];
   users: ServiceUser[];
@@ -25,7 +24,6 @@ export default function ReportView({
   proposals: Proposal[];
   rep: { from: string; to: string };
   setRep: React.Dispatch<React.SetStateAction<{ from: string; to: string }>>;
-  onBack: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [fallback, setFallback] = useState("");
@@ -143,7 +141,7 @@ export default function ReportView({
 
   return (
     <div className="detail stack">
-      <PanelHeader title="Report" subtitle="Riservato al coordinamento" onClose={onBack} />
+      <PanelHeader title="Report" subtitle="Riservato al coordinamento" />
       <div className="rep-range">
         <div>
           <label className="lb" htmlFor="r-from">

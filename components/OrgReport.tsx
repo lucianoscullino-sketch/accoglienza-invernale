@@ -17,14 +17,12 @@ export default function OrgReport({
   logs,
   proposals,
   myOrg,
-  onBack,
 }: {
   orgs: Org[];
   users: ServiceUser[];
   logs: DailyLog[];
   proposals: Proposal[];
   myOrg: string;
-  onBack: () => void;
 }) {
   const [nightSel, setNightSel] = useState("");
   const [busyXlsx, setBusyXlsx] = useState(false);
@@ -43,7 +41,7 @@ export default function OrgReport({
   if (!nights.length)
     return (
       <div className="detail stack">
-        <PanelHeader title="Il tuo report" onClose={onBack} />
+        <PanelHeader title="Il tuo report" />
         <p className="notice">
           La tua associazione non ha ancora registrato uscite.
         </p>
@@ -81,7 +79,6 @@ export default function OrgReport({
             uscita, utenti regolari e proposte verificate.
           </>
         }
-        onClose={onBack}
       />
       <div>
         <label className="lb" htmlFor="my-night">

@@ -1152,10 +1152,6 @@ export default function App({ profile }: { profile: Profile }) {
             onSetOverride={setOverride}
             onSaveSettings={saveSettings}
             onApplyText={applyCalText}
-            onBack={() => {
-              setSelected(null);
-              setTab("utenti");
-            }}
           />
         ) : tab === "report" && isAdmin ? (
           <ReportView
@@ -1165,10 +1161,6 @@ export default function App({ profile }: { profile: Profile }) {
             proposals={proposals}
             rep={rep}
             setRep={setRep}
-            onBack={() => {
-              setSelected(null);
-              setTab("utenti");
-            }}
           />
         ) : tab === "mine" && !isAdmin && myOrg ? (
           <OrgReport
@@ -1177,10 +1169,6 @@ export default function App({ profile }: { profile: Profile }) {
             logs={logs}
             proposals={proposals}
             myOrg={myOrg}
-            onBack={() => {
-              setSelected(null);
-              setTab("utenti");
-            }}
           />
         ) : tab === "associazioni" && isAdmin ? (
           <AdminPanel
@@ -1190,10 +1178,6 @@ export default function App({ profile }: { profile: Profile }) {
             profiles={profiles}
             setProfiles={setProfiles}
             onToast={toast}
-            onBack={() => {
-              setSelected(null);
-              setTab("utenti");
-            }}
           />
         ) : tab === "proposte" ? (
           propsTabHTML()

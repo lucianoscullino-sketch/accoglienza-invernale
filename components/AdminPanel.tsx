@@ -30,7 +30,6 @@ export default function AdminPanel({
   profiles,
   setProfiles,
   onToast,
-  onBack,
 }: {
   profile: Profile;
   orgs: Org[];
@@ -38,7 +37,6 @@ export default function AdminPanel({
   profiles: Profile[];
   setProfiles: React.Dispatch<React.SetStateAction<Profile[]>>;
   onToast: (msg: string) => void;
-  onBack: () => void;
 }) {
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");
@@ -223,7 +221,6 @@ export default function AdminPanel({
             email di accesso.
           </>
         }
-        onClose={onBack}
       />
 
       <div className="stack">
