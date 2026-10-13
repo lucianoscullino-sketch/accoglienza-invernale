@@ -183,7 +183,11 @@ textarea { resize: vertical; min-height: 64px; }
 details.caltools > summary { cursor: pointer; font: 700 16px var(--font-display); padding: 6px 0; min-height: 44px; display: flex; align-items: center; }
 input[type=file] { width: 100%; font-size: 14px; }
 
-.tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; background: var(--surface); }
+/* flex: none è essenziale: .panel è un flex verticale a altezza fissa e un
+   elemento flex con overflow diverso da "visible" può rimpicciolirsi fino a
+   zero; senza questa regola, quando il contenuto del pannello è lungo la barra
+   dei tab collassava e restava solo la sua riga di bordo. */
+.tabs { position: sticky; top: 0; z-index: 10; flex: none; display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; background: var(--surface); }
 .tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 12px; cursor: pointer; font-weight: 500; color: var(--muted); min-height: 44px; white-space: nowrap; flex: none; }
 .tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
 .badge { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 6px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); font: 500 11px var(--font-mono); text-align: center; }
