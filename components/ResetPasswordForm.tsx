@@ -1,8 +1,13 @@
 "use client";
 
 // Pagina di reset password: apre la sessione di recupero dal link ricevuto via
-// email (Supabase rimanda qui con ?code= in PKCE oppure #access_token= in
-// implicita) e poi lascia impostare la nuova password con auth.updateUser.
+// email e poi lascia impostare la nuova password con auth.updateUser.
+// Accetta due tipi di link:
+//  - ?hash=<token_hash>  (template email custom con {{ .TokenHash }}): funziona
+//    su qualsiasi browser/dispositivo, perché il token è autosufficiente;
+//  - ?code=...           (PKCE, link di default di Supabase): lo scambio richiede
+//    il code_verifier salvato nello storage, quindi SOLO nello stesso browser
+//    in cui il link è stato richiesto ("PKCE code verifier not found" se no).
 // È l'unico modo per cambiare password: senza questa pagina il link "Password
 // dimenticata?" non portava a nulla.
 
@@ -22,14 +27,22 @@ export function ResetPasswordForm() {
   );
   const [busy, setBusy] = useState(false);
 
-  // Apre la sessione di recupero dal link (PKCE ?code= oppure #access_token=).
+  // Apre la sessione di recupero dal link (?hash= token, oppure ?code= PKCE).
   useEffect(() => {
     if (!supabaseConfigured) return;
     (async () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
+      const tokenHash = url.searchParams.get("hash");
       try {
-        if (code) {
+        if (tokenHash) {
+          // Token hash: validabile ovunque, senza storage di mezzo.
+          const { error } = await supabase().auth.verifyOtp({
+            type: "recovery",
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+        } else if (code) {
           const { error } = await supabase().auth.exchangeCodeForSession(code);
           if (error) throw error;
         }
@@ -43,7 +56,12 @@ export function ResetPasswordForm() {
           );
         }
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Link di ripristino non valido.");
+        const m = e instanceof Error ? e.message : "";
+        setErr(
+          m.toLowerCase().includes("code verifier") || m.toLowerCase().includes("pkce")
+            ? "Questo link è stato aperto in un browser o dispositivo diverso da quello da cui l'hai richiesto. Torna all'accesso, richiedi un nuovo link e aprilo subito nello stesso browser."
+            : m || "Link di ripristino non valido."
+        );
       } finally {
         // Ripulisce l'URL per non lasciare in giro il token/referral.
         window.history.replaceState({}, "", window.location.pathname);

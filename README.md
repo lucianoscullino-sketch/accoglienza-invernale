@@ -74,6 +74,24 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
 - «Password dimenticata?» invia un link per impostare una nuova password (pagina
   `/reset-password`). Su Supabase quell'URL va aggiunto tra i Redirect URL autorizzati
   (Authentication → URL Configuration).
+- **Link e browser diversi**: il link di default di Supabase (PKCE, `?code=`) funziona
+  **solo nello stesso browser** in cui è stato richiesto il reset — se lo apri
+  dall'app di posta o da un altro dispositivo compare l'errore
+  «PKCE code verifier not found». Per rendere il link validabile da ovunque,
+  personalizza il template email (Authentication → Emails → *Reset Password*) con il
+  **token hash**:
+
+  ```html
+  <h2>Reimposta la password</h2>
+  <p>Hai richiesto di reimpostare la password del tuo account su Accoglienza Invernale.</p>
+  <p><a href="{{ .SiteURL }}/reset-password?hash={{ .TokenHash }}">Imposta una nuova password</a></p>
+  <p>Il link è valido una sola volta e scade tra poco. Se non l'hai richiesto tu, ignora questa email.</p>
+  ```
+
+  La pagina `/reset-password` riconosce sia il vecchio `?code=` sia il nuovo
+  `?hash=` e in ogni caso mostra messaggi d'errore leggibili. Imposta inoltre la
+  **Site URL** (Authentication → URL Configuration) sul dominio di produzione,
+  così `{{ .SiteURL }}` punta al sito vero.
 
 ## Struttura
 
