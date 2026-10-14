@@ -1,8 +1,9 @@
 "use client";
 
 // Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente
-// (utenti sospesi ed eliminati inclusi, sia nel riepilogo che nel filtro per
-// utente), beni forniti, richieste emerse ed esportazione CSV.
+// (attivi sempre; sospesi ed eliminati solo se accesi i relativi flag nel
+// filtro per utente, con stato tra parentesi), beni forniti, richieste
+// emerse ed esportazione CSV.
 
 import { useMemo, useRef, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
@@ -34,6 +35,40 @@ export default function ReportView({
   const [fDay, setFDay] = useState("");
   const [fOrg, setFOrg] = useState("");
   const [fUser, setFUser] = useState("");
+  // Due flag distinti per includere nel report gli utenti non attivi.
+  const [repIncSusp, setRepIncSusp] = useState(false);
+  const [repIncDel, setRepIncDel] = useState(false);
+
+  const stOf = (u: ServiceUser) => (u.deleted ? "eliminato" : !u.active ? "sospeso" : "");
+  // Nome visualizzato per ogni utenza: stato tra parentesi solo se non attiva.
+  const uidOf = useMemo(() => {
+    const m = new Map<string, string>();
+    users.forEach((u) => m.set(u.id, u.name + (stOf(u) ? ` (${stOf(u)})` : "")));
+    return m;
+  }, [users]);
+  const suspUsers = useMemo(() => users.filter((u) => !u.deleted && !u.active), [users]);
+  const delUsers = useMemo(() => users.filter((u) => !!u.deleted), [users]);
+  // Utenze selezionabili e mostrata a tabella: attive sempre, non attive solo
+  // se il relativo flag è acceso.
+  const visibleUsers = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          (!u.deleted && u.active) ||
+          (repIncSusp && !u.deleted && !u.active) ||
+          (repIncDel && !!u.deleted)
+      ),
+    [users, repIncSusp, repIncDel]
+  );
+  const visibleUid = useMemo(() => new Set(visibleUsers.map((u) => u.id)), [visibleUsers]);
+
+  // Tipo della selezione corrente: spegnendo un flag, una selezione di un
+  // utente non più visibile viene annullata in automatico.
+  const kindOf = (id: string) => {
+    const u = users.find((x) => x.id === id);
+    if (!u) return "";
+    return u.deleted ? "del" : !u.active ? "susp" : "active";
+  };
 
   const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
   const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
@@ -43,11 +78,12 @@ export default function ReportView({
         (r) =>
           (!fDay || r.date === fDay) &&
           (!fOrg || r.org === fOrg) &&
-          (!fUser || (r.uid ? r.uid === fUser : r.name === fUser))
+          (!fUser || (r.uid ? r.uid === fUser : r.name === fUser)) &&
+          (!r.uid || visibleUid.has(r.uid))
       ),
-    [ranged, fDay, fOrg, fUser]
+    [ranged, fDay, fOrg, fUser, visibleUid]
   );
-  const filtersOn = !!(fDay || fOrg || fUser);
+  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel);
 
   const nights = new Set(rows.map((r) => r.date)).size;
   const found = rows.filter((r) => r.found).length;
@@ -73,14 +109,11 @@ export default function ReportView({
     if (r.found) o.f += 1;
   });
 
-  const stOf = (u: ServiceUser) => (u.deleted ? "eliminato" : !u.active ? "sospeso" : "");
-
-  const byUser = users
+  const byUser = visibleUsers
     .map((u) => {
       const ul = rows.filter((r) => r.uid === u.id);
-      const st = stOf(u);
       return {
-        name: u.name + (st ? ` (${st})` : ""),
+        name: uidOf.get(u.id) || u.name,
         n: ul.length,
         f: ul.filter((r) => r.found).length,
         last: ul.length ? ul[ul.length - 1].date : "",
@@ -209,14 +242,45 @@ export default function ReportView({
           </label>
           <select id="f-user" value={fUser} onChange={(e) => setFUser(e.target.value)}>
             <option value="">Tutti gli utenti</option>
-            {users.map((u) => (
+            {visibleUsers.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name}
-                {stOf(u) ? ` (${stOf(u)})` : ""}
+                {uidOf.get(u.id) || u.name}
               </option>
             ))}
           </select>
         </div>
+        {!!(suspUsers.length || delUsers.length) && (
+          <div className="actions" style={{ padding: 0 }} role="group" aria-label="Includi nel report utenti non attivi">
+            {!!suspUsers.length && (
+              <label className="mapflag">
+                <input
+                  type="checkbox"
+                  checked={repIncSusp}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setRepIncSusp(v);
+                    if (!v && fUser && kindOf(fUser) === "susp") setFUser("");
+                  }}
+                />
+                <span>Sospesi ({suspUsers.length})</span>
+              </label>
+            )}
+            {!!delUsers.length && (
+              <label className="mapflag">
+                <input
+                  type="checkbox"
+                  checked={repIncDel}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setRepIncDel(v);
+                    if (!v && fUser && kindOf(fUser) === "del") setFUser("");
+                  }}
+                />
+                <span>Eliminati ({delUsers.length})</span>
+              </label>
+            )}
+          </div>
+        )}
         {filtersOn ? (
           <button
             className="btn btn-sm"
@@ -225,6 +289,8 @@ export default function ReportView({
               setFDay("");
               setFOrg("");
               setFUser("");
+              setRepIncSusp(false);
+              setRepIncDel(false);
             }}
           >
             Azzera filtri
