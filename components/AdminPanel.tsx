@@ -40,6 +40,7 @@ export default function AdminPanel({
 }) {
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [rename, setRename] = useState<Record<string, string>>({});
   // Rinomina inline: l'input (precompilato col nome corrente) appare solo
   // premendo «Modifica», così il nome si scrive una volta sola.
@@ -50,17 +51,27 @@ export default function AdminPanel({
 
   async function createOrg() {
     const name = newName.trim();
+    const email = newEmail.trim().toLowerCase();
     if (!name) {
       onToast("Scrivi il nome dell'associazione.");
+      return;
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      onToast("Indirizzo email non valido.");
       return;
     }
     if (orgs.some((o) => o.name.toLowerCase() === name.toLowerCase())) {
       onToast("Esiste già un'associazione con questo nome.");
       return;
     }
+    if (email && profiles.some((p) => (p.email || "").toLowerCase() === email)) {
+      onToast("Esiste già un account con questa email.");
+      return;
+    }
     let id = slug(name);
     if (orgs.some((o) => o.id === id)) id = id + "-" + Math.random().toString(36).slice(2, 6);
     setBusy("new");
+    let created = false;
     try {
       const { data, error } = await supabase()
         .from("organizations")
@@ -68,11 +79,43 @@ export default function AdminPanel({
         .select("id, name")
         .single();
       if (error) throw error;
+      created = true;
       setOrgs((prev) => [...prev, data as Org]);
+
+      // Se è stata indicata un'email, crea subito anche l'account collegato
+      // (via API server con service-role; senza password: la imposterà
+      // l'associazione con "Password dimenticata?").
+      if (email) {
+        const res = await fetch("/api/admin/account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create", orgId: id, displayName: name, email }),
+        });
+        const d = (await res.json().catch(() => ({}))) as { error?: string; userId?: string };
+        if (!res.ok) throw new Error(d.error || "impossibile creare l'account");
+        setProfiles((prev) => [
+          ...prev,
+          { id: d.userId as string, role: "org", org_id: id, display_name: name, email },
+        ]);
+      }
+
       setNewName("");
-      onToast(`Associazione "${name}" creata.`);
+      setNewEmail("");
+      onToast(
+        email
+          ? `Associazione "${name}" e account ${email} creati: all'associazione basta usare «Password dimenticata?» per impostare la password.`
+          : `Associazione "${name}" creata.`
+      );
     } catch (e) {
-      onToast("Errore nella creazione: " + (e instanceof Error ? e.message : "riprova"));
+      const m = e instanceof Error ? e.message : "riprova";
+      if (created && email) {
+        // Niente stati parziali: se l'account non è nato, annulla l'associazione.
+        await supabase().from("organizations").delete().eq("id", id);
+        setOrgs((prev) => prev.filter((x) => x.id !== id));
+        onToast("Associazione NON creata (l'account non è stato possibile): " + m);
+      } else {
+        onToast("Errore nella creazione: " + m);
+      }
     } finally {
       setBusy("");
     }
@@ -371,6 +414,24 @@ export default function AdminPanel({
             onChange={(e) => setNewName(e.target.value)}
             placeholder="es. Croce Rossa"
           />
+        </div>
+        <div>
+          <label className="lb" htmlFor="org-email">
+            Email dell&apos;account (facoltativa)
+          </label>
+          <input
+            id="org-email"
+            type="email"
+            autoComplete="off"
+            value={newEmail}
+            onChange={(e) => setNewEmail(e.target.value)}
+            placeholder="es. crocerossa@associazione.it"
+          />
+          <p className="pgtxt pgnote" style={{ marginTop: 4 }}>
+            Se la inserisci, l&apos;account di accesso viene creato subito collegato
+            all&apos;associazione: all&apos;interessato basterà usare «Password dimenticata?» per
+            impostare la password.
+          </p>
         </div>
         <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
           {busy === "new" ? "Creo…" : "Aggiungi associazione"}

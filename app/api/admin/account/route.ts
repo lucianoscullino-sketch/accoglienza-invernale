@@ -31,16 +31,53 @@ export async function POST(req: Request) {
   }
 
   // 2) Input e validazione.
-  let body: { userId?: string; email?: string };
+  let body: {
+    action?: "create" | "update";
+    userId?: string;
+    email?: string;
+    orgId?: string;
+    displayName?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Richiesta non valida." }, { status: 400 });
   }
-  const userId = (body.userId || "").trim();
   const email = (body.email || "").trim().toLowerCase();
-  if (!userId || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "UserId o email non validi." }, { status: 400 });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Email non valida." }, { status: 400 });
+  }
+
+  // 2a) action=create: crea il nuovo account di un'associazione.
+  //     Nessuna password: l'associazione la imposta da sola con
+  //     "Password dimenticata?" nella schermata di login. Il trigger
+  //     handle_new_user crea il profilo (role/org_id/display_name/email)
+  //     a partire dai metadata.
+  if ((body.action || "update") === "create") {
+    const orgId = (body.orgId || "").trim();
+    const displayName = (body.displayName || "").trim();
+    if (!orgId) {
+      return NextResponse.json({ error: "Associazione non valida." }, { status: 400 });
+    }
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { role: "org", org_id: orgId, display_name: displayName },
+    });
+    if (error) {
+      const dup = /already|exists|duplicate/i.test(error.message || "");
+      return NextResponse.json(
+        { error: dup ? "Esiste già un account con questa email." : error.message },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ ok: true, userId: data.user.id, email });
+  }
+
+  // 2b) action=update: cambia l'email di un account esistente.
+  const userId = (body.userId || "").trim();
+  if (!userId) {
+    return NextResponse.json({ error: "UserId non valido." }, { status: 400 });
   }
 
   // 3) Aggiorna l'email di accesso in auth (email_confirm evita che resti "da confermare").

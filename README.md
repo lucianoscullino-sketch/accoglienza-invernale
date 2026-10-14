@@ -147,8 +147,15 @@ iniziali della mappa (`NEXT_PUBLIC_MAP_CENTER_*`). Su Vercel le stesse chiavi va
 
 ### 3. Utenti
 
-Gli utenti vengono creati da **Authentication → Users → Add user** in Supabase, impostando lo
-**User Metadata**:
+**Modo rapido (consigliato per le associazioni)**: dal tab **Associazioni** il coordinamento
+crea l'associazione indicando nome **ed email dell'account** (facoltativa): l'utente Supabase
+nasce già confermato e collegato all'associazione, **senza password** — all'associazione basta
+usare «Password dimenticata?» nella schermata di accesso per impostarla (serve l'SMTP
+configurato, vedi sopra). Se l'account non viene creato, la creazione dell'associazione viene
+annullata (niente stati parziali).
+
+**Dal dashboard** (utenti manuali o account di coordinamento): **Authentication → Users → Add user**
+in Supabase, impostando lo **User Metadata**:
 
 ```json
 { "role": "org", "org_id": "o1", "display_name": "Croce Rossa" }
