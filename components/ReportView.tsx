@@ -2,8 +2,8 @@
 
 // Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente
 // (attivi sempre; sospesi ed eliminati solo se accesi i relativi flag nel
-// filtro per utente, con stato tra parentesi), beni forniti, richieste
-// emerse ed esportazione CSV.
+// filtro per utente, con stato tra parentesi; visite su proposte solo se
+// acceso il flag dedicato), beni forniti, richieste emerse ed esportazione CSV.
 
 import { useMemo, useRef, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
@@ -35,9 +35,11 @@ export default function ReportView({
   const [fDay, setFDay] = useState("");
   const [fOrg, setFOrg] = useState("");
   const [fUser, setFUser] = useState("");
-  // Due flag distinti per includere nel report gli utenti non attivi.
+  // Due flag distinti per includere nel report gli utenti non attivi,
+  // più quello per le visite sulle proposte (attivo di default).
   const [repIncSusp, setRepIncSusp] = useState(false);
   const [repIncDel, setRepIncDel] = useState(false);
+  const [repIncProp, setRepIncProp] = useState(true);
 
   const stOf = (u: ServiceUser) => (u.deleted ? "eliminato" : !u.active ? "sospeso" : "");
   // Nome visualizzato per ogni utenza: stato tra parentesi solo se non attiva.
@@ -72,6 +74,8 @@ export default function ReportView({
 
   const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
   const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
+  // Visite su proposte nel periodo: quante sono e se mostrarle (flag "Proposte").
+  const propCount = useMemo(() => ranged.filter((r) => r.prop).length, [ranged]);
   const rows = useMemo(
     () =>
       ranged.filter(
@@ -79,11 +83,12 @@ export default function ReportView({
           (!fDay || r.date === fDay) &&
           (!fOrg || r.org === fOrg) &&
           (!fUser || (r.uid ? r.uid === fUser : r.name === fUser)) &&
-          (!r.uid || visibleUid.has(r.uid))
+          (!r.uid || visibleUid.has(r.uid)) &&
+          (!r.prop || repIncProp)
       ),
-    [ranged, fDay, fOrg, fUser, visibleUid]
+    [ranged, fDay, fOrg, fUser, visibleUid, repIncProp]
   );
-  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel);
+  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel || !repIncProp);
 
   const nights = new Set(rows.map((r) => r.date)).size;
   const found = rows.filter((r) => r.found).length;
@@ -249,8 +254,8 @@ export default function ReportView({
             ))}
           </select>
         </div>
-        {!!(suspUsers.length || delUsers.length) && (
-          <div className="actions" style={{ padding: 0 }} role="group" aria-label="Includi nel report utenti non attivi">
+        {!!(suspUsers.length || delUsers.length || propCount || !repIncProp) && (
+          <div className="actions" style={{ padding: 0 }} role="group" aria-label="Includi nel report utenti non attivi e proposte">
             {!!suspUsers.length && (
               <label className="mapflag">
                 <input
@@ -279,6 +284,16 @@ export default function ReportView({
                 <span>Eliminati ({delUsers.length})</span>
               </label>
             )}
+            {(!!propCount || !repIncProp) && (
+              <label className="mapflag">
+                <input
+                  type="checkbox"
+                  checked={repIncProp}
+                  onChange={(e) => setRepIncProp(e.target.checked)}
+                />
+                <span>Proposte ({propCount})</span>
+              </label>
+            )}
           </div>
         )}
         {filtersOn ? (
@@ -291,6 +306,7 @@ export default function ReportView({
               setFUser("");
               setRepIncSusp(false);
               setRepIncDel(false);
+              setRepIncProp(true);
             }}
           >
             Azzera filtri
