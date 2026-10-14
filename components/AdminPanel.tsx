@@ -41,6 +41,8 @@ export default function AdminPanel({
   const [busy, setBusy] = useState("");
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  // Il form di creazione appare solo dopo il click su "Aggiungi associazione".
+  const [adding, setAdding] = useState(false);
   const [rename, setRename] = useState<Record<string, string>>({});
   // Rinomina inline: l'input (precompilato col nome corrente) appare solo
   // premendo «Modifica», così il nome si scrive una volta sola.
@@ -101,6 +103,7 @@ export default function AdminPanel({
 
       setNewName("");
       setNewEmail("");
+      setAdding(false);
       onToast(
         email
           ? `Associazione "${name}" e account ${email} creati: all'associazione basta usare «Password dimenticata?» per impostare la password.`
@@ -402,40 +405,75 @@ export default function AdminPanel({
           <p className="notice">Nessuna associazione presente.</p>
         )}
 
-        <div>
-          <label className="lb" htmlFor="org-name">
-            Nome della nuova associazione
-          </label>
-          <input
-            id="org-name"
-            type="text"
-            autoComplete="off"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="es. Croce Rossa"
-          />
-        </div>
-        <div>
-          <label className="lb" htmlFor="org-email">
-            Email dell&apos;account (facoltativa)
-          </label>
-          <input
-            id="org-email"
-            type="email"
-            autoComplete="off"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="es. crocerossa@associazione.it"
-          />
-          <p className="pgtxt pgnote" style={{ marginTop: 4 }}>
-            Se la inserisci, l&apos;account di accesso viene creato subito collegato
-            all&apos;associazione: all&apos;interessato basterà usare «Password dimenticata?» per
-            impostare la password.
-          </p>
-        </div>
-        <button className="btn btn-sm" type="button" disabled={busy === "new"} onClick={createOrg}>
-          {busy === "new" ? "Creo…" : "Aggiungi associazione"}
-        </button>
+        {/* Creazione a due tempi: prima il tasto, poi (se cliccato) i campi.
+            La lista resta compatta finché non serve davvero aggiungere. */}
+        {!adding ? (
+          <button className="btn btn-sm" type="button" onClick={() => setAdding(true)}>
+            Aggiungi associazione
+          </button>
+        ) : (
+          <div className="stack" style={{ gap: 8 }}>
+            <div>
+              <label className="lb" htmlFor="org-name">
+                Nome della nuova associazione
+              </label>
+              <input
+                id="org-name"
+                type="text"
+                autoComplete="off"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createOrg();
+                }}
+                placeholder="es. Croce Rossa"
+              />
+            </div>
+            <div>
+              <label className="lb" htmlFor="org-email">
+                Email dell&apos;account (facoltativa)
+              </label>
+              <input
+                id="org-email"
+                type="email"
+                autoComplete="off"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createOrg();
+                }}
+                placeholder="es. crocerossa@associazione.it"
+              />
+              <p className="pgtxt pgnote" style={{ marginTop: 4 }}>
+                Se la inserisci, l&apos;account di accesso viene creato subito collegato
+                all&apos;associazione: all&apos;interessato basterà usare «Password dimenticata?» per
+                impostare la password.
+              </p>
+            </div>
+            <div className="actions" style={{ padding: 0 }}>
+              <button
+                className="btn btn-primary btn-sm"
+                type="button"
+                disabled={busy === "new"}
+                onClick={createOrg}
+              >
+                {busy === "new" ? "Creo…" : "Crea associazione"}
+              </button>
+              <button
+                className="btn btn-sm"
+                type="button"
+                disabled={busy === "new"}
+                onClick={() => {
+                  setAdding(false);
+                  setNewName("");
+                  setNewEmail("");
+                }}
+              >
+                Annulla
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="stack">

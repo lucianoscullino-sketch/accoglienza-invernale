@@ -1,7 +1,8 @@
 "use client";
 
-// Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente,
-// beni forniti, richieste emerse ed esportazione CSV.
+// Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente
+// (utenti sospesi ed eliminati inclusi, sia nel riepilogo che nel filtro per
+// utente), beni forniti, richieste emerse ed esportazione CSV.
 
 import { useMemo, useRef, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
@@ -72,11 +73,14 @@ export default function ReportView({
     if (r.found) o.f += 1;
   });
 
+  const stOf = (u: ServiceUser) => (u.deleted ? "eliminato" : !u.active ? "sospeso" : "");
+
   const byUser = users
     .map((u) => {
       const ul = rows.filter((r) => r.uid === u.id);
+      const st = stOf(u);
       return {
-        name: u.name,
+        name: u.name + (st ? ` (${st})` : ""),
         n: ul.length,
         f: ul.filter((r) => r.found).length,
         last: ul.length ? ul[ul.length - 1].date : "",
@@ -208,6 +212,7 @@ export default function ReportView({
             {users.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
+                {stOf(u) ? ` (${stOf(u)})` : ""}
               </option>
             ))}
           </select>

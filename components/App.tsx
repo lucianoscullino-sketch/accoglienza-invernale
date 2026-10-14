@@ -1157,7 +1157,9 @@ export default function App({ profile }: { profile: Profile }) {
         ) : tab === "report" && isAdmin ? (
           <ReportView
             orgs={orgs}
-            users={users}
+            // Anche sospesi ed eliminati: i loro esiti restano nel report e
+            // compariamo tutti nella scelta "Utente" (con lo stato tra parentesi).
+            users={[...users, ...suspendedUsers, ...deletedUsers]}
             logs={logs}
             proposals={proposals}
             rep={rep}
