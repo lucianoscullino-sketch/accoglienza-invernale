@@ -2,8 +2,10 @@
 
 // Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente
 // (attivi sempre; sospesi ed eliminati solo se accesi i relativi flag nel
-// filtro per utente, con stato tra parentesi; visite su proposte solo se
-// acceso il flag dedicato), beni forniti, richieste emerse ed esportazione CSV.
+// filtro Utente, con stato tra parentesi; visite su proposte solo se acceso
+// il flag dedicato, spento di default; singola proposta selezionabile dal
+// filtro anche se non valutata), beni forniti, richieste emerse ed
+// esportazione CSV.
 
 import { useMemo, useRef, useState } from "react";
 import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
@@ -36,10 +38,10 @@ export default function ReportView({
   const [fOrg, setFOrg] = useState("");
   const [fUser, setFUser] = useState("");
   // Due flag distinti per includere nel report gli utenti non attivi,
-  // più quello per le visite sulle proposte (attivo di default).
+  // più quello per le visite sulle proposte (spento di default).
   const [repIncSusp, setRepIncSusp] = useState(false);
   const [repIncDel, setRepIncDel] = useState(false);
-  const [repIncProp, setRepIncProp] = useState(true);
+  const [repIncProp, setRepIncProp] = useState(false);
 
   const stOf = (u: ServiceUser) => (u.deleted ? "eliminato" : !u.active ? "sospeso" : "");
   // Nome visualizzato per ogni utenza: stato tra parentesi solo se non attiva.
@@ -64,31 +66,48 @@ export default function ReportView({
   );
   const visibleUid = useMemo(() => new Set(visibleUsers.map((u) => u.id)), [visibleUsers]);
 
-  // Tipo della selezione corrente: spegnendo un flag, una selezione di un
-  // utente non più visibile viene annullata in automatico.
+  const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
+  const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
+
+  // Proposte non validate: primo gruppo "Seleziona proposta" se qualche visita
+  // rientra nel periodo, secondo gruppo tutte (anche quelle mai valutate:
+  // in quel caso il report esce vuoto).
+  const propVisits = useMemo(
+    () => new Set(ranged.filter((r) => r.pid).map((r) => r.pid as string)),
+    [ranged]
+  );
+  const propsAll = useMemo(
+    () => [...proposals].sort((a, b) => a.name.localeCompare(b.name)),
+    [proposals]
+  );
+  const propsAllOthers = useMemo(
+    () => propsAll.filter((p) => !propVisits.has(p.id)),
+    [propsAll, propVisits]
+  );
+
+  // Tipo di selezione corrente del filtro Utente: utenti regolari (plain uid),
+  // proposte non validate (prefisso "p:"). Spegnendo un flag, selezioni che
+  // non sono più visibili vengono annullate in automatico.
   const kindOf = (id: string) => {
     const u = users.find((x) => x.id === id);
     if (!u) return "";
     return u.deleted ? "del" : !u.active ? "susp" : "active";
   };
 
-  const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
-  const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
-  // Visite su proposte nel periodo: quante sono e se mostrarle (flag "Proposte").
-  const propCount = useMemo(() => ranged.filter((r) => r.prop).length, [ranged]);
-  const rows = useMemo(
-    () =>
-      ranged.filter(
-        (r) =>
-          (!fDay || r.date === fDay) &&
-          (!fOrg || r.org === fOrg) &&
-          (!fUser || (r.uid ? r.uid === fUser : r.name === fUser)) &&
-          (!r.uid || visibleUid.has(r.uid)) &&
-          (!r.prop || repIncProp)
-      ),
-    [ranged, fDay, fOrg, fUser, visibleUid, repIncProp]
-  );
-  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel || !repIncProp);
+  // L'id di selezione di una proposta non validata ("p:<id>") bypasse il flag
+  // Proposte: il report di una proposta specifica è sempre disponibile.
+  const rows = useMemo(() => {
+    const fProp = fUser.startsWith("p:") ? fUser.slice(2) : "";
+    return ranged.filter(
+      (r) =>
+        (!fDay || r.date === fDay) &&
+        (!fOrg || r.org === fOrg) &&
+        (!fUser || (fProp ? r.pid === fProp : r.uid === fUser)) &&
+        (!r.uid || visibleUid.has(r.uid)) &&
+        (!r.prop || repIncProp || !!fProp)
+    );
+  }, [ranged, fDay, fOrg, fUser, visibleUid, repIncProp]);
+  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel || repIncProp);
 
   const nights = new Set(rows.map((r) => r.date)).size;
   const found = rows.filter((r) => r.found).length;
@@ -247,14 +266,37 @@ export default function ReportView({
           </label>
           <select id="f-user" value={fUser} onChange={(e) => setFUser(e.target.value)}>
             <option value="">Tutti gli utenti</option>
-            {visibleUsers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {uidOf.get(u.id) || u.name}
-              </option>
-            ))}
+            <optgroup label="Utenti">
+              {visibleUsers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {uidOf.get(u.id) || u.name}
+                </option>
+              ))}
+            </optgroup>
+            {!!propVisits.size && (
+              <optgroup label="Proposte con visite nel periodo">
+                {[...propVisits]
+                  .map((id) => propsAll.find((p) => p.id === id))
+                  .filter((p): p is Proposal => !!p)
+                  .map((p) => (
+                    <option key={`p:${p.id}`} value={`p:${p.id}`}>
+                      {p.name} (proposta)
+                    </option>
+                  ))}
+              </optgroup>
+            )}
+            {!!propsAllOthers.length && (
+              <optgroup label="Altre proposte">
+                {propsAllOthers.map((p) => (
+                  <option key={`p:${p.id}`} value={`p:${p.id}`}>
+                    {p.name} (proposta)
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
-        {!!(suspUsers.length || delUsers.length || propCount || !repIncProp) && (
+        {!!(suspUsers.length || delUsers.length || propVisits.size) && (
           <div className="actions" style={{ padding: 0 }} role="group" aria-label="Includi nel report utenti non attivi e proposte">
             {!!suspUsers.length && (
               <label className="mapflag">
@@ -284,14 +326,14 @@ export default function ReportView({
                 <span>Eliminati ({delUsers.length})</span>
               </label>
             )}
-            {(!!propCount || !repIncProp) && (
+            {!!propVisits.size && (
               <label className="mapflag">
                 <input
                   type="checkbox"
                   checked={repIncProp}
                   onChange={(e) => setRepIncProp(e.target.checked)}
                 />
-                <span>Proposte ({propCount})</span>
+                <span>Proposte ({propVisits.size})</span>
               </label>
             )}
           </div>

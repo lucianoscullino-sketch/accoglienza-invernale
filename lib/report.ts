@@ -7,6 +7,7 @@ export interface Rec {
   date: string;
   org: string;
   uid: string;
+  pid?: string; // id della proposta, solo per le visite sulle proposte (non validate)
   name: string;
   found: boolean;
   provided: string[];
@@ -38,6 +39,7 @@ export function allRecs(users: ServiceUser[], logs: DailyLog[], proposals: Propo
           date: v.date,
           org: v.org_id,
           uid: "",
+          pid: p.id,
           name: p.name,
           found: v.found,
           provided: v.provided,
