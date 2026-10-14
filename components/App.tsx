@@ -49,6 +49,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [deletedUsers, setDeletedUsers] = useState<ServiceUser[]>([]);
   const [showSuspended, setShowSuspended] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  // Bandierina "Proposte" sulla mappa (attiva di default): mostra i pin viola.
+  const [showProps, setShowProps] = useState(true);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
@@ -179,12 +181,16 @@ export default function App({ profile }: { profile: Profile }) {
     return !l ? "todo" : l.found ? "done" : "missing";
   };
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
-  const visibleProps = proposals.filter(
-    (p) => p.status === "pending" && !p.suspended && Date.now() < expTime(p)
-  );
-  const expiredProps = proposals.filter(
-    (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
-  );
+  const visibleProps = showProps
+    ? proposals.filter(
+        (p) => p.status === "pending" && !p.suspended && Date.now() < expTime(p)
+      )
+    : [];
+  const expiredProps = showProps
+    ? proposals.filter(
+        (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
+      )
+    : [];
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
   // elenchi di default, ma rivisibili con il flag "Eliminati" come le utenze.
@@ -1255,7 +1261,15 @@ export default function App({ profile }: { profile: Profile }) {
         overlays={
           <>
             {!placing && (
-              <div className="mapflags" role="group" aria-label="Mostra utenze non attive">
+              <div className="mapflags" role="group" aria-label="Mostra utenze non attive e proposte">
+                <label className="mapflag">
+                  <input
+                    type="checkbox"
+                    checked={showProps}
+                    onChange={(e) => setShowProps(e.target.checked)}
+                  />
+                  <span>Proposte</span>
+                </label>
                 <label className="mapflag">
                   <input
                     type="checkbox"

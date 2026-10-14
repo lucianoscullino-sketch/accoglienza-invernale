@@ -34,8 +34,9 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
 - **Pin**: arancio = da servire, verde = servito stasera, grigio = non trovato, viola
   tratteggiato = proposta; per le utenze non attive, tratteggiato = **sospeso** e **X** =
   eliminato.
-- **Flag «Sospesi» / «Eliminati»** (in alto a sinistra sulla mappa, spenti di default):
-  mostrano le utenze sospese o eliminate e le proposte eliminate. Sono visibili a tutte le
+- **Flag «Proposte» / «Sospesi» / «Eliminati»** (in alto a sinistra sulla mappa): «Proposte»
+  mostra i pin viola delle proposte attive (**acceso di default**); «Sospesi» / «Eliminati» (spenti di
+  default) mostrano le utenze sospese o eliminate e le proposte eliminate. Sono visibili a tutte le
   associazioni, ma solo il coordinamento può sospendere/eliminare/ripristinare.
 - Cliccando un pin si apre la scheda di quell'utente o proposta (anche per quelle eliminate,
   che si mostrano in **sola lettura**).
