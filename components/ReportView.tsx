@@ -296,7 +296,7 @@ export default function ReportView({
             )}
           </select>
         </div>
-        {!!(suspUsers.length || delUsers.length || propVisits.size) && (
+        {!!(suspUsers.length || delUsers.length || propsAll.length) && (
           <div className="actions" style={{ padding: 0 }} role="group" aria-label="Includi nel report utenti non attivi e proposte">
             {!!suspUsers.length && (
               <label className="mapflag">
@@ -326,14 +326,14 @@ export default function ReportView({
                 <span>Eliminati ({delUsers.length})</span>
               </label>
             )}
-            {!!propVisits.size && (
+            {!!propsAll.length && (
               <label className="mapflag">
                 <input
                   type="checkbox"
                   checked={repIncProp}
                   onChange={(e) => setRepIncProp(e.target.checked)}
                 />
-                <span>Proposte ({propVisits.size})</span>
+                <span>Proposte ({propsAll.length})</span>
               </label>
             )}
           </div>
