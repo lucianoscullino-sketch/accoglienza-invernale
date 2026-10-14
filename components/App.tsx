@@ -1093,7 +1093,7 @@ export default function App({ profile }: { profile: Profile }) {
                   : "Solo il coordinamento può modificare i dati di questa utenza."
               }
               onSaveData={(patch) => saveUserData(u.id, patch)}
-              canRecord={isAdmin || (!!duty && duty.id === myOrg)}
+              canRecord={!isAdmin && !!duty && duty.id === myOrg}
               todayLog={tonightLog(u.id)}
               recordMsg={
                 duty

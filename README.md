@@ -41,7 +41,7 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
   che si mostrano in **sola lettura**).
 
 ### Esito di stasera
-- Chi è in uscita (o il coordinamento) registra l'esito: **trovato**, cosa è stato
+- Chi è in uscita registra l'esito: **trovato**, cosa è stato
   **fornito**, cosa **chiede** e note. Salvando, il pin diventa **verde** (trovato) o
   **grigio** (non trovato).
 - Per le proposte si registra dalla scheda proposta; per gli utenti regolari dalla scheda

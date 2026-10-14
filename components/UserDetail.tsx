@@ -49,8 +49,9 @@ export default function UserDetail({
   canEditData?: boolean;
   editDeniedMsg?: string;
   onSaveData?: (patch: { name: string; description: string; lat: number; lng: number; note: string }) => Promise<void>;
-  // Esito di stasera: chi è in uscita (o il coordinamento) registra trovato/
-  // fornito/richiesto/note; questo fa diventare il pin verde o grigio.
+  // Esito di stasera: solo l'associazione in uscita registra trovato/
+  // fornito/richiesto/note; il coordinamento consulta ma non registra.
+  // Questo fa diventare il pin verde o grigio.
   canRecord?: boolean;
   todayLog?: DailyLog | null;
   onSaveEntry?: (v: EntryValues) => Promise<void>;
