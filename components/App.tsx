@@ -544,7 +544,9 @@ export default function App({ profile }: { profile: Profile }) {
   // Esito di stasera di un utente REGOLARE: upsert su daily_logs (unique su
   // user_id,date), firmato dall'organizzazione che registra. È ciò che fa
   // accendere il pin verde/grigio sulla mappa (statusOf legge proprio questi log).
-  async function saveUserLog(uid: string, v: EntryValues) {
+  // Restituisce true se salvato: in quel caso la scheda si chiude da sola per
+  // tornare all'elenco/mappa. In caso di errore resta aperta, così si può riprovare.
+  async function saveUserLog(uid: string, v: EntryValues): Promise<boolean> {
     try {
       const row = {
         user_id: uid,
@@ -568,8 +570,10 @@ export default function App({ profile }: { profile: Profile }) {
         rec,
       ]);
       toast("Esito registrato, firmato " + orgName(row.org_id, orgs));
+      return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+      return false;
     }
   }
 
@@ -1297,7 +1301,11 @@ export default function App({ profile }: { profile: Profile }) {
                   ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito.`
                   : "Stasera non c'è un'uscita in calendario."
               }
-              onSaveEntry={(v) => saveUserLog(u.id, v)}
+              onSaveEntry={async (v) => {
+                // Dopo il salvataggio la scheda si chiude da sola (torna
+                // all'elenco/mappa); se fallisce resta aperta per riprovare.
+                if (await saveUserLog(u.id, v)) back();
+              }}
               onReportFound={!isAdmin ? () => reportUserFound(u.id) : undefined}
             />
             </Popup>

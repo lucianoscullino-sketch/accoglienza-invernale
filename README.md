@@ -47,6 +47,8 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
 - Chi è in uscita registra l'esito: **trovato**, cosa è stato
   **fornito**, cosa **chiede** e note. Salvando, il pin diventa **verde** (trovato) o
   **grigio** (non trovato).
+- Dopo il salvataggio la scheda si **chiude da sola** e si torna all'elenco/mappa; in caso
+  di errore resta aperta, così si può riprovare senza reinserire i dati.
 - Per le proposte si registra dalla scheda proposta; per gli utenti regolari dalla scheda
   utente.
 
