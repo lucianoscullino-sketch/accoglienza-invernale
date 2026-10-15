@@ -39,6 +39,34 @@ type Tab =
   | "report"
   | "mine";
 
+// --- stato "letto" del popup di briefing, in localStorage (nessuna migrazione) ---
+// LS_AVVISI: ids degli avvisi già letti su questo dispositivo (il popup torna
+// solo per i nuovi). LS_BRIEF: data (YYYY-MM-DD) dell'ultimo riepilogo di
+// uscita mostrato, per non ripresentarlo più volte nello stesso giorno.
+const LS_AVVISI = "accoglienza:avvisi-letti";
+const LS_BRIEF = "accoglienza:brief-uscita";
+const lsGet = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const lsSet = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* storage non disponibile (private mode): il banner resta la fonte */
+  }
+};
+const seenNoticeIds = (): string[] => {
+  try {
+    return JSON.parse(lsGet(LS_AVVISI) || "[]") as string[];
+  } catch {
+    return [];
+  }
+};
+
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
 
@@ -64,6 +92,13 @@ export default function App({ profile }: { profile: Profile }) {
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeDraft, setNoticeDraft] = useState("");
   const [noticeBusy, setNoticeBusy] = useState(false);
+  // Popup di "briefing" all'accesso (solo associazioni): avvisi non ancora letti
+  // e, il giorno della propria uscita, sommario dell'uscita della sera prima.
+  // Visto/letto è derivato da questi stati (localStorage in lazy-init, null con
+  // SSR): senza effect, per non innescare render a cascata.
+  const [seenIds, setSeenIds] = useState<string[]>(() => seenNoticeIds());
+  const [briefDay, setBriefDay] = useState<string | null>(() => lsGet(LS_BRIEF));
+  const [briefDismissed, setBriefDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
@@ -191,6 +226,21 @@ export default function App({ profile }: { profile: Profile }) {
   const dutyName = duty ? duty.name : "Nessuna uscita in calendario";
   const dutyMsg = (suffix: string) =>
     duty ? `Stasera è in uscita ${duty.name}${suffix}` : "Stasera non c'è un'uscita in calendario.";
+
+  // --- briefing all'accesso (solo associazioni) ---
+  // Dati del riepilogo: ieri (la sera prima) e i suoi esiti registrati.
+  const yKey = addDaysKey(-1);
+  const dutyYesterday = dutyOrg(yKey);
+  const yLogs = logs.filter((l) => l.date === yKey);
+  const yFound = yLogs.filter((l) => l.found).length;
+  const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
+  const myTurnToday = !!duty && duty.id === myOrg;
+  // Popup aperto finché l'associazione non lo chiude: avvisi non ancora letti
+  // (una volta per dispositivo, per ciascun avviso) e, il giorno della propria
+  // uscita, riepilogo della sera prima (al massimo una volta al giorno).
+  const briefUnseen = isAdmin || !myOrg ? [] : notices.filter((n) => !seenIds.includes(n.id));
+  const briefOpen =
+    !briefDismissed && (briefUnseen.length > 0 || (myTurnToday && briefDay !== today()));
 
   const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === today());
   const statusOf = (u: ServiceUser): Status => {
@@ -605,6 +655,21 @@ export default function App({ profile }: { profile: Profile }) {
     } catch (e) {
       toast("Errore nella rimozione dell'avviso: " + errMsg(e));
     }
+  }
+
+  // Chiusura del popup di briefing: segna gli avvisi mostrati come letti e,
+  // se includeva l'uscita di stasera, non lo ripresenta per il resto del giorno.
+  function closeBrief() {
+    if (briefUnseen.length) {
+      const merged = Array.from(new Set([...seenIds, ...briefUnseen.map((n) => n.id)]));
+      lsSet(LS_AVVISI, JSON.stringify(merged.slice(-100)));
+      setSeenIds(merged);
+    }
+    if (myTurnToday) {
+      lsSet(LS_BRIEF, today());
+      setBriefDay(today());
+    }
+    setBriefDismissed(true);
   }
 
   // Correzione di nome/descrizione di una proposta già inserita (refusi):
@@ -1043,13 +1108,9 @@ export default function App({ profile }: { profile: Profile }) {
     const v = [...visibleProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
     return (
       <>
-        <button className="btn btn-prop" type="button" onClick={startPropose}>
-          Proponi un nuovo utente
-        </button>
-        {/* Avviso a TUTTE le associazioni (solo coordinamento): sta sotto il
-            menu dei nuovi utenti come richiesto. Non è un messaggio effimero:
-            l'avviso permane nel banner in testata al pannello di ogni account
-            (associazioni comprese) finché il coordinamento non lo rimuove. */}
+        {/* Sezione avvisi in alto, compatta: solo tasto e form. L'elenco degli
+            avvisi pubblicati non serve qui — restano visibili nel banner in
+            testata al pannello, con «Rimuovi» per il coordinamento. */}
         {isAdmin && (
           <div className="stack">
             {!noticeOpen ? (
@@ -1101,34 +1162,6 @@ export default function App({ profile }: { profile: Profile }) {
               <p className="notice">
                 Avvisi non disponibili: esegui la migrazione 0013_notices.sql sul database ({noticesErr}).
               </p>
-            )}
-            {!!notices.length && (
-              <>
-                <p className="subhead">Avvisi pubblicati (visibili a tutte le associazioni)</p>
-                <ul className="list">
-                  {notices.map((n) => (
-                    <li key={n.id}>
-                      <div className="row" style={{ cursor: "default" }}>
-                        <span className="rowmain">
-                          <span className="rowname">Pubblicato il {fmtDM(n.created_at)}</span>
-                          <span className="rowdesc" style={{ whiteSpace: "pre-wrap" }}>
-                            {n.message}
-                          </span>
-                        </span>
-                      </div>
-                      <div className="actions">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          type="button"
-                          onClick={() => void removeNotice(n.id)}
-                        >
-                          Rimuovi
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
             )}
           </div>
         )}
@@ -1195,6 +1228,11 @@ export default function App({ profile }: { profile: Profile }) {
             </ul>
           </>
         )}
+        {/* Tasto di proposta in fondo: sezione avvisi in testa, elenco
+            proposte al centro, azione di proposta alla fine. */}
+        <button className="btn btn-prop" type="button" onClick={startPropose}>
+          Proponi un nuovo utente
+        </button>
       </>
     );
   }
@@ -1481,6 +1519,81 @@ export default function App({ profile }: { profile: Profile }) {
           <p>Dati salvati su Supabase · mappa © OpenStreetMap contributors</p>
         </div>
       </aside>
+
+      {/* Briefing d'accesso (solo associazioni): avvisi non ancora letti e,
+          il giorno della propria uscita, sommario della sera prima con note
+          evidenziate. Una volta al giorno per dispositivo. */}
+      {briefOpen && (
+        <Popup
+          title={myTurnToday ? "La tua uscita di stasera" : "Avvisi del coordinamento"}
+          onClose={closeBrief}
+        >
+          {briefUnseen.length > 0 && (
+            <section className="brief-sec">
+              <p className="subhead">Avvisi del coordinamento</p>
+              {briefUnseen.map((n) => (
+                <p key={n.id} className="brief-avviso">
+                  {n.message}
+                </p>
+              ))}
+            </section>
+          )}
+          {myTurnToday && (
+            <section className="brief-sec">
+              <p className="subhead">Uscita della sera {fmtDay(yKey)}</p>
+              <p className="signed">
+                {dutyYesterday
+                  ? `Ieri era in uscita ${dutyYesterday.name}.`
+                  : "Ieri non risultava un'uscita in calendario."}{" "}
+                Utenze sulla mappa: <b>{users.length + visibleProps.length}</b> · esiti registrati:{" "}
+                <b>{yLogs.length}</b> · trovati: <b>{yFound}</b> · non trovati:{" "}
+                <b>{yLogs.length - yFound}</b>
+                {yWithNotes ? ` · note per le prossime uscite: ${yWithNotes}` : ""}.
+              </p>
+              {!yLogs.length && <p className="notice">Ieri non è stato registrato alcun esito.</p>}
+              {!!yLogs.length && (
+                <ul className="list brief-list">
+                  {yLogs
+                    .slice()
+                    .sort((a, b) => Number(b.found) - Number(a.found))
+                    .map((l) => {
+                      const name =
+                        users.find((x) => x.id === l.user_id)?.name ||
+                        proposals.find((x) => x.id === l.user_id)?.name ||
+                        "Utenza";
+                      return (
+                        <li key={l.user_id}>
+                          <div className="row" style={{ cursor: "default" }}>
+                            <span className={`dot st-${l.found ? "done" : "missing"}`} />
+                            <span className="rowmain">
+                              <span className="rowname">{name}</span>
+                              <span className="rowdesc">
+                                {l.found ? "Trovato" : "Non trovato"}
+                                {l.provided?.length ? ` · fornito: ${l.provided.join(", ")}` : ""}
+                                {l.requested ? ` · richiesto: ${l.requested}` : ""}
+                              </span>
+                              {(l.note || "").trim() ? (
+                                <span className="brief-note">Nota: {l.note}</span>
+                              ) : null}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                </ul>
+              )}
+              {yWithNotes > 0 && (
+                <p className="mono brief-hint">Le note restano in storia fino a cancellazione.</p>
+              )}
+            </section>
+          )}
+          <div className="actions" style={{ padding: 0 }}>
+            <button className="btn btn-primary" type="button" onClick={closeBrief}>
+              Ho preso visione
+            </button>
+          </div>
+        </Popup>
+      )}
 
       {toastMsg && (
         <div className="toast" role="status">

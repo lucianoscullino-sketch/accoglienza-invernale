@@ -23,6 +23,7 @@ applicazione multi-utente:
 | Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade. Chi l'ha proposta può cancellarla (solo se ancora in attesa) e correggerne nome/descrizione; le visite già registrate sono correggibili dal Coordinamento (tutte) e dall'associazione (le proprie) |
 | Validazione admin | Solo il Coordinamento valida/rifiuta: la validazione crea l'utente regolare e riporta le visite nella storia |
 | Avviso a tutte le associazioni | Solo il Coordinamento, dal tab «Comunicazioni»: il testo permane in testata al pannello di **ogni** account (associazioni comprese) finché non viene rimosso |
+| Riepilogo all'accesso | Il giorno della propria uscita l'associazione vede **a popup** il sommario della sera prima con statistiche e note evidenziate; i nuovi avvisi compaiono a popup alla prima lettura |
 | Calendario uscite | Regola fissa settimanale + sabati a turno + eccezioni per singola sera (anche da file) |
 | Report | Solo admin (su periodo, con KPI): esportazione **CSV** (copia-incolla) o **file Excel (.xlsx)** da scaricare |
 | Il tuo report | Ogni associazione: attività di un suo turno (default l'ultima uscita, stasera inclusa) con **download Excel** |
@@ -74,12 +75,24 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
 
 ### Comunicazioni (tab, ex «Proposte»)
 - Il tab «Comunicazioni» raccoglie le proposte di nuovi utenti e gli **avvisi** del coordinamento.
-- Solo il **coordinamento** può pubblicare un avviso con «Invia avviso a tutte le associazioni»
-  (il tasto sta sotto «Proponi un nuovo utente»): il testo compare nel banner in testata al
-  pannello di **tutti** gli account e permane visibile — in qualunque tab — finché il
-  coordinamento non preme «Rimuovi».
-- Nel tab, il coordinamento vede anche l'elenco degli avvisi pubblicati con la data e il tasto
-  «Rimuovi»; se la tabella manca, compare il promemoria di eseguire `0013_notices.sql`.
+  Nel tab la sezione avvisi sta **in alto** (tasto e form, solo per il coordinamento), l'elenco
+  delle proposte al centro e «Proponi un nuovo utente» **in fondo**.
+- Solo il **coordinamento** può pubblicare un avviso con «Invia avviso a tutte le associazioni»:
+  il testo compare nel banner in testata al pannello di **tutti** gli account e permane visibile —
+  in qualunque tab — finché il coordinamento non preme «Rimuovi» (l'elenco degli avvisi pubblicati
+  sta quindi solo nel banner, non nel tab). Se la tabella manca, compare il promemoria di eseguire
+  `0013_notices.sql`.
+- **Prima lettura**: quando un'associazione accede e ci sono avvisi che non ha ancora visto,
+  questi compaiono anche **a popup** (una volta per dispositivo), oltre al banner permanente.
+
+### Riepilogo all'accesso (associazione in uscita)
+- Il giorno della **propria uscita**, accedendo, l'associazione vede un popup con il
+  **sommario dell'uscita della sera prima**: chi era in uscita ieri, quante utenze sono sulla
+  mappa, esiti registrati, trovati/non trovati e cosa è stato fornito o richiesto.
+- Le eventuali note compilate la sera prima nel campo **Note** sono **evidenziate**: servono alla
+  prossima uscita e permangono in storia fino a cancellazione.
+- Il popup si vede **una volta al giorno** per dispositivo; gli avvisi non letti si aggregano
+  allo stesso popup.
 
 ### Password
 - «Password dimenticata?» invia un link per impostare una nuova password (pagina
