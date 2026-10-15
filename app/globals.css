@@ -7,6 +7,7 @@
   --accent: #1f4b7a; --accent-ink: #ffffff;
   --todo: #d9480f; --done: #23806a; --missing: #6c7889; --prop: #6f4bd8; --on-status: #ffffff;
   --danger: #b02a37;
+  --warn: #c14a00; --warn-bg: #ffe9a8; --warn-ink: #4a2b00; --warn-on: #ffffff;
   --map-bg: #dfe6ec; --map-label: #5f6c7d;
   --font-display: var(--font-bricolage), "IBM Plex Sans", system-ui, sans-serif;
   --font-body: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -19,6 +20,7 @@
     --accent: #7fb0e6; --accent-ink: #0f151d;
     --todo: #ff8a4c; --done: #4fc3a1; --missing: #8d9aae; --prop: #a48cff; --on-status: #10161e;
     --danger: #ff7b81;
+    --warn: #ff8a4c; --warn-bg: #4a2a0c; --warn-ink: #ffe6c7; --warn-on: #201204;
     --map-bg: #131b25; --map-label: #8795a8;
     color-scheme: dark;
   }
@@ -27,6 +29,7 @@
   --bg: #0f151d; --surface: #18212c; --surface2: #1f2a37; --ink: #e8edf3; --muted: #9aa7b8; --line: #2c3948;
   --accent: #7fb0e6; --accent-ink: #0f151d;
   --todo: #ff8a4c; --done: #4fc3a1; --missing: #8d9aae; --prop: #a48cff; --on-status: #10161e;
+  --warn: #ff8a4c; --warn-bg: #4a2a0c; --warn-ink: #ffe6c7; --warn-on: #201204;
   --map-bg: #131b25; --map-label: #8795a8;
   color-scheme: dark;
 }
@@ -196,15 +199,16 @@ input[type=file] { width: 100%; font-size: 14px; }
 .navsticky { position: sticky; top: 0; z-index: 10; background: var(--surface); }
 .navsticky .tabs { position: static; }
 /* Avviso del coordinamento a tutte le associazioni: permane visibile sotto i
-   tab — in qualunque tab si sia — finché il coordinamento non lo rimuove. */
-.broadcast { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; max-height: 40vh; overflow-y: auto; background: var(--surface2); border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent); }
-.broadcast-item { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
-.broadcast-item p { margin: 0; flex: 1 1 180px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.broadcast-tag { flex: none; font: 500 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 3px 6px; }
-.broadcast .linkbtn { flex: none; }
+   tab — in qualunque tab si sia — finché il coordinamento non lo rimuove.
+   Sgargiante apposta: sfondo giallo-arancione, bordi spessi, testo in grassetto. */
+.broadcast { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; max-height: 40vh; overflow-y: auto; background: var(--warn-bg); border-top: 3px solid var(--warn); border-bottom: 3px solid var(--warn); }
+.broadcast-item { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+.broadcast-item p { margin: 0; flex: 1 1 180px; min-width: 0; font-weight: 700; font-size: 15px; color: var(--warn-ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.broadcast-tag { flex: none; font: 700 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--warn-on); background: var(--warn); border-radius: 4px; padding: 3px 8px; }
+.broadcast .linkbtn { flex: none; font-weight: 700; }
 /* Popup di briefing all'accesso: avvisi non letti + riepilogo uscita sera prima */
 .brief-sec { display: flex; flex-direction: column; gap: 8px; }
-.brief-avviso { margin: 0; padding: 8px 10px; background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.brief-avviso { margin: 0; padding: 10px 12px; font-weight: 700; font-size: 15px; color: var(--warn-ink); background: var(--warn-bg); border: 2px solid var(--warn); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .brief-list .row { min-height: 48px; }
 /* Note del campo «Note» evidenziate: utili alla prossima uscita e permangono
    fino a cancellazione, quindi le mostriamo ben marcate. */
