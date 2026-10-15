@@ -1551,10 +1551,13 @@ export default function App({ profile }: { profile: Profile }) {
                 {yWithNotes ? ` · note per le prossime uscite: ${yWithNotes}` : ""}.
               </p>
               {!yLogs.length && <p className="notice">Ieri non è stato registrato alcun esito.</p>}
-              {!!yLogs.length && (
+              {/* Nell'elenco citiamo per nome SOLO le utenze con il campo «Note per
+                  la prossima uscita» compilato (in evidenza): le altre restano
+                  conteggiate solo nelle statistiche qui sopra. */}
+              {yWithNotes > 0 ? (
                 <ul className="list brief-list">
                   {yLogs
-                    .slice()
+                    .filter((l) => (l.note || "").trim())
                     .sort((a, b) => Number(b.found) - Number(a.found))
                     .map((l) => {
                       const name =
@@ -1572,15 +1575,21 @@ export default function App({ profile }: { profile: Profile }) {
                                 {l.provided?.length ? ` · fornito: ${l.provided.join(", ")}` : ""}
                                 {l.requested ? ` · richiesto: ${l.requested}` : ""}
                               </span>
-                              {(l.note || "").trim() ? (
-                                <span className="brief-note">Nota: {l.note}</span>
-                              ) : null}
+                              <span className="brief-note">
+                                Note per la prossima uscita: {l.note}
+                              </span>
                             </span>
                           </div>
                         </li>
                       );
                     })}
                 </ul>
+              ) : (
+                !!yLogs.length && (
+                  <p className="notice">
+                    Ieri nessun esito contiene note per la prossima uscita.
+                  </p>
+                )
               )}
               {yWithNotes > 0 && (
                 <p className="mono brief-hint">Le note restano in storia fino a cancellazione.</p>

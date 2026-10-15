@@ -87,10 +87,12 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
 
 ### Riepilogo all'accesso (associazione in uscita)
 - Il giorno della **propria uscita**, accedendo, l'associazione vede un popup con il
-  **sommario dell'uscita della sera prima**: chi era in uscita ieri, quante utenze sono sulla
-  mappa, esiti registrati, trovati/non trovati e cosa è stato fornito o richiesto.
-- Le eventuali note compilate la sera prima nel campo **Note** sono **evidenziate**: servono alla
-  prossima uscita e permangono in storia fino a cancellazione.
+  **sommario dell'uscita della sera prima**: chi era in uscita ieri e le statistiche
+  (utenze sulla mappa, esiti registrati, trovati/non trovati).
+- Nell'elenco vengono citate **con nome solo le utenze il cui campo «Note per la prossima
+  uscita» è compilato**, con la nota **evidenziata**: servono alla prossima uscita e
+  permangono in storia fino a cancellazione. Le altre utenze restano conteggiate solo
+  nelle statistiche.
 - Il popup si vede **una volta al giorno** per dispositivo; gli avvisi non letti si aggregano
   allo stesso popup.
 
