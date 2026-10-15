@@ -19,6 +19,7 @@ import { supabase } from "@/lib/supabase";
 import type {
   CalendarOverride,
   DailyLog,
+  Notice,
   Org,
   Profile,
   Proposal,
@@ -55,6 +56,14 @@ export default function App({ profile }: { profile: Profile }) {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
+  // Avvisi del coordinamento a TUTTE le associazioni (migrazione 0013):
+  // restano in testata al pannello di ogni account finché non vengono rimossi.
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [noticesErr, setNoticesErr] = useState("");
+  // Composizione dell'avviso (solo coordinamento), aperta dal tab Comunicazioni.
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [noticeDraft, setNoticeDraft] = useState("");
+  const [noticeBusy, setNoticeBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
 
@@ -91,7 +100,7 @@ export default function App({ profile }: { profile: Profile }) {
           }
           return ordered;
         })();
-        const [o, pr, u, l, p, c, s, su] = await Promise.all([
+        const [o, pr, u, l, p, c, s, su, nt] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
@@ -105,6 +114,9 @@ export default function App({ profile }: { profile: Profile }) {
           // per riattivarle/ripristinarle e, per tutti i ruoli, per poterle
           // mostrare su mappa con i flag "Sospesi"/"Eliminati" (off di default).
           sb.from("service_users").select("*").eq("active", false),
+          // Avvisi del coordinamento (tabella della migrazione 0013): se manca,
+          // l'errore è gestito sotto in modo NON bloccante.
+          sb.from("notices").select("*").order("created_at", { ascending: false }),
         ]);
         // Carichiamo ogni tabella in modo indipendente: un errore su una query
         // non deve più impedire il caricamento di tutte le altre (prima bastava
@@ -142,6 +154,11 @@ export default function App({ profile }: { profile: Profile }) {
         else setOverrides((c.data || []) as CalendarOverride[]);
         if (s.error) problems.push(`impostazioni: ${msg(s.error)}`);
         else if (s.data) setSettings(s.data as Settings);
+        // Avvisi: errore NON bloccante. La tabella arriva con la migrazione
+        // 0013; se non è ancora applicata l'app resta pienamente funzionante
+        // e l'errore viene mostrato al solo coordinamento nel tab Comunicazioni.
+        if (nt.error) setNoticesErr(msg(nt.error));
+        else setNotices((nt.data || []) as Notice[]);
       } catch (e) {
         // Errore di rete/client (env mancanti, fetch fallito, ecc.)
         problems.push(e instanceof Error ? e.message : String(e));
@@ -540,6 +557,56 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Estrae il messaggio da un errore Supabase (postgrestError non è sempre
+  // un'istanza di Error): serve per i toast senza perdere il testo reale.
+  const errMsg = (e: unknown): string => {
+    if (e instanceof Error) return e.message;
+    if (e && typeof e === "object" && "message" in e) return String((e as { message: unknown }).message);
+    return "riprova";
+  };
+
+  // Pubblica un avviso a TUTTE le associazioni (solo coordinamento). A differenza
+  // del toast (effimero), l'avviso compare nel banner in testata al pannello di
+  // ogni account e ci resta finché il coordinamento non lo rimuove.
+  async function publishNotice() {
+    const message = noticeDraft.trim();
+    if (!message || noticeBusy) return;
+    setNoticeBusy(true);
+    try {
+      const { data, error } = await supabase()
+        .from("notices")
+        .insert({ message, created_by: profile.id })
+        .select()
+        .single();
+      if (error) throw error;
+      setNotices((prev) => [data as Notice, ...prev]);
+      setNoticeDraft("");
+      setNoticeOpen(false);
+      toast("Avviso pubblicato: resta visibile a tutte le associazioni finché non lo rimuovi.");
+    } catch (e) {
+      const m = errMsg(e);
+      toast(
+        "Errore nella pubblicazione dell'avviso: " +
+          m +
+          (/notices|relation|does not exist/i.test(m) ? " · esegui la migrazione 0013_notices.sql" : "")
+      );
+    } finally {
+      setNoticeBusy(false);
+    }
+  }
+
+  // Rimozione dell'avviso (solo coordinamento): sparisce dal banner di tutti.
+  async function removeNotice(id: string) {
+    try {
+      const { error } = await supabase().from("notices").delete().eq("id", id);
+      if (error) throw error;
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+      toast("Avviso rimosso: non è più visibile alle associazioni.");
+    } catch (e) {
+      toast("Errore nella rimozione dell'avviso: " + errMsg(e));
+    }
+  }
+
   // Correzione di nome/descrizione di una proposta già inserita (refusi):
   // il Coordinamento su qualsiasi proposta, l'associazione su quelle che ha
   // proposto (policy "proposals owner update" in 0009).
@@ -928,7 +995,7 @@ export default function App({ profile }: { profile: Profile }) {
     return (
       <div className="tabs" role="tablist">
         {t("utenti", "Stasera")}
-        {t("proposte", "Proposte")}
+        {t("proposte", "Comunicazioni")}
         {isAdmin && t("associazioni", "Associazioni")}
         {t("calendario", "Calendario")}
         {!isAdmin && myOrg ? t("mine", "Il tuo report") : null}
@@ -979,6 +1046,92 @@ export default function App({ profile }: { profile: Profile }) {
         <button className="btn btn-prop" type="button" onClick={startPropose}>
           Proponi un nuovo utente
         </button>
+        {/* Avviso a TUTTE le associazioni (solo coordinamento): sta sotto il
+            menu dei nuovi utenti come richiesto. Non è un messaggio effimero:
+            l'avviso permane nel banner in testata al pannello di ogni account
+            (associazioni comprese) finché il coordinamento non lo rimuove. */}
+        {isAdmin && (
+          <div className="stack">
+            {!noticeOpen ? (
+              <button className="btn" type="button" onClick={() => setNoticeOpen(true)}>
+                Invia avviso a tutte le associazioni
+              </button>
+            ) : (
+              <form
+                className="stack"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void publishNotice();
+                }}
+              >
+                <label className="lb" htmlFor="notice-msg">
+                  Avviso per tutte le associazioni
+                </label>
+                <textarea
+                  id="notice-msg"
+                  rows={3}
+                  maxLength={600}
+                  autoFocus
+                  value={noticeDraft}
+                  placeholder="Es.: sabato uscita straordinaria alle 21: portare coperte e tè caldo."
+                  onChange={(e) => setNoticeDraft(e.target.value)}
+                />
+                <div className="actions" style={{ padding: 0 }}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    type="submit"
+                    disabled={noticeBusy || !noticeDraft.trim()}
+                  >
+                    {noticeBusy ? "Pubblico…" : "Pubblica"}
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    onClick={() => {
+                      setNoticeOpen(false);
+                      setNoticeDraft("");
+                    }}
+                  >
+                    Annulla
+                  </button>
+                </div>
+              </form>
+            )}
+            {noticesErr && (
+              <p className="notice">
+                Avvisi non disponibili: esegui la migrazione 0013_notices.sql sul database ({noticesErr}).
+              </p>
+            )}
+            {!!notices.length && (
+              <>
+                <p className="subhead">Avvisi pubblicati (visibili a tutte le associazioni)</p>
+                <ul className="list">
+                  {notices.map((n) => (
+                    <li key={n.id}>
+                      <div className="row" style={{ cursor: "default" }}>
+                        <span className="rowmain">
+                          <span className="rowname">Pubblicato il {fmtDM(n.created_at)}</span>
+                          <span className="rowdesc" style={{ whiteSpace: "pre-wrap" }}>
+                            {n.message}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="actions">
+                        <button
+                          className="btn btn-danger btn-sm"
+                          type="button"
+                          onClick={() => void removeNotice(n.id)}
+                        >
+                          Rimuovi
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
         {!v.length && (
           <p className="notice">Nessuna proposta in attesa.</p>
         )}
@@ -1298,7 +1451,31 @@ export default function App({ profile }: { profile: Profile }) {
         {/* Testata + barra dei tab sempre presenti, in tutti i tab e in tutti
             gli stati: la navigazione non sparisce mai. */}
         {headHTML()}
-        {tabsHTML()}
+        {/* Navigazione + avvisi del coordinamento: il wrapper resta appeso
+            (sticky) mentre il corpo del pannello scorre, così l'avviso
+            permane visibile a schermo in ogni account fino alla rimozione. */}
+        <div className="navsticky">
+          {tabsHTML()}
+          {!!notices.length && (
+            <div className="broadcast" role="status" aria-label="Avvisi del coordinamento">
+              {notices.map((n) => (
+                <div className="broadcast-item" key={n.id}>
+                  <span className="broadcast-tag">Avviso</span>
+                  <p>{n.message}</p>
+                  {isAdmin && (
+                    <button
+                      className="linkbtn"
+                      type="button"
+                      onClick={() => void removeNotice(n.id)}
+                    >
+                      Rimuovi
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         {panelBody()}
         <div className="foot">
           <p>Dati salvati su Supabase · mappa © OpenStreetMap contributors</p>

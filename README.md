@@ -22,6 +22,7 @@ applicazione multi-utente:
 | Accesso per associazione | Login email/password; il profilo è collegato a un'organizzazione |
 | Proposta nuovi utente | Tocca la mappa per posizionarlo; resta **7 giorni** con icona viola tratteggiato, poi scade. Chi l'ha proposta può cancellarla (solo se ancora in attesa) e correggerne nome/descrizione; le visite già registrate sono correggibili dal Coordinamento (tutte) e dall'associazione (le proprie) |
 | Validazione admin | Solo il Coordinamento valida/rifiuta: la validazione crea l'utente regolare e riporta le visite nella storia |
+| Avviso a tutte le associazioni | Solo il Coordinamento, dal tab «Comunicazioni»: il testo permane in testata al pannello di **ogni** account (associazioni comprese) finché non viene rimosso |
 | Calendario uscite | Regola fissa settimanale + sabati a turno + eccezioni per singola sera (anche da file) |
 | Report | Solo admin (su periodo, con KPI): esportazione **CSV** (copia-incolla) o **file Excel (.xlsx)** da scaricare |
 | Il tuo report | Ogni associazione: attività di un suo turno (default l'ultima uscita, stasera inclusa) con **download Excel** |
@@ -70,6 +71,15 @@ Le istruzioni che un tempo comparivano come testi di aiuto dentro le schede sono
   nome/descrizione.
 - Il coordinamento può **eliminare** una proposta da **qualsiasi stato**: resta tracciata nel
   sistema e si rivede col flag «Eliminati», in **sola lettura**.
+
+### Comunicazioni (tab, ex «Proposte»)
+- Il tab «Comunicazioni» raccoglie le proposte di nuovi utenti e gli **avvisi** del coordinamento.
+- Solo il **coordinamento** può pubblicare un avviso con «Invia avviso a tutte le associazioni»
+  (il tasto sta sotto «Proponi un nuovo utente»): il testo compare nel banner in testata al
+  pannello di **tutti** gli account e permane visibile — in qualunque tab — finché il
+  coordinamento non preme «Rimuovi».
+- Nel tab, il coordinamento vede anche l'elenco degli avvisi pubblicati con la data e il tasto
+  «Rimuovi»; se la tabella manca, compare il promemoria di eseguire `0013_notices.sql`.
 
 ### Password
 - «Password dimenticata?» invia un link per impostare una nuova password (pagina
@@ -133,7 +143,9 @@ PWD: B6-rMu3brk3guLh
 ### 1. Progetto Supabase
 
 1. Crea un progetto su [supabase.com](https://supabase.com) (piano gratuito sufficiente).
-2. Su **SQL Editor**, esegui `supabase/migrations/0001_init.sql`, poi `supabase/seed.sql`.
+2. Su **SQL Editor**, esegui `supabase/migrations/0001_init.sql`, poi le migrazioni successive
+   in ordine (`0002` … `0013`), infine `supabase/seed.sql`. Su un database già esistente
+   esegui solo le migrazioni mancanti (sono idempotenti).
 3. Su **Project Settings → API** copia `Project URL` e `anon public` key.
 
 ### 2. Variabili d'ambiente

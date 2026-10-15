@@ -70,6 +70,15 @@ export interface Proposal {
   verifications?: ProposalVerification[];
 }
 
+// Avviso del coordinamento a tutte le associazioni: resta visibile in testata
+// al pannello di ogni account (associazioni comprese) finché non viene rimosso.
+export interface Notice {
+  id: string;
+  message: string;
+  created_by?: string | null;
+  created_at: string; // ISO
+}
+
 // Riga assente = vale la regola fissa; org_id null = nessuna uscita.
 export interface CalendarOverride {
   date: string;

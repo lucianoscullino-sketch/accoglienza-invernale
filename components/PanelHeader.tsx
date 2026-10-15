@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 // Intestazione standard dei pannelli di tab (Calendario, Report, Associazioni,
 // Il tuo report): titolo e sottotitolo a sinistra. La "X" per uscire è opzionale:
 // di default la navigazione avviene con la striscia dei tab in alto, come su
-// "Stasera"/"Proposte"; passando onClose compare il tasto di chiusura.
+// "Stasera"/"Comunicazioni"; passando onClose compare il tasto di chiusura.
 
 export default function PanelHeader({
   title,

@@ -190,6 +190,18 @@ input[type=file] { width: 100%; font-size: 14px; }
 .tabs { position: sticky; top: 0; z-index: 10; flex: none; display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; background: var(--surface); }
 .tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 12px; cursor: pointer; font-weight: 500; color: var(--muted); min-height: 44px; white-space: nowrap; flex: none; }
 .tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--accent); }
+/* Wrapper dei tab: contiene anche l'eventuale avviso del coordinamento e
+   resta appeso in testata mentre il corpo del pannello scorre (prima era
+   sticky la sola barra dei tab; ora barra + avviso muovono insieme). */
+.navsticky { position: sticky; top: 0; z-index: 10; background: var(--surface); }
+.navsticky .tabs { position: static; }
+/* Avviso del coordinamento a tutte le associazioni: permane visibile sotto i
+   tab — in qualunque tab si sia — finché il coordinamento non lo rimuove. */
+.broadcast { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; max-height: 40vh; overflow-y: auto; background: var(--surface2); border-bottom: 1px solid var(--line); border-left: 3px solid var(--accent); }
+.broadcast-item { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.broadcast-item p { margin: 0; flex: 1 1 180px; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.broadcast-tag { flex: none; font: 500 10px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 3px 6px; }
+.broadcast .linkbtn { flex: none; }
 .badge { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 6px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--line); font: 500 11px var(--font-mono); text-align: center; }
 
 .btn { min-height: 44px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; }
