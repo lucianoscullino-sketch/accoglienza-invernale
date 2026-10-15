@@ -509,7 +509,11 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  async function saveVerification(pid: string, v: EntryValues) {
+  // Esito di stasera di una PROPOSTA (visita in campo): upsert su
+  // proposal_verifications (unique su proposal_id,date), firmato dall'associazione.
+  // Restituisce true se salvato: la scheda si chiude da sola per tornare
+  // all'elenco/mappa. In caso di errore resta aperta, così si può riprovare.
+  async function saveVerification(pid: string, v: EntryValues): Promise<boolean> {
     try {
       const row = {
         proposal_id: pid,
@@ -536,8 +540,10 @@ export default function App({ profile }: { profile: Profile }) {
         )
       );
       toast("Verifica registrata, firmata " + orgName(row.org_id, orgs));
+      return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
+      return false;
     }
   }
 
@@ -1327,7 +1333,11 @@ export default function App({ profile }: { profile: Profile }) {
               expired={daysLeft(p) <= 0}
               canVerify={!propReadOnly && !isAdmin && !!duty && duty.id === myOrg}
               verifyMsg={dutyMsg(": tocca a loro andare a trovare l'utente.")}
-              onSaveVer={(v) => saveVerification(p.id, v)}
+              onSaveVer={async (v) => {
+                // Dopo il salvataggio la scheda si chiude da sola (torna
+                // all'elenco/mappa); se fallisce resta aperta per riprovare.
+                if (await saveVerification(p.id, v)) back();
+              }}
               onValidate={() => validate(p)}
               onReject={() => reject(p)}
               onDelete={!propReadOnly && !isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
