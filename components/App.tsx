@@ -99,8 +99,6 @@ export default function App({ profile }: { profile: Profile }) {
   // Visto/letto è derivato da questi stati (localStorage in lazy-init, null con
   // SSR): senza effect, per non innescare render a cascata.
   const [seenIds, setSeenIds] = useState<string[]>(() => seenNoticeIds());
-  const [briefDay, setBriefDay] = useState<string | null>(() => lsGet(LS_BRIEF));
-  const [briefDismissed, setBriefDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
   // Generazione scaricabile del report del giorno precedente (popup briefing).
@@ -239,12 +237,11 @@ export default function App({ profile }: { profile: Profile }) {
   const yFound = yLogs.filter((l) => l.found).length;
   const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
   const myTurnToday = !!duty && duty.id === myOrg;
-  // Popup aperto finché l'associazione non lo chiude: avvisi non ancora letti
-  // (una volta per dispositivo, per ciascun avviso) e, il giorno della propria
-  // uscita, riepilogo della sera prima (al massimo una volta al giorno).
+  // Popup di briefing: si ripresenta a ogni refresh finché l'associazione ha
+  // il turno stasera (riepilogo della sera prima), più eventuali avvisi del
+  // coordinamento non ancora letti (una volta per dispositivo, per avviso).
   const briefUnseen = isAdmin || !myOrg ? [] : notices.filter((n) => !seenIds.includes(n.id));
-  const briefOpen =
-    !briefDismissed && (briefUnseen.length > 0 || (myTurnToday && briefDay !== today()));
+  const briefOpen = briefUnseen.length > 0 || myTurnToday;
 
   const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === today());
   const statusOf = (u: ServiceUser): Status => {
@@ -555,7 +552,10 @@ export default function App({ profile }: { profile: Profile }) {
   // quando l'associazione ha il turno stasera: righe di ieri (utenze + proposte
   // non validate), stesso formato del report di coordinamento.
   async function downloadBriefXlsx(): Promise<void> {
-    if (!yLogs.length) return;
+    if (!yLogs.length) {
+      toast("Nessun esito registrato ieri da scaricare");
+      return;
+    }
     setBusyBriefXlsx(true);
     try {
       const rows = allRecs(users, logs, proposals).filter((r) => r.date === yKey);
@@ -690,8 +690,9 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Chiusura del popup di briefing: segna gli avvisi mostrati come letti e,
-  // se includeva l'uscita di stasera, non lo ripresenta per il resto del giorno.
+  // Chiusura del popup di briefing: segna gli avvisi mostrati come letti.
+  // Il popup si ripresenterà comunque al refresh successivo se l'associazione
+  // ha il turno stasera (riepilogo uscita).
   function closeBrief() {
     if (briefUnseen.length) {
       const merged = Array.from(new Set([...seenIds, ...briefUnseen.map((n) => n.id)]));
@@ -700,9 +701,7 @@ export default function App({ profile }: { profile: Profile }) {
     }
     if (myTurnToday) {
       lsSet(LS_BRIEF, today());
-      setBriefDay(today());
     }
-    setBriefDismissed(true);
   }
 
   // Correzione di nome/descrizione di una proposta già inserita (refusi):
@@ -1638,14 +1637,16 @@ export default function App({ profile }: { profile: Profile }) {
             </section>
           )}
           <div className="actions" style={{ padding: 0 }}>
-            {myTurnToday && yLogs.length > 0 && (
+            {myTurnToday && (
               <button
                 className="btn"
                 type="button"
                 onClick={downloadBriefXlsx}
-                disabled={busyBriefXlsx}
+                disabled={busyBriefXlsx || !yLogs.length}
               >
-                {busyBriefXlsx ? "Genero…" : "Scarica report ieri in Excel (.xlsx)"}
+                {!yLogs.length
+                  ? "Nessun esito ieri da scaricare"
+                  : busyBriefXlsx ? "Genero…" : "Scarica report ieri in Excel (.xlsx)"}
               </button>
             )}
             <button className="btn btn-primary" type="button" onClick={closeBrief}>
