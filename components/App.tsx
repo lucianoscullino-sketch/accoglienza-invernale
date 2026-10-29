@@ -30,6 +30,8 @@ import type {
 } from "@/lib/types";
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
+import { allRecs } from "@/lib/report";
+import { downloadExcel, reportFileName } from "@/lib/excel";
 
 type Tab =
   | "utenti"
@@ -101,6 +103,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [briefDismissed, setBriefDismissed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
+  // Generazione scaricabile del report del giorno precedente (popup briefing).
+  const [busyBriefXlsx, setBusyBriefXlsx] = useState(false);
 
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
@@ -544,6 +548,25 @@ export default function App({ profile }: { profile: Profile }) {
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
       return false;
+    }
+  }
+
+  // Report del giorno precedente (scaricabile), offerto nel popup di briefing
+  // quando l'associazione ha il turno stasera: righe di ieri (utenze + proposte
+  // non validate), stesso formato del report di coordinamento.
+  async function downloadBriefXlsx(): Promise<void> {
+    if (!yLogs.length) return;
+    setBusyBriefXlsx(true);
+    try {
+      const rows = allRecs(users, logs, proposals).filter((r) => r.date === yKey);
+      await downloadExcel(
+        rows,
+        orgs,
+        `Report ${fmtDay(yKey)}`,
+        reportFileName("report_accoglienza", yKey)
+      );
+    } finally {
+      setBusyBriefXlsx(false);
     }
   }
 
@@ -1615,6 +1638,16 @@ export default function App({ profile }: { profile: Profile }) {
             </section>
           )}
           <div className="actions" style={{ padding: 0 }}>
+            {myTurnToday && yLogs.length > 0 && (
+              <button
+                className="btn"
+                type="button"
+                onClick={downloadBriefXlsx}
+                disabled={busyBriefXlsx}
+              >
+                {busyBriefXlsx ? "Genero…" : "Scarica report ieri in Excel (.xlsx)"}
+              </button>
+            )}
             <button className="btn btn-primary" type="button" onClick={closeBrief}>
               Ho preso visione
             </button>
