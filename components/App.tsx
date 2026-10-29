@@ -103,6 +103,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [loadErr, setLoadErr] = useState("");
   // Generazione scaricabile del report del giorno precedente (popup briefing).
   const [busyBriefXlsx, setBusyBriefXlsx] = useState(false);
+  // Chiusura temporanea del popup per questa sessione (si resetta al refresh).
+  const [briefClosed, setBriefClosed] = useState(false);
 
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
@@ -241,7 +243,7 @@ export default function App({ profile }: { profile: Profile }) {
   // il turno stasera (riepilogo della sera prima), più eventuali avvisi del
   // coordinamento non ancora letti (una volta per dispositivo, per avviso).
   const briefUnseen = isAdmin || !myOrg ? [] : notices.filter((n) => !seenIds.includes(n.id));
-  const briefOpen = briefUnseen.length > 0 || myTurnToday;
+  const briefOpen = !briefClosed && (briefUnseen.length > 0 || myTurnToday);
 
   const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === today());
   const statusOf = (u: ServiceUser): Status => {
@@ -690,10 +692,10 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Chiusura del popup di briefing: segna gli avvisi mostrati come letti.
-  // Il popup si ripresenterà comunque al refresh successivo se l'associazione
-  // ha il turno stasera (riepilogo uscita).
+  // Chiusura del popup di briefing: segna gli avvisi mostrati come letti e nasconde
+  // il popup per il resto della sessione (si ripresenta al refresh successivo).
   function closeBrief() {
+    setBriefClosed(true);
     if (briefUnseen.length) {
       const merged = Array.from(new Set([...seenIds, ...briefUnseen.map((n) => n.id)]));
       lsSet(LS_AVVISI, JSON.stringify(merged.slice(-100)));
@@ -1649,9 +1651,6 @@ export default function App({ profile }: { profile: Profile }) {
                   : busyBriefXlsx ? "Genero…" : "Scarica report ieri in Excel (.xlsx)"}
               </button>
             )}
-            <button className="btn btn-primary" type="button" onClick={closeBrief}>
-              Ho preso visione
-            </button>
           </div>
         </Popup>
       )}
