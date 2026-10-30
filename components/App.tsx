@@ -94,6 +94,8 @@ export default function App({ profile }: { profile: Profile }) {
   // restano in testata al pannello di ogni account finché non vengono rimossi.
   const [notices, setNotices] = useState<Notice[]>([]);
   const [noticesErr, setNoticesErr] = useState("");
+  // Tappe marcate come servite dal coordinamento (anche se non hanno utenti)
+  const [servedStops, setServedStops] = useState<Set<string>>(new Set());
   // Composizione dell'avviso (solo coordinamento), aperta dal tab Comunicazioni.
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeDraft, setNoticeDraft] = useState("");
@@ -298,14 +300,27 @@ export default function App({ profile }: { profile: Profile }) {
   const mapItems: MapItem[] = [
     // Le tappe sono sempre mostrate (anche se vuote); sospese/eliminate solo
     // con i relativi flag attivi.
-    ...stops.filter((s) => s.status === "active").map((s) => ({
-      kind: "stop" as const,
-      id: s.id,
-      lat: s.lat,
-      lng: s.lng,
-      st: "todo" as Status,
-      name: s.name,
-    })),
+    ...stops.filter((s) => s.status === "active").map((s) => {
+      // Calcola lo stato della tappa basandosi sui suoi utenti associati
+      const usersInStop = users.filter((u) => u.stop_id === s.id);
+      const doneUsers = usersInStop.filter((u) => {
+        const l = tonightLog(u.id);
+        return l && l.found;
+      });
+      // Se il coordinamento ha marcato la tappa come servita, forza "done"
+      const stServed = servedStops.has(s.id) ? ("done" as Status) : undefined;
+      // La tappa è "done" se almeno un utente è stato servito,
+      // "missing" se ci sono utenti ma nessuno è stato servito, "todo" se nessun utente
+      const st = stServed !== undefined ? stServed : doneUsers.length > 0 ? ("done" as Status) : usersInStop.length > 0 ? ("missing" as Status) : ("todo" as Status);
+      return {
+        kind: "stop" as const,
+        id: s.id,
+        lat: s.lat,
+        lng: s.lng,
+        st,
+        name: s.name,
+      };
+    }),
     ...(showSuspended
       ? stops
           .filter((s) => s.status === "suspended")
@@ -489,6 +504,19 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
 
+// Tappa marcata come servita dal coordinamento
+  async function markStopAsServed(sid: string) {
+    try {
+      setServedStops((prev) => {
+        const next = new Set(prev);
+        next.add(sid);
+        return next;
+      });
+      toast("Tappa marcata come servita");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
+  }
   // --- azioni: scritture su Supabase ---
   const myOrgId = () => (isAdmin ? "admin" : myOrg || "admin");
 
@@ -1591,6 +1619,7 @@ export default function App({ profile }: { profile: Profile }) {
               onSuspend={() => suspendStop(s.id)}
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
+              onMarkServed={() => markStopAsServed(s.id)}
               onAddUser={async (v) => {
                 const sb = supabase();
                 const { data, error } = await sb

@@ -16,11 +16,12 @@ interface StopDetailProps {
   onRestore: () => Promise<void>;
   onDelete: (note: string) => Promise<void>;
   onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
+  onMarkServed?: (stopId: string) => Promise<void>;
 }
 
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, onOpenMap,
-  onSaveStop, onSuspend, onRestore, onDelete, onAddUser,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
@@ -48,7 +49,10 @@ export default function StopDetail({
       setAddUserName("");
       setAddUserDesc("");
     } catch (e) {
-      setAddUserErr(e instanceof Error ? e.message : "Errore nella creazione");
+      // Mostra errore reale in console per il debug
+    console.error("Errore add user:", e);
+    // Mostra l'errore reale di Supabase all'utente (più informativo del messaggio generico)
+    setAddUserErr(e instanceof Error ? e.message : "Errore nella creazione");
     } finally {
       setBusy("");
     }
@@ -59,7 +63,7 @@ export default function StopDetail({
       <div className="actions" style={{ padding: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span className={`badge badge-${stop.status}`}>{statusLabel}</span>
         <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
-          Apri su Google Maps
+          Naviga con Google Maps
         </button>
         {canManage && !confirm && !edit ? (
           <>
@@ -76,6 +80,9 @@ export default function StopDetail({
               <>
                 <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
                   {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
+                </button>
+                <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
+                  {busy === "susp" ? "Servo…" : "Marca servita"}
                 </button>
                 <button className="btn btn-sm btn-danger" type="button" disabled={busy === "del"} onClick={() => setConfirm(true)}>
                   {busy === "del" ? "Elimino…" : "Elimina tappa"}
@@ -147,7 +154,7 @@ export default function StopDetail({
               <li key={u.id} className="calrow">
                 <span className="caldate">{u.name}</span>
                 <span className="pgtxt">{u.description}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(u.lat, u.lng, u.name)}>Apri su Google Maps</button>
+                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(u.lat, u.lng, u.name)}>Naviga con Google Maps</button>
               </li>
             ))}
           </ul>
@@ -162,7 +169,7 @@ export default function StopDetail({
               <li key={p.id} className="calrow">
                 <span className="caldate">{p.name}</span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Apri su Google Maps</button>
+                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Google Maps</button>
               </li>
             ))}
           </ul>
