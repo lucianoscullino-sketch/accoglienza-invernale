@@ -1764,12 +1764,12 @@ export default function App({ profile }: { profile: Profile }) {
       ) : null}
       {showSuspended ? (
         <li>
-          <span className="dot st-susp" /> Sospesi <b>{suspendedUsers.length}</b>
+          <span className="dot st-susp" /> Tappe sospese <b>{stops.filter((s) => s.status === "suspended").length}</b>
         </li>
       ) : null}
       {showDeleted ? (
         <li>
-          <span className="dot st-del" /> Eliminati <b>{deletedUsers.length + deletedProps.length}</b>
+          <span className="dot st-del" /> Tappe eliminate <b>{stops.filter((s) => s.status === "deleted").length}</b>
         </li>
       ) : null}
     </ul>
