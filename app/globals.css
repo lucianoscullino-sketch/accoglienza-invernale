@@ -90,6 +90,7 @@ textarea { resize: vertical; min-height: 64px; }
   right: 10px;
   align-items: flex-end;
 }
+.mapflag {
   align-items: center;
   gap: 6px;
   min-height: 0;
