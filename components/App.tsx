@@ -1757,11 +1757,6 @@ export default function App({ profile }: { profile: Profile }) {
       <li>
         <span className="dot st-missing" /> Tappe vuote <b>{stopsEmpty}</b>
       </li>
-      {showProps ? (
-        <li>
-          <span className="dot pr st-todo" /> Candidati <b>{visibleProps.filter((p) => !p.stop_id).length}</b>
-        </li>
-      ) : null}
       {showSuspended ? (
         <li>
           <span className="dot st-susp" /> Tappe sospese <b>{stops.filter((s) => s.status === "suspended").length}</b>
@@ -1770,6 +1765,11 @@ export default function App({ profile }: { profile: Profile }) {
       {showDeleted ? (
         <li>
           <span className="dot st-del" /> Tappe eliminate <b>{stops.filter((s) => s.status === "deleted").length}</b>
+        </li>
+      ) : null}
+      {showProps ? (
+        <li>
+          <span className="dot pr st-todo" /> Proposte <b>{visibleProps.filter((p) => !p.stop_id).length}</b>
         </li>
       ) : null}
     </ul>
@@ -1824,7 +1824,7 @@ export default function App({ profile }: { profile: Profile }) {
                     checked={showSuspended}
                     onChange={(e) => setShowSuspended(e.target.checked)}
                   />
-                  <span>Sospesi</span>
+                  <span>Tappe sospese</span>
                 </label>
                 <label className="mapflag">
                   <input
@@ -1832,7 +1832,7 @@ export default function App({ profile }: { profile: Profile }) {
                     checked={showDeleted}
                     onChange={(e) => setShowDeleted(e.target.checked)}
                   />
-                  <span>Eliminati</span>
+                  <span>Tappe eliminate</span>
                 </label>
               </div>
             )}

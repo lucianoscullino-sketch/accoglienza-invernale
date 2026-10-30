@@ -63,7 +63,7 @@ export default function StopDetail({
       <div className="actions" style={{ padding: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span className={`badge badge-${stop.status}`}>{statusLabel}</span>
         <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
-          Naviga con Google Maps
+          Naviga con Maps
         </button>
         {canManage && !confirm && !edit ? (
           <>
@@ -154,7 +154,7 @@ export default function StopDetail({
               <li key={u.id} className="calrow">
                 <span className="caldate">{u.name}</span>
                 <span className="pgtxt">{u.description}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(u.lat, u.lng, u.name)}>Naviga con Google Maps</button>
+                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(u.lat, u.lng, u.name)}>Naviga con Maps</button>
               </li>
             ))}
           </ul>
@@ -169,7 +169,7 @@ export default function StopDetail({
               <li key={p.id} className="calrow">
                 <span className="caldate">{p.name}</span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Google Maps</button>
+                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>
               </li>
             ))}
           </ul>
