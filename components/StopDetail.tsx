@@ -31,6 +31,7 @@ export default function StopDetail({
   const [edLng, setEdLng] = useState(String(stop.lng));
   const [edNote, setEdNote] = useState(stop.note || "");
   const [editErr, setEditErr] = useState("");
+  const [manageOpen, setManageOpen] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [addUserName, setAddUserName] = useState("");
   const [addUserDesc, setAddUserDesc] = useState("");
@@ -61,13 +62,12 @@ export default function StopDetail({
   return (
     <div className="detail stack">
       <div className="actions" style={{ padding: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span className={`badge badge-${stop.status}`}>{statusLabel}</span>
         <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
           Naviga con Maps
         </button>
         {canManage && !confirm && !edit ? (
           <>
-            <button className="btn btn-sm" type="button" onClick={() => setEdit(true)}>Modifica tappa</button>
+            <button className="btn btn-sm" type="button" onClick={() => setManageOpen((v) => !v)}>Gestisci tappa</button>
             <button
               className="btn btn-sm"
               type="button"
@@ -78,14 +78,8 @@ export default function StopDetail({
             </button>
             {empty ? (
               <>
-                <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
-                  {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
-                </button>
                 <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
-                  {busy === "susp" ? "Servo…" : "Marca servita"}
-                </button>
-                <button className="btn btn-sm btn-danger" type="button" disabled={busy === "del"} onClick={() => setConfirm(true)}>
-                  {busy === "del" ? "Elimino…" : "Elimina tappa"}
+                  {busy === "susp" ? "Servo…" : "Tappa servita"}
                 </button>
               </>
             ) : null}
@@ -97,6 +91,22 @@ export default function StopDetail({
           </>
         ) : null}
       </div>
+
+      {canManage && !confirm && !edit && manageOpen ? (
+        <div className="stack" style={{ gap: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, marginTop: 4 }}>
+          <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); setManageOpen(false); }}>Modifica tappa</button>
+          {empty ? (
+            <>
+              <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
+                {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
+              </button>
+              <button className="btn btn-sm btn-danger" type="button" disabled={busy === "del"} onClick={() => setConfirm(true)}>
+                {busy === "del" ? "Elimino…" : "Elimina tappa"}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {addingUser && canManage && onAddUser ? (
         <div className="stack" style={{ gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
@@ -142,7 +152,10 @@ export default function StopDetail({
       ) : null}
 
       <div className="stack" style={{ gap: 8 }}>
-        <h3>{stop.name}{stop.status !== "active" ? ` (${statusLabel})` : ""}</h3>
+        <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span className={`badge badge-${stop.status}`}>{statusLabel}</span>
+          {stop.name}
+        </h3>
         <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
 
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Utenti assegnati ({users.length})</h4>

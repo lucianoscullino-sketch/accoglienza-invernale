@@ -1630,7 +1630,7 @@ export default function App({ profile }: { profile: Profile }) {
                     description: v.desc,
                     lat: s.lat,
                     lng: s.lng,
-                    created_by_org: myOrgId(),
+                    created_by_org: myOrg || null,
                     stop_id: s.id,
                   })
                   .select()
