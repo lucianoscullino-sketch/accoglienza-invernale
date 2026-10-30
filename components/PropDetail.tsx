@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 import type { Org, Proposal, ProposalVerification } from "@/lib/types";
 import { fmtDM, fmtShort, orgName, today } from "@/lib/format";
+import { openGoogleMaps } from "@/lib/maps";
 
 export default function PropDetail({
   p,
@@ -183,23 +184,14 @@ export default function PropDetail({
           <h2>{p.name}</h2>
         </div>
         <p className="desc">{p.description || "Nessuna descrizione."}</p>
-        {!isAdmin && (
-          <>
-            <div className="actions" style={{ padding: 0 }}>
-              <a
-                className="btn btn-sm"
-                href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${p.lat},${p.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Naviga con Maps
-              </a>
-            </div>
-            <p className="pgtxt mono">
-              Destinazione inviata a Maps: {Number(p.lat).toFixed(5)}, {Number(p.lng).toFixed(5)}
-            </p>
-          </>
-        )}
+        <div className="actions" style={{ padding: 0 }}>
+          <button className="btn btn-sm" type="button" onClick={() => openGoogleMaps(p.lat, p.lng, p.name)}>
+            Apri su Google Maps
+          </button>
+        </div>
+        <p className="pgtxt mono">
+          {Number(p.lat).toFixed(5)}, {Number(p.lng).toFixed(5)}
+        </p>
         <p className="signed">
           Proposto da <strong>{orgName(p.proposed_by, orgs)}</strong> il {fmtDM(p.created_at)}.
         </p>

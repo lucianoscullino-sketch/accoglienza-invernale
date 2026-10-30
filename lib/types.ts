@@ -27,6 +27,7 @@ export interface ServiceUser {
   suspension_note?: string; // motivo dell'ultima sospensione (coordinamento)
   deleted?: boolean; // eliminato (soft-delete): nascosto, visibile solo con flag
   created_by_org?: string | null; // associazione che ha proposto/creato l'utenza (null = non tracciato)
+  stop_id: string | null; // tappa di appartenenza (null = nessuna tappa)
 }
 
 export interface DailyLog {
@@ -68,6 +69,7 @@ export interface Proposal {
   suspended?: boolean; // sospesa dal coordinamento: fuori da mappa ed elenchi
   suspension_note?: string; // motivo della sospensione
   verifications?: ProposalVerification[];
+  stop_id: string | null; // tappa di assegnazione (null = fuori tappa)
 }
 
 // Avviso del coordinamento a tutte le associazioni: resta visibile in testata
@@ -97,3 +99,16 @@ export interface Settings {
 }
 
 export type Status = "todo" | "done" | "missing";
+
+export type StopStatus = "active" | "suspended" | "deleted";
+
+export interface Stop {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  status: StopStatus;
+  note?: string;
+  created_at?: string;
+  created_by?: string | null;
+}

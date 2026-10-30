@@ -10,6 +10,7 @@ import type { EntryValues } from "@/components/EntryFields";
 import ProposeForm from "@/components/ProposeForm";
 import UserDetail from "@/components/UserDetail";
 import PropDetail from "@/components/PropDetail";
+import StopDetail from "@/components/StopDetail";
 import Popup from "@/components/Popup";
 import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
@@ -27,9 +28,11 @@ import type {
   ServiceUser,
   Settings,
   Status,
+  Stop,
 } from "@/lib/types";
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
+import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
 
@@ -80,6 +83,7 @@ export default function App({ profile }: { profile: Profile }) {
   const [deletedUsers, setDeletedUsers] = useState<ServiceUser[]>([]);
   const [showSuspended, setShowSuspended] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [stops, setStops] = useState<Stop[]>([]);
   // Bandierina "Proposte" sulla mappa (attiva di default): mostra i pin viola.
   const [showProps, setShowProps] = useState(true);
   const [logs, setLogs] = useState<DailyLog[]>([]);
@@ -139,7 +143,7 @@ export default function App({ profile }: { profile: Profile }) {
           }
           return ordered;
         })();
-        const [o, pr, u, l, p, c, s, su, nt] = await Promise.all([
+        const [o, pr, u, l, p, c, s, su, st, nt] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
@@ -149,6 +153,7 @@ export default function App({ profile }: { profile: Profile }) {
             .order("created_at", { ascending: false }),
           sb.from("calendar_overrides").select("*"),
           sb.from("settings").select("*").eq("id", "main").maybeSingle(),
+          sb.from("stops").select("*").order("name"),
           // Le utenze non attive (sospese o eliminate): servono al coordinamento
           // per riattivarle/ripristinarle e, per tutti i ruoli, per poterle
           // mostrare su mappa con i flag "Sospesi"/"Eliminati" (off di default).
@@ -193,6 +198,8 @@ export default function App({ profile }: { profile: Profile }) {
         else setOverrides((c.data || []) as CalendarOverride[]);
         if (s.error) problems.push(`impostazioni: ${msg(s.error)}`);
         else if (s.data) setSettings(s.data as Settings);
+        if (st.error) problems.push(`tappe: ${msg(st.error)}`);
+        else setStops((st.data || []) as Stop[]);
         // Avvisi: errore NON bloccante. La tabella arriva con la migrazione
         // 0013; se non è ancora applicata l'app resta pienamente funzionante
         // e l'errore viene mostrato al solo coordinamento nel tab Comunicazioni.
@@ -287,22 +294,75 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   const mapItems: MapItem[] = [
-    ...users.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: statusOf(u), name: u.name })),
-    ...visibleProps.map((p) => {
-      const st = propTonight(p), v = propVer(p);
-      return { kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st, name: p.name, ver: v, tip: `proposta, ${ST_LABEL[st].toLowerCase()}, ${VER_TXT[v]}` };
-    }),
-    // Solo con l'apposito flag attivo (off di default) si vedono su mappa le
-    // utenze sospese o eliminate, tanto dal coordinamento quanto dalle associazioni.
+    // Le tappe sono sempre mostrate (anche se vuote); sospese/eliminate solo
+    // con i relativi flag attivi.
+    ...stops.filter((s) => s.status === "active").map((s) => ({
+      kind: "stop" as const,
+      id: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      st: "todo" as Status,
+      name: s.name,
+    })),
     ...(showSuspended
-      ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "sospeso", inactive: "susp" as const }))
+      ? stops
+          .filter((s) => s.status === "suspended")
+          .map((s) => ({
+            kind: "stop" as const,
+            id: s.id,
+            lat: s.lat,
+            lng: s.lng,
+            st: "missing" as Status,
+            name: s.name,
+            tip: "sospeso",
+            inactive: "susp" as const,
+          }))
       : []),
     ...(showDeleted
-      ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, lat: u.lat, lng: u.lng, st: "missing" as Status, name: u.name, tip: "eliminato", inactive: "del" as const }))
+      ? stops
+          .filter((s) => s.status === "deleted")
+          .map((s) => ({
+            kind: "stop" as const,
+            id: s.id,
+            lat: s.lat,
+            lng: s.lng,
+            st: "missing" as Status,
+            name: s.name,
+            tip: "eliminato",
+            inactive: "del" as const,
+          }))
       : []),
-    // Proposte eliminate, visibili col flag "Eliminati".
+    // Candidati fuori tappa (stop_id === null): pin viola sulla mappa.
+    ...visibleProps
+      .filter((p) => !p.stop_id)
+      .map((p) => {
+        const st = propTonight(p),
+          v = propVer(p);
+        return {
+          kind: "prop" as const,
+          id: p.id,
+          lat: p.lat,
+          lng: p.lng,
+          st,
+          name: p.name,
+          ver: v,
+          tip: `proposta, ${ST_LABEL[st].toLowerCase()}, ${VER_TXT[v]}`,
+          stop_id: p.stop_id,
+        };
+      }),
+    // Proposte eliminate fuori tappa, visibili col flag "Eliminati".
     ...(showDeleted
-      ? deletedProps.map((p) => ({ kind: "prop" as const, id: p.id, lat: p.lat, lng: p.lng, st: "missing" as Status, name: p.name, tip: "proposta eliminata", inactive: "del" as const }))
+      ? deletedProps.filter((p) => !p.stop_id).map((p) => ({
+          kind: "prop" as const,
+          id: p.id,
+          lat: p.lat,
+          lng: p.lng,
+          st: "missing" as Status,
+          name: p.name,
+          tip: "proposta eliminata",
+          inactive: "del" as const,
+          stop_id: p.stop_id,
+        }))
       : []),
     ...(placing && draftPos
       ? [{ kind: "draft" as const, id: "draft", lat: draftPos.lat, lng: draftPos.lng, st: "prop" as const, name: "Nuova proposta" }]
@@ -310,17 +370,21 @@ export default function App({ profile }: { profile: Profile }) {
   ];
 
   // --- selezione e proposta ---
-  function select(kind: "user" | "prop", id: string, fromMap: boolean) {
+  function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     setSelected({ kind, id });
     setPlacing(false);
     if (fromMap) {
-      setFocus(null);
+      const o =
+        kind === "stop"
+          ? stops.find((s) => s.id === id)
+          : kind === "user"
+            ? users.find((u) => u.id === id)
+            : proposals.find((p) => p.id === id);
+      if (o) setFocus({ lat: o.lat, lng: o.lng, n: Date.now() });
+    } else {
       if (typeof window !== "undefined" && window.matchMedia("(max-width:899px)").matches) {
         document.getElementById("panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
-    } else {
-      const o = kind === "user" ? users.find((u) => u.id === id) : proposals.find((p) => p.id === id);
-      if (o) setFocus({ lat: o.lat, lng: o.lng, n: Date.now() });
     }
   }
   function back() {
@@ -336,6 +400,55 @@ export default function App({ profile }: { profile: Profile }) {
   function cancelPropose() {
     setPlacing(false);
     setDraftPos(null);
+  }
+
+  // --- azioni sulle tappe (solo coordinamento) ---
+
+  async function saveStop(sid: string, patch: { name: string; lat: number; lng: number; note: string }) {
+    try {
+      const { error } = await supabase().from("stops").update({ name: patch.name, lat: patch.lat, lng: patch.lng, note: patch.note || null }).eq("id", sid);
+      if (error) throw error;
+      setStops((prev) => prev.map((s) => (s.id === sid ? { ...s, ...patch } : s)));
+      toast("Tappa salvata");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
+  }
+
+  async function suspendStop(sid: string) {
+    try {
+      const { error } = await supabase().from("stops").update({ status: "suspended" }).eq("id", sid);
+      if (error) throw error;
+      setStops((prev) => prev.map((s) => (s.id === sid ? { ...s, status: "suspended" as const } : s)));
+      setSelected(null);
+      toast("Tappa sospesa");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
+  }
+
+  async function restoreStop(sid: string) {
+    try {
+      const { error } = await supabase().from("stops").update({ status: "active" }).eq("id", sid);
+      if (error) throw error;
+      setStops((prev) => prev.map((s) => (s.id === sid ? { ...s, status: "active" as const } : s)));
+      setSelected(null);
+      toast("Tappa riattivata");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
+  }
+
+  async function deleteStop(sid: string) {
+    try {
+      const { error } = await supabase().from("stops").delete().eq("id", sid);
+      if (error) throw error;
+      setStops((prev) => prev.filter((s) => s.id !== sid));
+      setSelected(null);
+      toast("Tappa eliminata");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
   }
 
 
@@ -816,16 +929,35 @@ export default function App({ profile }: { profile: Profile }) {
   async function validate(p: Proposal) {
     try {
       const sb = supabase();
+      // Se il candidato non è già in una tappa, ne creiamo una colocata a lui.
+      let stopId = p.stop_id;
+      if (!stopId) {
+        const { data: ns, error: se } = await sb
+          .from("stops")
+          .insert({
+            name: p.name,
+            lat: p.lat,
+            lng: p.lng,
+            status: "active",
+            note: "Tappa creata dalla validazione del candidato",
+            created_by: myOrgId(),
+          })
+          .select()
+          .single();
+        if (se) throw se;
+        stopId = ns.id;
+        setStops((prev) => [...prev, ns as Stop]);
+      }
       const { data: nu, error } = await sb
         .from("service_users")
-        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: p.proposed_by })
+        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: p.proposed_by, stop_id: stopId })
         .select()
         .single();
       if (error) throw error;
       const newUser = nu as ServiceUser;
       const { error: e2 } = await sb
         .from("proposals")
-        .update({ status: "validated", validated_into: newUser.id })
+        .update({ status: "validated", validated_into: newUser.id, stop_id: stopId })
         .eq("id", p.id);
       if (e2) throw e2;
       const vs = p.verifications || [];
@@ -1340,6 +1472,29 @@ export default function App({ profile }: { profile: Profile }) {
             />
             </Popup>
           );
+      } else if (selected.kind === "stop") {
+        const s = stops.find((x) => x.id === selected.id);
+        if (s) {
+          const stopUsers = users.filter((u) => u.stop_id === s.id);
+          const stopProps = proposals.filter((p) => p.stop_id === s.id);
+          return (
+            <Popup title={s.name} onClose={back}>
+            <StopDetail
+              key={s.id}
+              stop={s}
+              users={stopUsers}
+              proposals={stopProps}
+              orgs={orgs}
+              isAdmin={isAdmin}
+              onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
+              onSaveStop={(patch) => saveStop(s.id, patch)}
+              onSuspend={() => suspendStop(s.id)}
+              onRestore={() => restoreStop(s.id)}
+              onDelete={() => deleteStop(s.id)}
+            />
+            </Popup>
+          );
+        }
       } else {
         // Ogni proposta cliccata su mappa apre la scheda: quelle eliminate
         // (visibili col flag "Eliminati") hanno status="rejected" e vengono

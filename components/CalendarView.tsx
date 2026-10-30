@@ -153,11 +153,10 @@ export default function CalendarView({
         }}
       >
         <option value="">{cap(bl)}</option>
-        <option value="-">Nessuna uscita (eccezione)</option>
+        <option value="-">Nessuna uscita</option>
         {orgs.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name}
-            {o.id === bn && !ov ? "" : " (eccezione)"}
           </option>
         ))}
       </select>

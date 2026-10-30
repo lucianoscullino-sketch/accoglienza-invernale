@@ -12,7 +12,7 @@ import "leaflet/dist/leaflet.css";
 type LeafletModule = typeof import("leaflet");
 
 export interface MapItem {
-  kind: "user" | "prop" | "draft";
+  kind: "user" | "prop" | "stop" | "draft";
   id: string;
   lat: number;
   lng: number;
@@ -23,10 +23,13 @@ export interface MapItem {
   // Utente sospeso o eliminato mostrato con il flag del coordinamento:
   // pin con glifo e stile propri (barra diagonale / X).
   inactive?: "susp" | "del";
+  // Tappa di appartenenza (solo per utenti/proposte): usata per raggruppare
+  // visivamente i pin dentro la tappa.
+  stop_id?: string | null;
 }
 
 export interface Selection {
-  kind: "user" | "prop";
+  kind: "user" | "prop" | "stop";
   id: string;
 }
 
@@ -54,6 +57,11 @@ function pinHtml(it: MapItem, sel: boolean) {
   else if (it.inactive === "del") glyph = CROSS;
   else if (it.st === "done") glyph = CHK;
   else if (it.st === "missing") glyph = DASH;
+  else if (it.kind === "stop")
+    glyph =
+      '<text class="mk-t" y="-21.5" text-anchor="middle">' +
+      esc((it.name || "?").trim().charAt(0).toUpperCase()) +
+      "</text>";
   else
     glyph =
       '<text class="mk-t" y="-21.5" text-anchor="middle">' +
@@ -75,6 +83,7 @@ function pinHtml(it: MapItem, sel: boolean) {
   }
   // Le proposte usano un pin ancora più piccolo per non coprire gli utenti ordinari
   const small = it.kind === "prop" || it.kind === "draft";
+  const isStop = it.kind === "stop";
   const w = small ? 28 : 46;
   const h = small ? 30 : 48;
   return (
@@ -87,6 +96,7 @@ function pinHtml(it: MapItem, sel: boolean) {
     it.st +
     (it.inactive ? " in-" + it.inactive : "") +
     (it.kind === "prop" || it.kind === "draft" ? " pr" : "") +
+    (isStop ? " stp" : "") +
     (sel ? " sel" : "") +
     '"><title>' +
     esc(it.name) +
@@ -115,7 +125,7 @@ export default function MapView({
   selected: Selection | null;
   placing: boolean;
   focusTo: { lat: number; lng: number; n: number } | null;
-  onSelect: (kind: "user" | "prop", id: string, fromMap: boolean) => void;
+  onSelect: (kind: "user" | "prop" | "stop", id: string, fromMap: boolean) => void;
   onPlace: (lat: number, lng: number) => void;
   overlays?: ReactNode;
 }) {
@@ -176,19 +186,20 @@ export default function MapView({
     sorted.forEach((it) => {
       const sel = !!selected && selected.kind === it.kind && selected.id === it.id;
       const small = it.kind === "prop" || it.kind === "draft";
+      // Le tappe hanno un pin grande e visibile anche se vuote.
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: L.divIcon({
           className: "mk-div",
           html: pinHtml(it, sel),
-          iconSize: small ? [28, 30] : [46, 48],
-          iconAnchor: small ? [11, 29] : [18, 46],
+          iconSize: small || it.kind === "stop" ? [28, 30] : [46, 48],
+          iconAnchor: small || it.kind === "stop" ? [11, 29] : [18, 46],
         }),
         title: it.name,
         riseOnHover: true,
       });
       marker.on("click", () => {
         if (it.kind === "draft") return;
-        cbRef.current.onSelect(it.kind as "user" | "prop", it.id, true);
+        cbRef.current.onSelect(it.kind as "user" | "prop" | "stop", it.id, true);
       });
       marker.addTo(lg);
     });
