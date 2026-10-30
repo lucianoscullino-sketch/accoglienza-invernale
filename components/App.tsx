@@ -425,7 +425,6 @@ export default function App({ profile }: { profile: Profile }) {
           name: stopName.trim(),
           lat: draftPos.lat,
           lng: draftPos.lng,
-          note: null,
           status: "active",
         })
         .select()
@@ -1239,16 +1238,17 @@ export default function App({ profile }: { profile: Profile }) {
           <div className="duty-actions" style={{ marginLeft: "auto", display: "flex", gap: 8, flexShrink: 0 }}>
             {isAdmin && (
               <button
-                className="btn btn-sm"
+                className="btn"
                 type="button"
                 onClick={startCreateStop}
                 style={{
-                  minWidth: 110,
+                  minWidth: 150,
+                  height: 44,
                   background: "#0f766e",
                   color: "#fff",
                   border: "none",
-                  padding: "6px 14px",
-                  fontSize: "13px",
+                  padding: "8px 18px",
+                  fontSize: "14px",
                   borderRadius: "6px",
                   cursor: "pointer",
                 }}
@@ -1261,12 +1261,13 @@ export default function App({ profile }: { profile: Profile }) {
               type="button"
               onClick={startPropose}
               style={{
-                minWidth: 110,
+                minWidth: 150,
+                height: 44,
                 background: "#2563eb",
                 color: "#fff",
                 border: "none",
-                padding: "6px 14px",
-                fontSize: "13px",
+                padding: "8px 18px",
+                fontSize: "14px",
                 borderRadius: "6px",
                 cursor: "pointer",
               }}
