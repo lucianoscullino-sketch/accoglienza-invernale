@@ -169,7 +169,7 @@ export default function StopDetail({
               <li key={u.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenUser?.(u.id)}>
                 <span className="caldate" style={{ fontSize: 16, fontWeight: 600 }} onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{u.name}</span>
                 <span className="pgtxt">{u.description}</span>
-                <button className="btn btn-sm" type="button" onClick={(e) => { e.stopPropagation(); onOpenMap(u.lat, u.lng, u.name); }}>Naviga con Maps</button>
+                {!isAdmin && <button className="btn btn-sm" type="button" onClick={(e) => { e.stopPropagation(); onOpenMap(u.lat, u.lng, u.name); }}>Naviga con Maps</button>}
               </li>
             ))}
           </ul>
@@ -184,7 +184,7 @@ export default function StopDetail({
               <li key={p.id} className="calrow">
                 <span className="caldate">{p.name}</span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>
+                {!isAdmin && <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>}
               </li>
             ))}
           </ul>

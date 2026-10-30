@@ -1349,30 +1349,29 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   function listHTML() {
-    const order: Record<string, number> = { active: 0, suspended: 1, deleted: 2 };
-    // Elenca le tappe (non gli utenti) nel tab "Stasera"
+    const order: Record<Status, number> = { todo: 0, missing: 1, done: 2 };
+    // Il coordinamento vede anche le utenze sospese o eliminate, per poterle
+    // riattivare / ripristinare o rimuovere: le aggiungiamo in fondo alla lista.
     const items = [
-      ...stops.map((s) => ({
-        kind: "stop" as const,
-        id: s.id,
-        name: s.name,
-        desc: s.note || "",
-        status: s.status,
-        usersCount: users.filter((u) => u.stop_id === s.id).length,
-      })),
-    ].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.name.localeCompare(b.name));
+      ...users.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description, s: statusOf(u), susp: false })),
+      ...visibleProps.map((p) => ({ kind: "prop" as const, id: p.id, name: p.name, desc: p.description, s: propTonight(p), susp: false })),
+      ...(isAdmin
+        ? suspendedUsers.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description || "Utenza sospesa", s: "missing" as Status, susp: true }))
+        : []),
+      ...(isAdmin
+        ? deletedUsers.map((u) => ({ kind: "user" as const, id: u.id, name: u.name, desc: u.description || "Utenza eliminata", s: "missing" as Status, susp: true }))
+        : []),
+    ].sort((a, b) => order[a.s] - order[b.s] || a.name.localeCompare(b.name));
     return (
       <>
+        {/* Tasti di creazione spostati accanto a "Stasera in uscita" */}
         <ul className="list">
           {items.map((it) => (
-            <li key={it.id} style={servedStops.has(it.id) ? { background: "#e8f5e9" } : undefined}>
-              <button className="row" type="button" onClick={() => select("stop", it.id, false)}>
+            <li key={it.kind + it.id}>
+              <button className="row" type="button" onClick={() => select(it.kind, it.id, false)}>
                 <span className="rowmain">
                   <span className="rowname">{it.name}</span>
-                  <span className="rowdesc">
-                    {it.status === "active" ? "Attiva" : it.status === "suspended" ? "Sospesa" : "Eliminata"}
-                    {it.usersCount > 0 ? ` · ${it.usersCount} utenti` : " · vuota"}
-                  </span>
+                  <span className="rowdesc">{it.desc}</span>
                 </span>
               </button>
             </li>
