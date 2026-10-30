@@ -1242,13 +1242,13 @@ export default function App({ profile }: { profile: Profile }) {
                 type="button"
                 onClick={startCreateStop}
                 style={{
-                  minWidth: 150,
-                  height: 44,
+                  minWidth: 190,
+                  height: 52,
                   background: "#0f766e",
                   color: "#fff",
                   border: "none",
-                  padding: "8px 18px",
-                  fontSize: "14px",
+                  padding: "10px 24px",
+                  fontSize: "15px",
                   borderRadius: "6px",
                   cursor: "pointer",
                 }}
@@ -1261,13 +1261,13 @@ export default function App({ profile }: { profile: Profile }) {
               type="button"
               onClick={startPropose}
               style={{
-                minWidth: 150,
-                height: 44,
+                minWidth: 190,
+                height: 52,
                 background: "#2563eb",
                 color: "#fff",
                 border: "none",
-                padding: "8px 18px",
-                fontSize: "14px",
+                padding: "10px 24px",
+                fontSize: "15px",
                 borderRadius: "6px",
                 cursor: "pointer",
               }}
@@ -1591,6 +1591,24 @@ export default function App({ profile }: { profile: Profile }) {
               onSuspend={() => suspendStop(s.id)}
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
+              onAddUser={async (v) => {
+                const sb = supabase();
+                const { data, error } = await sb
+                  .from("service_users")
+                  .insert({
+                    name: v.name,
+                    description: v.desc,
+                    lat: s.lat,
+                    lng: s.lng,
+                    created_by_org: myOrgId(),
+                    stop_id: s.id,
+                  })
+                  .select()
+                  .single();
+                if (error) throw error;
+                setUsers((prev) => [...prev, data as ServiceUser]);
+                toast("Utente aggiunto alla tappa");
+              }}
             />
             </Popup>
           );
@@ -1688,24 +1706,32 @@ export default function App({ profile }: { profile: Profile }) {
   // --- legenda e layout ---
   const c = counts();
   const menuWide = isAdmin;
+  // Tappe: da servire (almeno un utente todo), vuote (nessun utente), servite (utenti done e nessuno todo)
+  const stopUserStats = stops.map((s) => {
+    const su = users.filter((u) => u.stop_id === s.id);
+    const todo = su.filter((u) => statusOf(u) === "todo").length;
+    const done = su.filter((u) => statusOf(u) === "done").length;
+    return { stop: s, todo, done, n: su.length };
+  });
+  const stopsServing = stopUserStats.filter((x) => x.todo > 0).length;
+  const stopsEmpty = stopUserStats.filter((x) => x.n === 0).length;
+  const stopsDone = stopUserStats.filter((x) => x.n > 0 && x.todo === 0 && x.done > 0).length;
   const legend = (
     <ul className="legend">
       <li>
-        <span className="dot st-todo" /> Da servire <b>{c.t}</b>
+        <span className="dot st-todo" /> Tappe da servire <b>{stopsServing}</b>
       </li>
       <li>
-        <span className="dot st-done" /> Serviti <b>{c.d}</b>
+        <span className="dot st-done" /> Tappe servite <b>{stopsDone}</b>
       </li>
       <li>
-        <span className="dot st-missing" /> Non trovati <b>{c.m}</b>
+        <span className="dot st-missing" /> Tappe vuote <b>{stopsEmpty}</b>
       </li>
-      {c.p ? (
+      {showProps ? (
         <li>
-          <span className="dot pr st-todo" /> Proposte <b>{c.p}</b>
+          <span className="dot pr st-todo" /> Candidati <b>{visibleProps.filter((p) => !p.stop_id).length}</b>
         </li>
       ) : null}
-      {/* Voci aggiuntive: compaiono solo con i flag attivi, così la legenda
-          descrive sempre anche ciò che è mostrato sulla mappa. */}
       {showSuspended ? (
         <li>
           <span className="dot st-susp" /> Sospesi <b>{suspendedUsers.length}</b>

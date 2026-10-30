@@ -15,13 +15,14 @@ interface StopDetailProps {
   onSuspend: (note: string) => Promise<void>;
   onRestore: () => Promise<void>;
   onDelete: (note: string) => Promise<void>;
+  onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
 }
 
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, onOpenMap,
-  onSaveStop, onSuspend, onRestore, onDelete,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser,
 }: StopDetailProps) {
-  const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save">("");
+  const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
   const [edit, setEdit] = useState(false);
   const [edName, setEdName] = useState(stop.name);
@@ -29,9 +30,29 @@ export default function StopDetail({
   const [edLng, setEdLng] = useState(String(stop.lng));
   const [edNote, setEdNote] = useState(stop.note || "");
   const [editErr, setEditErr] = useState("");
+  const [addingUser, setAddingUser] = useState(false);
+  const [addUserName, setAddUserName] = useState("");
+  const [addUserDesc, setAddUserDesc] = useState("");
+  const [addUserErr, setAddUserErr] = useState("");
   const empty = users.length === 0 && proposals.length === 0;
   const statusLabel = { active: "Attiva", suspended: "Sospesa", deleted: "Eliminata" }[stop.status];
   const canManage = isAdmin;
+
+  async function doAddUser() {
+    if (!onAddUser || !addUserName.trim()) return;
+    setBusy("add");
+    setAddUserErr("");
+    try {
+      await onAddUser({ name: addUserName.trim(), desc: addUserDesc.trim() });
+      setAddingUser(false);
+      setAddUserName("");
+      setAddUserDesc("");
+    } catch (e) {
+      setAddUserErr(e instanceof Error ? e.message : "Errore nella creazione");
+    } finally {
+      setBusy("");
+    }
+  }
 
   return (
     <div className="detail stack">
@@ -43,6 +64,14 @@ export default function StopDetail({
         {canManage && !confirm && !edit ? (
           <>
             <button className="btn btn-sm" type="button" onClick={() => setEdit(true)}>Modifica tappa</button>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => { setAddingUser(true); setAddUserErr(""); }}
+              style={{ background: "#0f766e", color: "#fff", border: "none" }}
+            >
+              Aggiungi utente
+            </button>
             {empty ? (
               <>
                 <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
@@ -61,6 +90,34 @@ export default function StopDetail({
           </>
         ) : null}
       </div>
+
+      {addingUser && canManage && onAddUser ? (
+        <div className="stack" style={{ gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
+          <h4 className="pgtxt" style={{ margin: 0 }}>Nuovo utente in questa tappa</h4>
+          <div>
+            <label className="lb" htmlFor="add-user-name">Nome / nickname</label>
+            <input id="add-user-name" value={addUserName} onChange={(e) => setAddUserName(e.target.value)} />
+          </div>
+          <div>
+            <label className="lb" htmlFor="add-user-desc">Descrizione / dove dorme</label>
+            <textarea id="add-user-desc" rows={2} value={addUserDesc} onChange={(e) => setAddUserDesc(e.target.value)} />
+          </div>
+          {addUserErr ? <p className="notice" style={{ color: "var(--danger)" }}>{addUserErr}</p> : null}
+          <div className="actions" style={{ padding: 0, display: "flex", gap: 8 }}>
+            <button
+              className="btn btn-primary btn-sm"
+              type="button"
+              disabled={busy === "add" || !addUserName.trim()}
+              onClick={doAddUser}
+            >
+              {busy === "add" ? "Creo…" : "Crea utente"}
+            </button>
+            <button className="btn btn-sm" type="button" onClick={() => { setAddingUser(false); setAddUserErr(""); setAddUserName(""); setAddUserDesc(""); }}>
+              Annulla
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {confirm && empty && canManage ? (
         <div className="stack" style={{ gap: 6 }}>
