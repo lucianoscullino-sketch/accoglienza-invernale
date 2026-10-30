@@ -181,10 +181,10 @@ export default function App({ profile }: { profile: Profile }) {
         else setProfiles((pr.data || []) as Profile[]);
         if (u.error) problems.push(`utenti: ${msg(u.error)}`);
         else setUsers((u.data || []) as ServiceUser[]);
-        if (su.error) problems.push(`utenze sospese: ${msg(su.error)}`);
+        if (st.error) problems.push(`utenze sospese: ${msg(st.error)}`);
         else {
           // Separiamo le sospese (reversibili) dalle eliminate (soft-delete).
-          const inactive = (su.data || []) as ServiceUser[];
+          const inactive = (st.data || []) as ServiceUser[];
           setSuspendedUsers(inactive.filter((x) => !x.deleted));
           setDeletedUsers(inactive.filter((x) => !!x.deleted));
         }
@@ -202,8 +202,8 @@ export default function App({ profile }: { profile: Profile }) {
         else setOverrides((c.data || []) as CalendarOverride[]);
         if (s.error) problems.push(`impostazioni: ${msg(s.error)}`);
         else if (s.data) setSettings(s.data as Settings);
-        if (st.error) problems.push(`tappe: ${msg(st.error)}`);
-        else setStops((st.data || []) as Stop[]);
+        if (su.error) problems.push(`tappe: ${msg(su.error)}`);
+        else setStops((su.data || []) as Stop[]);
         // Avvisi: errore NON bloccante. La tabella arriva con la migrazione
         // 0013; se non è ancora applicata l'app resta pienamente funzionante
         // e l'errore viene mostrato al solo coordinamento nel tab Comunicazioni.
