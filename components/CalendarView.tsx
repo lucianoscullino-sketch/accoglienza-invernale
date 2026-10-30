@@ -274,30 +274,6 @@ export default function CalendarView({
           <ul className="list" style={{ gap: 0 }}>
             {weeklyRows}
           </ul>
-          <p className="pgtxt" style={{ margin: "8px 0 0" }}>
-            <strong>Sabati a turno</strong>: a ogni sabato esce la successiva dell&apos;elenco, poi
-            si ricomincia.
-          </p>
-          <ul className="list" style={{ gap: 0 }}>
-            {rotRows}
-          </ul>
-          {adm ? (
-            <div className="calrow">
-              <label className="caldate" htmlFor="rot-start">
-                Il turno 1 cade il sabato
-              </label>
-              <input
-                id="rot-start"
-                type="date"
-                value={sat.start}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v && new Date(v + "T12:00:00").getDay() === 6)
-                    onSaveSettings({ sat: { ...sat, start: v } });
-                }}
-              />
-            </div>
-          ) : null}
           <p className="pgtxt pgnote">Prossimi sabati: {nextSats.join(" · ")}</p>
         </div>
       </details>
