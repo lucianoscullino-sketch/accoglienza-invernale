@@ -1235,6 +1235,43 @@ export default function App({ profile }: { profile: Profile }) {
             <p className="dutyname">{dutyName}</p>
           </div>
           {tag}
+          <div className="duty-actions">
+            {isAdmin && (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={startCreateStop}
+                style={{
+                  background: "#0f766e",
+                  color: "#fff",
+                  border: "none",
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  marginRight: 6,
+                }}
+              >
+                Crea tappa
+              </button>
+            )}
+            <button
+              className="btn btn-prop"
+              type="button"
+              onClick={startPropose}
+              style={{
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                padding: "4px 10px",
+                fontSize: "12px",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              Proponi utente
+            </button>
+          </div>
         </div>
       </>
     );
@@ -1288,14 +1325,7 @@ export default function App({ profile }: { profile: Profile }) {
     ].sort((a, b) => order[a.s] - order[b.s] || a.name.localeCompare(b.name));
     return (
       <>
-        <button className="btn btn-prop" type="button" onClick={startPropose}>
-          Proponi utente
-        </button>
-        {isAdmin && (
-          <button className="btn btn-sm" type="button" onClick={startCreateStop}>
-            Crea tappa
-          </button>
-        )}
+        {/* Tasti di creazione spostati accanto a "Stasera in uscita" */}
         <ul className="list">
           {items.map((it) => (
             <li key={it.kind + it.id}>
@@ -1436,11 +1466,7 @@ export default function App({ profile }: { profile: Profile }) {
             </ul>
           </>
         )}
-        {/* Tasto di proposta in fondo: sezione avvisi in testa, elenco
-            proposte al centro, azione di proposta alla fine. */}
-        <button className="btn btn-prop" type="button" onClick={startPropose}>
-          Proponi utente
-        </button>
+        {/* Tasto di proposta spostato accanto a "Stasera in uscita" */}
       </>
     );
   }
@@ -1453,41 +1479,33 @@ export default function App({ profile }: { profile: Profile }) {
           Impossibile caricare i dati da Supabase: {loadErr}
         </p>
       );
-    if (creatingStop) {
+    if (placing && creatingStop && draftPos) {
       return (
-        <Popup title="Nuova tappa" onClose={cancelCreateStop}>
-          <div className="stack" style={{ gap: 8 }}>
-            <label className="lb">Nome della tappa</label>
-            <input
-              className="input"
-              value={stopName}
-              onChange={(e) => setStopName(e.target.value)}
-              autoFocus
-            />
-            {draftPos ? (
-              <p className="pgtxt mono">
-                {draftPos.lat.toFixed(5)}, {draftPos.lng.toFixed(5)}
-              </p>
-            ) : (
-              <p className="notice">
-                Tocca la mappa per scegliere la posizione della tappa.
-              </p>
-            )}
-            <div className="actions" style={{ padding: 0 }}>
-              <button className="btn btn-sm" type="button" onClick={cancelCreateStop}>
-                Annulla
-              </button>
-              <button
-                className="btn btn-primary btn-sm"
-                type="button"
-                disabled={!stopName.trim() || !draftPos}
-                onClick={doCreateStop}
-              >
-                Crea tappa
-              </button>
-            </div>
+        <div className="stack" style={{ gap: 8, padding: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, maxWidth: 300, margin: 12 }}>
+          <label className="lb" style={{ fontSize: 12, margin: 0 }}>Nome della tappa</label>
+          <input
+            className="input"
+            value={stopName}
+            onChange={(e) => setStopName(e.target.value)}
+            autoFocus
+            style={{ width: "100%", padding: 6, fontSize: 13, border: "1px solid #cbd5e1", borderRadius: 4, boxSizing: "border-box" }}
+          />
+          <p className="pgtxt mono" style={{ fontSize: 11, margin: 4, color: "#64748b" }}>
+            {draftPos.lat.toFixed(5)}, {draftPos.lng.toFixed(5)}
+          </p>
+          <div className="actions" style={{ padding: 0, display: "flex", gap: 6 }}>
+            <button className="btn btn-sm" type="button" onClick={cancelCreateStop} style={{ flex: 1, fontSize: 12, padding: 6 }}>Annulla</button>
+            <button
+              className="btn btn-primary btn-sm"
+              type="button"
+              disabled={!stopName.trim()}
+              onClick={doCreateStop}
+              style={{ flex: 1, fontSize: 12, padding: 6, background: "#0f766e", border: "none", color: "#fff" }}
+            >
+              Crea tappa
+            </button>
           </div>
-        </Popup>
+        </div>
       );
     }
     if (placing)

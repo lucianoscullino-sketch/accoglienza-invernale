@@ -159,9 +159,12 @@ export default function CalendarView({
     const isT = k === today();
     const mineN = !adm && !!id && id === myOrg;
     const bn = baseDutyId(settings, k);
-    const bl = bn
-      ? `come da calendario fisso: ${orgName(bn, orgs)}`
-      : "come da calendario fisso: nessuna uscita";
+    const wk = new Date(k + "T12:00:00").getDay();
+    const bl = wk === 6
+      ? ""
+      : bn
+        ? `come da calendario fisso: ${orgName(bn, orgs)}`
+        : "come da calendario fisso: nessuna uscita";
     const cell = adm ? (
       <select
         aria-label={`Associazione del ${fmtShort(k)}`}
