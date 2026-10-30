@@ -5,7 +5,6 @@
 import { useRef, useState } from "react";
 import type { DailyLog, Org, ServiceUser } from "@/lib/types";
 import { fmtShort, orgName } from "@/lib/format";
-import { openGoogleMaps } from "@/lib/maps";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 
 export default function UserDetail({
@@ -259,12 +258,17 @@ export default function UserDetail({
       ) : null}
 
         <div className="actions" style={{ padding: 0 }}>
-          <button className="btn btn-sm" type="button" onClick={() => openGoogleMaps(user.lat, user.lng, user.name)}>
-            Naviga verso
-          </button>
+          <a
+            className="btn btn-sm"
+            href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${user.lat},${user.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Naviga con Maps
+          </a>
         </div>
         <p className="pgtxt mono">
-          {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
+          Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
         </p>
         {suspended || deleted ? (
           onReportFound ? (
