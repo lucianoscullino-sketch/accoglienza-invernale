@@ -434,8 +434,9 @@ export default function App({ profile }: { profile: Profile }) {
       setStops((prev) => [data as Stop, ...prev]);
       cancelCreateStop();
       toast("Tappa creata");
-    } catch (err) {
-      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    } catch (err: any) {
+      const msg = err?.message || (err?.error?.message) || (err?.details) || JSON.stringify(err) || "riprova";
+      toast("Errore: " + msg);
     }
   }
 
@@ -1229,27 +1230,27 @@ export default function App({ profile }: { profile: Profile }) {
     );
     return (
       <>
-        <div className="duty">
+        <div className="duty" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <div>
             <p className="eyebrow">Stasera in uscita</p>
             <p className="dutyname">{dutyName}</p>
           </div>
           {tag}
-          <div className="duty-actions">
+          <div className="duty-actions" style={{ marginLeft: "auto", display: "flex", gap: 8, flexShrink: 0 }}>
             {isAdmin && (
               <button
                 className="btn btn-sm"
                 type="button"
                 onClick={startCreateStop}
                 style={{
+                  minWidth: 110,
                   background: "#0f766e",
                   color: "#fff",
                   border: "none",
-                  padding: "4px 10px",
-                  fontSize: "12px",
+                  padding: "6px 14px",
+                  fontSize: "13px",
                   borderRadius: "6px",
                   cursor: "pointer",
-                  marginRight: 6,
                 }}
               >
                 Crea tappa
@@ -1260,11 +1261,12 @@ export default function App({ profile }: { profile: Profile }) {
               type="button"
               onClick={startPropose}
               style={{
+                minWidth: 110,
                 background: "#2563eb",
                 color: "#fff",
                 border: "none",
-                padding: "4px 10px",
-                fontSize: "12px",
+                padding: "6px 14px",
+                fontSize: "13px",
                 borderRadius: "6px",
                 cursor: "pointer",
               }}
