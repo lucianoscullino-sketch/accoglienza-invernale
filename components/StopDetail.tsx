@@ -17,11 +17,12 @@ interface StopDetailProps {
   onDelete: (note: string) => Promise<void>;
   onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
   onMarkServed?: (stopId: string) => Promise<void>;
+  onOpenUser?: (userId: string) => void;
 }
 
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, onOpenMap,
-  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
@@ -62,9 +63,11 @@ export default function StopDetail({
   return (
     <div className="detail stack">
       <div className="actions" style={{ padding: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
-          Naviga con Maps
-        </button>
+        {!isAdmin && (
+          <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
+            Naviga con Maps
+          </button>
+        )}
         {canManage && !confirm && !edit ? (
           <>
             <button className="btn btn-sm" type="button" onClick={() => setManageOpen((v) => !v)}>Gestisci tappa</button>
@@ -76,7 +79,7 @@ export default function StopDetail({
             >
               Aggiungi utente
             </button>
-            {empty ? (
+            {!isAdmin && users.length === 0 ? (
               <>
                 <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
                   {busy === "susp" ? "Servo…" : "Tappa servita"}
@@ -153,7 +156,6 @@ export default function StopDetail({
 
       <div className="stack" style={{ gap: 8 }}>
         <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className={`badge badge-${stop.status}`}>{statusLabel}</span>
           {stop.name}
         </h3>
         <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
@@ -164,10 +166,10 @@ export default function StopDetail({
         ) : (
           <ul className="list" style={{ gap: 0 }}>
             {users.map((u) => (
-              <li key={u.id} className="calrow">
+              <li key={u.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenUser?.(u.id)}>
                 <span className="caldate">{u.name}</span>
                 <span className="pgtxt">{u.description}</span>
-                <button className="btn btn-sm" type="button" onClick={() => onOpenMap(u.lat, u.lng, u.name)}>Naviga con Maps</button>
+                <button className="btn btn-sm" type="button" onClick={(e) => { e.stopPropagation(); onOpenMap(u.lat, u.lng, u.name); }}>Naviga con Maps</button>
               </li>
             ))}
           </ul>

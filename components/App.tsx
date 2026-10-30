@@ -311,7 +311,7 @@ export default function App({ profile }: { profile: Profile }) {
       const stServed = servedStops.has(s.id) ? ("done" as Status) : undefined;
       // La tappa è "done" se almeno un utente è stato servito,
       // "missing" se ci sono utenti ma nessuno è stato servito, "todo" se nessun utente
-      const st = stServed !== undefined ? stServed : doneUsers.length > 0 ? ("done" as Status) : usersInStop.length > 0 ? ("missing" as Status) : ("todo" as Status);
+      const st = stServed !== undefined ? stServed : doneUsers.length > 0 ? ("done" as Status) : usersInStop.length > 0 ? ("todo" as Status) : ("missing" as Status);
       return {
         kind: "stop" as const,
         id: s.id,
@@ -778,6 +778,14 @@ export default function App({ profile }: { profile: Profile }) {
         ...prev.filter((l) => !(l.user_id === uid && l.date === row.date)),
         rec,
       ]);
+      const u = [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === uid);
+      if (u?.stop_id) {
+        setServedStops((prev) => {
+          const next = new Set(prev);
+          next.add(u.stop_id!);
+          return next;
+        });
+      }
       toast("Esito registrato, firmato " + orgName(row.org_id, orgs));
       return true;
     } catch (e) {
@@ -1357,7 +1365,7 @@ export default function App({ profile }: { profile: Profile }) {
       <>
         <ul className="list">
           {items.map((it) => (
-            <li key={it.id}>
+            <li key={it.id} style={servedStops.has(it.id) ? { background: "#e8f5e9" } : undefined}>
               <button className="row" type="button" onClick={() => select("stop", it.id, false)}>
                 <span className="rowmain">
                   <span className="rowname">{it.name}</span>
@@ -1607,7 +1615,7 @@ export default function App({ profile }: { profile: Profile }) {
           const stopUsers = users.filter((u) => u.stop_id === s.id);
           const stopProps = proposals.filter((p) => p.stop_id === s.id);
           return (
-            <Popup title={s.name} onClose={back}>
+            <Popup title={s.name} titleExtra={<span className={`badge badge-${s.status}`}>{s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}</span>} onClose={back}>
             <StopDetail
               key={s.id}
               stop={s}
@@ -1621,6 +1629,7 @@ export default function App({ profile }: { profile: Profile }) {
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
               onMarkServed={() => markStopAsServed(s.id)}
+              onOpenUser={(uid) => { back(); select("user", uid, false); }}
               onAddUser={async (v) => {
                 const sb = supabase();
                 const { data, error } = await sb

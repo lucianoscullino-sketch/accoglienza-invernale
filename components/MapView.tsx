@@ -100,9 +100,8 @@ function pinHtml(it: MapItem, sel: boolean) {
     (sel ? " sel" : "") +
     '"><title>' +
     esc(it.name) +
-    " (" +
-    esc(it.tip || it.st) +
-    ")</title>" +
+    (it.tip ? " (" + esc(it.tip) + ")" : "") +
+    "</title>" +
     '<ellipse class="mk-s" rx="6" ry="2.6"/><path class="mk-c" d="' +
     PIN +
     '"/>' +

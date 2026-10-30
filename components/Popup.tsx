@@ -4,10 +4,12 @@ import { useEffect, type ReactNode } from "react";
 // Lo sfondo resta semi-trasparente così si vede che l'app sotto è ancora aperta.
 export default function Popup({
   title,
+  titleExtra,
   onClose,
   children,
 }: {
   title: string;
+  titleExtra?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -30,7 +32,10 @@ export default function Popup({
         tabIndex={-1}
       >
         <div className="popup-toolbar">
-          <h2 className="popup-title">{title}</h2>
+          <h2 className="popup-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {title}
+            {titleExtra}
+          </h2>
           <button
             className="popup-close"
             type="button"
