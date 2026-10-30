@@ -167,7 +167,7 @@ export default function StopDetail({
           <ul className="list" style={{ gap: 0 }}>
             {users.map((u) => (
               <li key={u.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenUser?.(u.id)}>
-                <span className="caldate">{u.name}</span>
+                <span className="caldate" style={{ fontSize: 16, fontWeight: 600 }} onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{u.name}</span>
                 <span className="pgtxt">{u.description}</span>
                 <button className="btn btn-sm" type="button" onClick={(e) => { e.stopPropagation(); onOpenMap(u.lat, u.lng, u.name); }}>Naviga con Maps</button>
               </li>
