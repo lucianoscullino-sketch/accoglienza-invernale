@@ -83,8 +83,13 @@ textarea { resize: vertical; min-height: 64px; }
   align-items: flex-start;
   gap: 6px;
 }
-.mapflag {
-  display: inline-flex;
+.mapflags-bottomright {
+  top: auto;
+  left: auto;
+  bottom: 10px;
+  right: 10px;
+  align-items: flex-end;
+}
   align-items: center;
   gap: 6px;
   min-height: 0;
