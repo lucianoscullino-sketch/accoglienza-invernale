@@ -3,13 +3,24 @@
 // Tab "Calendario": regola fissa settimanale, sabati a turno, prossime sere
 // con eccezioni per singola sera e caricamento da file (solo amministratore).
 
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import type { CalendarOverride, Org, Settings } from "@/lib/types";
 import { baseDutyId, effDutyId } from "@/lib/duty";
 import { WD_IT, WK_ORDER, addDaysKey, fmtShort, orgName, today } from "@/lib/format";
 import PanelHeader from "@/components/PanelHeader";
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Fine marzo dell'anno in corso (o del prossimo se siamo già oltre marzo)
+function endOfMarch(): Date {
+  const now = new Date();
+  const year = now.getMonth() >= 3 ? now.getFullYear() + 1 : now.getFullYear();
+  return new Date(year, 2, 31, 12, 0, 0); // mese 2 = marzo (0-indexed)
+}
+function daysToEndOfMarch(): number {
+  const diff = endOfMarch().getTime() - new Date().getTime();
+  return Math.max(Math.ceil(diff / (1000 * 60 * 60 * 24)), 28);
+}
 
 export default function CalendarView({
   orgs,
@@ -36,7 +47,12 @@ export default function CalendarView({
   onSaveSettings: (patch: Partial<Pick<Settings, "weekly" | "sat">>) => Promise<void>;
   onApplyText: (text: string) => Promise<void>;
 }) {
+  const [localSettings, setLocalSettings] = useState<Settings | null>(settings);
   const [text, setText] = useState("");
+
+  useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
   const [applied, setApplied] = useState(false);
   const adm = isAdmin;
 
@@ -64,30 +80,31 @@ export default function CalendarView({
 
   const weeklyRows = WK_ORDER.map((w) => {
     let cell: ReactNode;
-    if (w === 6) cell = <span>A rotazione (vedi sotto)</span>;
-    else {
-      const id = settings.weekly[String(w)] || "";
-      cell = adm ? (
-        <select
-          aria-label={`Associazione del ${WD_IT[w].toLowerCase()}`}
-          value={id}
-          onChange={(e) =>
-            onSaveSettings({ weekly: { ...settings.weekly, [String(w)]: e.target.value } })
-          }
-        >
-          <option value="">Nessuna uscita</option>
-          {orgs.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-      ) : id ? (
-        <span className={id === myOrg ? "calme" : ""}>{orgName(id, orgs)}</span>
-      ) : (
-        <span className="calnone">Nessuna uscita</span>
-      );
-    }
+    const id = localSettings?.weekly[String(w)] || "";
+    cell = adm ? (
+      <select
+        aria-label={`Associazione del ${WD_IT[w].toLowerCase()}`}
+        value={id}
+        onChange={(e) => {
+          const v = e.target.value;
+          setLocalSettings({
+            ...localSettings!,
+            weekly: { ...localSettings!.weekly, [String(w)]: v },
+          } as Settings);
+        }}
+      >
+        <option value="">Nessuna uscita</option>
+        {orgs.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    ) : id ? (
+      <span className={id === myOrg ? "calme" : ""}>{orgName(id, orgs)}</span>
+    ) : (
+      <span className="calnone">Nessuna uscita</span>
+    );
     return (
       <li className="calrow" key={w}>
         <span className="caldate">{WD_IT[w]}</span>
@@ -96,8 +113,8 @@ export default function CalendarView({
     );
   });
 
-  const sat = settings.sat;
-  const rotRows = (sat.order || []).map((id, i) => (
+  const sat = localSettings?.sat ?? { order: [], start: "" };
+  const rotRows = (sat?.order || []).map((id, i) => (
     <li className="calrow" key={`rot-${i}`}>
       <span className="caldate">Turno {i + 1}</span>
       {adm ? (
@@ -105,14 +122,17 @@ export default function CalendarView({
           aria-label={`Associazione del turno ${i + 1}`}
           value={id}
           onChange={(e) => {
-            const order = [...(sat.order || [])];
+            const order = [...(sat?.order || [])];
             const v = e.target.value;
             const j = order.indexOf(v);
             if (j >= 0 && j !== i) {
               order[j] = order[i];
               order[i] = v;
             }
-            onSaveSettings({ sat: { ...sat, order } });
+            setLocalSettings({
+              ...localSettings!,
+              sat: { ...sat!, order },
+            } as Settings);
           }}
         >
           {orgOpts(null)}
@@ -126,11 +146,11 @@ export default function CalendarView({
   const nextSats: string[] = [];
   for (let i = 0; i < 60 && nextSats.length < 4; i++) {
     const k = addDaysKey(i);
-    if (new Date(k + "T12:00:00").getDay() === 6) nextSats.push(`${fmtShort(k)}: ${orgName(baseDutyId(settings, k), orgs)}`);
+    if (new Date(k + "T12:00:00").getDay() === 6)
+      nextSats.push(`${fmtShort(k)}: ${orgName(baseDutyId(localSettings || settings, k), orgs)}`);
   }
 
-
-  const n = calAll ? 90 : 28;
+  const n = calAll ? daysToEndOfMarch() : 28;
   const days = Array.from({ length: n }, (_, i) => addDaysKey(i));
   const rows = days.map((k) => {
     const ov = overrides.find((o) => o.date === k);
@@ -138,7 +158,6 @@ export default function CalendarView({
     const org = orgs.find((o) => o.id === id);
     const isT = k === today();
     const mineN = !adm && !!id && id === myOrg;
-    const tag = <span className="calov">eccezione</span>;
     const bn = baseDutyId(settings, k);
     const bl = bn
       ? `come da calendario fisso: ${orgName(bn, orgs)}`
@@ -170,8 +189,6 @@ export default function CalendarView({
         ) : (
           <span className="calnone">Nessuna uscita</span>
         )}
-        {ov ? " " : null}
-        {ov ? tag : null}
       </span>
     );
     return (
@@ -179,8 +196,6 @@ export default function CalendarView({
         <span className="mono caldate">
           {fmtShort(k)}
           {isT ? " · oggi" : ""}
-          {adm && ov ? " " : null}
-          {adm && ov ? tag : null}
         </span>
         {cell}
       </li>
@@ -290,6 +305,20 @@ export default function CalendarView({
         </button>
       ) : null}
       {tools}
+      {adm && localSettings ? (
+        <button
+          className="btn btn-primary"
+          type="button"
+          onClick={() =>
+            onSaveSettings({
+              weekly: localSettings.weekly,
+              sat: localSettings.sat,
+            })
+          }
+        >
+          Salva modifiche
+        </button>
+      ) : null}
     </div>
   );
 }

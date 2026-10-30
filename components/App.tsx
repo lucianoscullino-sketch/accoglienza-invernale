@@ -116,6 +116,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [placing, setPlacing] = useState(false);
   const [draftPos, setDraftPos] = useState<{ lat: number; lng: number } | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; n: number } | null>(null);
+  const [creatingStop, setCreatingStop] = useState(false);
+  const [stopName, setStopName] = useState("");
   const [calAll, setCalAll] = useState(false);
   const [calMsg, setCalMsg] = useState("");
   const [rep, setRep] = useState({ from: addDaysKey(-6), to: today() });
@@ -400,6 +402,41 @@ export default function App({ profile }: { profile: Profile }) {
   function cancelPropose() {
     setPlacing(false);
     setDraftPos(null);
+  }
+  function startCreateStop() {
+    setCreatingStop(true);
+    setPlacing(true);
+    setSelected(null);
+    setDraftPos(null);
+    setStopName("");
+  }
+  function cancelCreateStop() {
+    setCreatingStop(false);
+    setPlacing(false);
+    setDraftPos(null);
+    setStopName("");
+  }
+  async function doCreateStop() {
+    if (!draftPos || !stopName.trim()) return;
+    try {
+      const { data, error } = await supabase()
+        .from("stops")
+        .insert({
+          name: stopName.trim(),
+          lat: draftPos.lat,
+          lng: draftPos.lng,
+          note: null,
+          status: "active",
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setStops((prev) => [data as Stop, ...prev]);
+      cancelCreateStop();
+      toast("Tappa creata");
+    } catch (err) {
+      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+    }
   }
 
   // --- azioni sulle tappe (solo coordinamento) ---
@@ -1252,8 +1289,13 @@ export default function App({ profile }: { profile: Profile }) {
     return (
       <>
         <button className="btn btn-prop" type="button" onClick={startPropose}>
-          Proponi un nuovo utente
+          Proponi utente
         </button>
+        {isAdmin && (
+          <button className="btn btn-sm" type="button" onClick={startCreateStop}>
+            Crea tappa
+          </button>
+        )}
         <ul className="list">
           {items.map((it) => (
             <li key={it.kind + it.id}>
@@ -1397,7 +1439,7 @@ export default function App({ profile }: { profile: Profile }) {
         {/* Tasto di proposta in fondo: sezione avvisi in testa, elenco
             proposte al centro, azione di proposta alla fine. */}
         <button className="btn btn-prop" type="button" onClick={startPropose}>
-          Proponi un nuovo utente
+          Proponi utente
         </button>
       </>
     );
@@ -1411,6 +1453,43 @@ export default function App({ profile }: { profile: Profile }) {
           Impossibile caricare i dati da Supabase: {loadErr}
         </p>
       );
+    if (creatingStop) {
+      return (
+        <Popup title="Nuova tappa" onClose={cancelCreateStop}>
+          <div className="stack" style={{ gap: 8 }}>
+            <label className="lb">Nome della tappa</label>
+            <input
+              className="input"
+              value={stopName}
+              onChange={(e) => setStopName(e.target.value)}
+              autoFocus
+            />
+            {draftPos ? (
+              <p className="pgtxt mono">
+                {draftPos.lat.toFixed(5)}, {draftPos.lng.toFixed(5)}
+              </p>
+            ) : (
+              <p className="notice">
+                Tocca la mappa per scegliere la posizione della tappa.
+              </p>
+            )}
+            <div className="actions" style={{ padding: 0 }}>
+              <button className="btn btn-sm" type="button" onClick={cancelCreateStop}>
+                Annulla
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                type="button"
+                disabled={!stopName.trim() || !draftPos}
+                onClick={doCreateStop}
+              >
+                Crea tappa
+              </button>
+            </div>
+          </div>
+        </Popup>
+      );
+    }
     if (placing)
       return (
         <ProposeForm

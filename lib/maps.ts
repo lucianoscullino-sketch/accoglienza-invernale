@@ -6,7 +6,7 @@ export function openGoogleMaps(
   lat: number,
   lng: number,
   label?: string,
-  directions = false,
+  directions = true,
 ): void {
   const q = directions
     ? `destination=${lat},${lng}`

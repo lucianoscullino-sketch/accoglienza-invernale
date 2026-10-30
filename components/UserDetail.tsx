@@ -260,7 +260,7 @@ export default function UserDetail({
 
         <div className="actions" style={{ padding: 0 }}>
           <button className="btn btn-sm" type="button" onClick={() => openGoogleMaps(user.lat, user.lng, user.name)}>
-            Apri su Google Maps
+            Naviga verso
           </button>
         </div>
         <p className="pgtxt mono">

@@ -186,7 +186,7 @@ export default function PropDetail({
         <p className="desc">{p.description || "Nessuna descrizione."}</p>
         <div className="actions" style={{ padding: 0 }}>
           <button className="btn btn-sm" type="button" onClick={() => openGoogleMaps(p.lat, p.lng, p.name)}>
-            Apri su Google Maps
+            Naviga verso
           </button>
         </div>
         <p className="pgtxt mono">
