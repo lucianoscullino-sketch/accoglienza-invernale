@@ -203,7 +203,7 @@ export default function MapView({
           className: "mk-div",
           html: pinHtml(it, sel),
           iconSize: small || it.kind === "stop" ? [28, 30] : [46, 48],
-          iconAnchor: small || it.kind === "stop" ? [14, 30] : [23, 48],
+          iconAnchor: small || it.kind === "stop" ? [11, 29] : [18, 46],
         }),
         draggable: isDraggable,
         title: it.name,
