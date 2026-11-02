@@ -198,13 +198,19 @@ export default function MapView({
       // anche cambiando zoom, il punto che resta fermo sulla mappa è la punta
       // del pin, non il centro dell'icona.
       const isDraggable = it.id === myDraggableIdRef.current;
+      // Drop pin SVG: 24x36px, tip at [12, 36].
+      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36" fill="currentColor"><path d="M12 0L2 18L22 18zM12 3l-2 30 2 30z"/></svg>';
+      const iconData = 'data:image/svg+xml;base64,' + window.btoa(dropSvg);
+      const iconSize = L.point(24, 36);
+      const iconAnchor = L.point(12, 36);
+      const markerIcon = L.icon({
+        iconUrl: iconData,
+        iconSize: iconSize,
+        iconAnchor: iconAnchor,
+        popupAnchor: L.point(0, -36),
+      });
       const marker: Marker = L.marker([it.lat, it.lng], {
-        icon: L.divIcon({
-          className: "mk-div",
-          html: pinHtml(it, sel),
-          iconSize: small || it.kind === "stop" ? [28, 30] : [46, 48],
-          iconAnchor: small || it.kind === "stop" ? [11, 29] : [18, 46],
-        }),
+        icon: markerIcon,
         draggable: isDraggable,
         title: it.name,
         riseOnHover: false,
