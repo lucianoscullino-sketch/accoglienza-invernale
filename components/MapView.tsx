@@ -199,7 +199,7 @@ export default function MapView({
       // del pin, non il centro dell'icona.
       const isDraggable = it.id === myDraggableIdRef.current;
       // Drop pin SVG: 24x36px, tip at [12, 36].
-      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36" fill="currentColor"><path d="M12 0L2 18L22 18zM12 3l-2 30 2 30z"/></svg>';
+      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36" fill="currentColor"><path d="M12 36L2 0L22 0z"/></svg>';
       const iconData = 'data:image/svg+xml;base64,' + window.btoa(dropSvg);
       const iconSize = L.point(24, 36);
       const iconAnchor = L.point(12, 36);
