@@ -118,6 +118,7 @@ export default function MapView({
   focusTo,
   onSelect,
   onPlace,
+  onMove,
   overlays,
 }: {
   items: MapItem[];
@@ -126,6 +127,7 @@ export default function MapView({
   focusTo: { lat: number; lng: number; n: number } | null;
   onSelect: (kind: "user" | "prop" | "stop", id: string, fromMap: boolean) => void;
   onPlace: (lat: number, lng: number) => void;
+  onMove?: (kind: "user" | "prop" | "stop", id: string, lat: number, lng: number) => void;
   overlays?: ReactNode;
 }) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -133,9 +135,9 @@ export default function MapView({
   const fittedRef = useRef(false);
   const lgRef = useRef<LayerGroup | null>(null);
   const Lref = useRef<LeafletModule | null>(null);
-  const cbRef = useRef({ onSelect, onPlace, placing });
+  const cbRef = useRef({ onSelect, onPlace, placing, onMove });
   useEffect(() => {
-    cbRef.current = { onSelect, onPlace, placing };
+    cbRef.current = { onSelect, onPlace, placing, onMove };
   });
   const [ready, setReady] = useState(false);
 
@@ -186,13 +188,17 @@ export default function MapView({
       const sel = !!selected && selected.kind === it.kind && selected.id === it.id;
       const small = it.kind === "prop" || it.kind === "draft";
       // Le tappe hanno un pin grande e visibile anche se vuote.
+      // iconAnchor punta in basso al centro (spigolo del palloncino): così,
+      // anche cambiando zoom, il punto che resta fermo sulla mappa è la punta
+      // del pin, non il centro dell'icona.
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: L.divIcon({
           className: "mk-div",
           html: pinHtml(it, sel),
           iconSize: small || it.kind === "stop" ? [28, 30] : [46, 48],
-          iconAnchor: small || it.kind === "stop" ? [11, 29] : [18, 46],
+          iconAnchor: small || it.kind === "stop" ? [14, 30] : [23, 48],
         }),
+        draggable: it.kind !== "draft",
         title: it.name,
         riseOnHover: true,
       });
@@ -200,6 +206,13 @@ export default function MapView({
         if (it.kind === "draft") return;
         cbRef.current.onSelect(it.kind as "user" | "prop" | "stop", it.id, true);
       });
+      const onMove = cbRef.current.onMove;
+      if (onMove && it.kind !== "draft") {
+        marker.on("dragend", (e: any) => {
+          const pos = e.target.getLatLng();
+          onMove(it.kind as "user" | "prop" | "stop", it.id, pos.lat, pos.lng);
+        });
+      }
       marker.addTo(lg);
     });
 	    if (!fittedRef.current && items.length > 0) {

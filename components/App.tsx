@@ -467,6 +467,17 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Sposta una tappa o un utente trascinando il pin sulla mappa principale.
+  async function onMapMove(kind: "user" | "prop" | "stop", id: string, lat: number, lng: number) {
+    if (kind === "stop") {
+      const s = stops.find((x) => x.id === id);
+      if (s) await saveStop(s.id, { name: s.name, lat, lng, note: s.note || "" });
+    } else if (kind === "user") {
+      const u = [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === id);
+      if (u) await saveUserData(u.id, { name: u.name, description: u.description || "", lat, lng, note: u.note || "" });
+    }
+  }
+
   async function suspendStop(sid: string) {
     try {
       const { error } = await supabase().from("stops").update({ status: "suspended" }).eq("id", sid);
@@ -1791,6 +1802,7 @@ export default function App({ profile }: { profile: Profile }) {
         focusTo={focus}
         onSelect={select}
         onPlace={(lat, lng) => setDraftPos({ lat, lng })}
+        onMove={onMapMove}
         overlays={
           <>
             {!placing && (
