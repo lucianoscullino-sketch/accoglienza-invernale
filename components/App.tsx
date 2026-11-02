@@ -1570,42 +1570,22 @@ export default function App({ profile }: { profile: Profile }) {
             <UserDetail
               key={u.id}
               user={u}
+              status={tonightLog(u.id) ? "done" : "todo"}
+              tonight={tonightLog(u.id) ?? null}
               past={logs
                 .filter((l) => l.user_id === u.id && l.date !== today())
                 .sort((a, b) => b.date.localeCompare(a.date))}
-              canEditNote={isAdmin}
-              orgs={orgs}
-              onSaveNote={(note) => saveUserNote(u.id, note)}
-              isAdmin={isAdmin}
-              suspended={!u.active}
-              deleted={!!u.deleted}
-              onSuspend={(note) => suspendUser(u, note)}
-              onResume={() => resumeUser(u)}
-              onRestore={() => restoreUser(u)}
-              onDelete={(note) => deleteUser(u, note)}
-              myOrg={myOrg}
-              canEditData={
-                isAdmin || (!!myOrg && !!u.created_by_org && u.created_by_org === myOrg)
-              }
-              editDeniedMsg={
-                u.created_by_org
-                  ? "Solo il coordinamento o l'associazione che ha creato questa utenza può modificarne i dati."
-                  : "Solo il coordinamento può modificare i dati di questa utenza."
-              }
-              onSaveData={(patch) => saveUserData(u.id, patch)}
               canRecord={!isAdmin && !!duty && duty.id === myOrg}
-              todayLog={tonightLog(u.id)}
-              recordMsg={
+              orgs={orgs}
+              readOnlyMsg={
                 duty
                   ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito.`
                   : "Stasera non c'è un'uscita in calendario."
               }
-              onSaveEntry={async (v) => {
-                // Dopo il salvataggio la scheda si chiude da sola (torna
-                // all'elenco/mappa); se fallisce resta aperta per riprovare.
-                if (await saveUserLog(u.id, v)) back();
+              onSave={async (v) => {
+                await saveUserLog(u.id, v);
               }}
-              onReportFound={!isAdmin ? () => reportUserFound(u.id) : undefined}
+              onBack={back}
             />
             </Popup>
           );

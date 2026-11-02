@@ -1,0 +1,16 @@
+
+> accoglienza-invernale@0.1.0 dev
+> next dev
+
+▲ Next.js 16.4.0 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.158:3000
+- Environments: .env.local
+✓ Ready in 2.0s
+✓ Running next.config.ts took 136ms
+
+○ Compiling / ...
+ GET / 307 in 2.1s (next.js: 1114ms, application-code: 957ms)
+ GET /login 200 in 569ms (next.js: 99ms, application-code: 469ms)
+ GET / 200 in 853ms (next.js: 26ms, application-code: 827ms)
+ GET / 200 in 712ms (next.js: 6ms, application-code: 706ms)
