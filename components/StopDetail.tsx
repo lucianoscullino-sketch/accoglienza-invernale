@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Org, Proposal, ServiceUser, Stop } from "@/lib/types";
 import { orgName } from "@/lib/format";
 
@@ -33,6 +33,12 @@ export default function StopDetail({
   const [edLng, setEdLng] = useState(String(stop.lng));
   const [edNote, setEdNote] = useState(stop.note || "");
   const [editErr, setEditErr] = useState("");
+
+  // Sincronizza le coordinate quando la tappa viene spostata dal pin sulla mappa principale
+  useEffect(() => {
+    setEdLat(String(stop.lat));
+    setEdLng(String(stop.lng));
+  }, [stop.lat, stop.lng]);
   const [manageOpen, setManageOpen] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [addUserName, setAddUserName] = useState("");
