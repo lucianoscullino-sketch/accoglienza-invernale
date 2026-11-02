@@ -7,11 +7,15 @@ export default function Popup({
   titleExtra,
   onClose,
   children,
+  noBackdrop,
 }: {
   title: string;
   titleExtra?: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  // Quando true non renderizza lo sfondo scuro coprente: l'app sotto resta
+  // interattiva (es. mappa principale accessibile durante la modifica tappa).
+  noBackdrop?: boolean;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -23,11 +27,13 @@ export default function Popup({
 
   return (
     <div className="popup">
-      <div className="popup-backdrop" onClick={onClose} aria-hidden="true" />
+      {!noBackdrop && (
+        <div className="popup-backdrop" onClick={onClose} aria-hidden="true" />
+      )}
       <div
         className="popup-panel"
         role="dialog"
-        aria-modal="true"
+        aria-modal={noBackdrop ? undefined : true}
         aria-label={title}
         tabIndex={-1}
       >

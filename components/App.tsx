@@ -1613,7 +1613,7 @@ export default function App({ profile }: { profile: Profile }) {
           const stopUsers = users.filter((u) => u.stop_id === s.id);
           const stopProps = proposals.filter((p) => p.stop_id === s.id);
           return (
-            <Popup title={s.name} titleExtra={<span className={`badge badge-${s.status}`}>{s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}</span>} onClose={back}>
+            <Popup title={s.name} titleExtra={<span className={`badge badge-${s.status}`}>{s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}</span>} onClose={back} noBackdrop>
             <StopDetail
               key={s.id}
               stop={s}
