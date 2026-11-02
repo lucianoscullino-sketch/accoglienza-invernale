@@ -352,6 +352,15 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
   flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
   padding: 14px 16px calc(20px + env(safe-area-inset-bottom, 0px));
 }
+/* Popup non modale (modifica tappa): il pannello lascia passare i click alla mappa sottostante,
+   resta interattivo solo sui propri bottoni/input. */
+.popup.no-backdrop { pointer-events: none; }
+.popup.no-backdrop .popup-panel { pointer-events: auto; }
+.popup.no-backdrop .popup-panel button,
+.popup.no-backdrop .popup-panel input,
+.popup.no-backdrop .popup-panel textarea,
+.popup.no-backdrop .popup-panel select,
+.popup.no-backdrop .popup-panel a { pointer-events: auto; }
 @media (max-width: 520px) {
   .popup { padding-left: 8px; padding-right: 8px; }
   .popup-panel { max-width: 100%; }

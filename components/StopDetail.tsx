@@ -200,8 +200,8 @@ export default function StopDetail({
           }}>
             <div><label className="lb" htmlFor="stop-edit-name">Nome tappa</label><input id="stop-edit-name" value={edName} onChange={(e) => setEdName(e.target.value)} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div><label className="lb" htmlFor="stop-edit-lat">Latitudine</label><input id="stop-edit-lat" type="text" inputMode="decimal" value={edLat} onChange={(e) => setEdLat(e.target.value)} /></div>
-              <div><label className="lb" htmlFor="stop-edit-lng">Longitudine</label><input id="stop-edit-lng" type="text" inputMode="decimal" value={edLng} onChange={(e) => setEdLng(e.target.value)} /></div>
+              <div><label className="lb" htmlFor="stop-edit-lat">Latitudine</label><input id="stop-edit-lat" type="text" inputMode="decimal" value={edLat} onChange={(e) => setEdLat(e.target.value)} style={{ background: "#ffffff" }} /></div>
+              <div><label className="lb" htmlFor="stop-edit-lng">Longitudine</label><input id="stop-edit-lng" type="text" inputMode="decimal" value={edLng} onChange={(e) => setEdLng(e.target.value)} style={{ background: "#ffffff" }} /></div>
             </div>
             <div><label className="lb" htmlFor="stop-edit-note">Nota</label><textarea id="stop-edit-note" rows={2} value={edNote} onChange={(e) => setEdNote(e.target.value)} /></div>
             {editErr ? <p className="notice" style={{ color: "var(--danger)" }}>{editErr}</p> : null}

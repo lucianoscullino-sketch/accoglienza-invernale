@@ -26,7 +26,7 @@ export default function Popup({
   }, [onClose]);
 
   return (
-    <div className="popup">
+    <div className={`popup${noBackdrop ? " no-backdrop" : ""}`}>
       {!noBackdrop && (
         <div className="popup-backdrop" onClick={onClose} aria-hidden="true" />
       )}

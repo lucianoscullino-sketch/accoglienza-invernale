@@ -460,7 +460,7 @@ export default function App({ profile }: { profile: Profile }) {
 
   async function saveStop(sid: string, patch: { name: string; lat: number; lng: number; note: string }) {
     try {
-      const { error } = await supabase().from("stops").update({ name: patch.name, lat: patch.lat, lng: patch.lng, note: patch.note || null }).eq("id", sid);
+      const { error } = await supabase().from("stops").update({ name: patch.name, lat: patch.lat, lng: patch.lng, note: patch.note ?? "" }).eq("id", sid);
       if (error) throw error;
       setStops((prev) => prev.map((s) => (s.id === sid ? { ...s, ...patch } : s)));
       toast("Tappa salvata");
