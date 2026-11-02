@@ -115,6 +115,8 @@ export default function App({ profile }: { profile: Profile }) {
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
   const [selected, setSelected] = useState<Selection | null>(null);
+  // Id della tappa attualmente in modifica: solo il suo pin è trascinabile sulla mappa.
+  const [editingStopId, setEditingStopId] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [draftPos, setDraftPos] = useState<{ lat: number; lng: number } | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; n: number } | null>(null);
@@ -476,6 +478,11 @@ export default function App({ profile }: { profile: Profile }) {
       const u = [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === id);
       if (u) await saveUserData(u.id, { name: u.name, description: u.description || "", lat, lng, note: u.note || "" });
     }
+  }
+
+  function onStopEditChange(editing: boolean) {
+    if (editing && selected?.kind === "stop") setEditingStopId(selected.id);
+    else setEditingStopId(null);
   }
 
   async function suspendStop(sid: string) {
@@ -1621,6 +1628,7 @@ export default function App({ profile }: { profile: Profile }) {
               onDelete={() => deleteStop(s.id)}
               onMarkServed={() => markStopAsServed(s.id)}
               onOpenUser={(uid) => { back(); select("user", uid, false); }}
+              onEditChange={onStopEditChange}
               onAddUser={async (v) => {
                 const sb = supabase();
                 const { data, error } = await sb
@@ -1803,6 +1811,7 @@ export default function App({ profile }: { profile: Profile }) {
         onSelect={select}
         onPlace={(lat, lng) => setDraftPos({ lat, lng })}
         onMove={onMapMove}
+        draggableId={editingStopId}
         overlays={
           <>
             {!placing && (

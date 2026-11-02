@@ -119,6 +119,7 @@ export default function MapView({
   onSelect,
   onPlace,
   onMove,
+  draggableId,
   overlays,
 }: {
   items: MapItem[];
@@ -128,6 +129,9 @@ export default function MapView({
   onSelect: (kind: "user" | "prop" | "stop", id: string, fromMap: boolean) => void;
   onPlace: (lat: number, lng: number) => void;
   onMove?: (kind: "user" | "prop" | "stop", id: string, lat: number, lng: number) => void;
+  // Id dell'elemento attualmente trascinabile (solo in fase di creazione/modifica).
+  // Se omesso o null, nessun pin è trascinabile.
+  draggableId?: string | null;
   overlays?: ReactNode;
 }) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -135,9 +139,9 @@ export default function MapView({
   const fittedRef = useRef(false);
   const lgRef = useRef<LayerGroup | null>(null);
   const Lref = useRef<LeafletModule | null>(null);
-  const cbRef = useRef({ onSelect, onPlace, placing, onMove });
+  const cbRef = useRef({ onSelect, onPlace, placing, onMove, draggableId });
   useEffect(() => {
-    cbRef.current = { onSelect, onPlace, placing, onMove };
+    cbRef.current = { onSelect, onPlace, placing, onMove, draggableId };
   });
   const [ready, setReady] = useState(false);
 
@@ -207,7 +211,8 @@ export default function MapView({
         cbRef.current.onSelect(it.kind as "user" | "prop" | "stop", it.id, true);
       });
       const onMove = cbRef.current.onMove;
-      if (onMove && it.kind !== "draft") {
+      const myDraggableId = cbRef.current.draggableId;
+      if (onMove && it.kind !== "draft" && it.id === myDraggableId) {
         marker.on("dragend", (e: any) => {
           const pos = e.target.getLatLng();
           onMove(it.kind as "user" | "prop" | "stop", it.id, pos.lat, pos.lng);

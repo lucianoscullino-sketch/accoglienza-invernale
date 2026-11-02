@@ -18,11 +18,12 @@ interface StopDetailProps {
   onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
   onMarkServed?: (stopId: string) => Promise<void>;
   onOpenUser?: (userId: string) => void;
+  onEditChange?: (editing: boolean) => void;
 }
 
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, onOpenMap,
-  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser, onEditChange,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
@@ -97,7 +98,7 @@ export default function StopDetail({
 
       {canManage && !confirm && !edit && manageOpen ? (
         <div className="stack" style={{ gap: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, marginTop: 4 }}>
-          <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); setManageOpen(false); }}>Modifica tappa</button>
+          <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); onEditChange?.(true); setManageOpen(false); }}>Modifica tappa</button>
           {empty ? (
             <>
               <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
@@ -195,7 +196,7 @@ export default function StopDetail({
             e.preventDefault(); setBusy("save");
             const n = Number(edLat); const g = Number(edLng);
             if (!Number.isFinite(n) || !Number.isFinite(g)) { setEditErr("Coordinate non valide"); setBusy(""); return; }
-            onSaveStop({ name: edName, lat: n, lng: g, note: edNote }).finally(() => { setBusy(""); setEdit(false); });
+            onSaveStop({ name: edName, lat: n, lng: g, note: edNote }).finally(() => { setBusy(""); setEdit(false); onEditChange?.(false); });
           }}>
             <div><label className="lb" htmlFor="stop-edit-name">Nome tappa</label><input id="stop-edit-name" value={edName} onChange={(e) => setEdName(e.target.value)} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -206,7 +207,7 @@ export default function StopDetail({
             {editErr ? <p className="notice" style={{ color: "var(--danger)" }}>{editErr}</p> : null}
             <div className="actions" style={{ padding: 0 }}>
               <button className="btn btn-primary btn-sm" type="submit" disabled={busy === "save"}>{busy === "save" ? "Salvo…" : "Salva tappa"}</button>
-              <button className="btn btn-sm" type="button" disabled={busy === "save"} onClick={() => { setEdit(false); setEditErr(""); }}>Annulla</button>
+              <button className="btn btn-sm" type="button" disabled={busy === "save"} onClick={() => { setEdit(false); onEditChange?.(false); setEditErr(""); }}>Annulla</button>
             </div>
           </form>
         ) : null}
