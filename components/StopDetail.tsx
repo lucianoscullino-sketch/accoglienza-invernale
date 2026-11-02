@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import StopMapPicker from "@/components/StopMapPicker";
 import type { Org, Proposal, ServiceUser, Stop } from "@/lib/types";
 import { orgName } from "@/lib/format";
 
@@ -198,6 +199,11 @@ export default function StopDetail({
             onSaveStop({ name: edName, lat: n, lng: g, note: edNote }).finally(() => { setBusy(""); setEdit(false); });
           }}>
             <div><label className="lb" htmlFor="stop-edit-name">Nome tappa</label><input id="stop-edit-name" value={edName} onChange={(e) => setEdName(e.target.value)} /></div>
+            <StopMapPicker
+              lat={Number(edLat) || 0}
+              lng={Number(edLng) || 0}
+              onChange={(la, lo) => { setEdLat(String(la)); setEdLng(String(lo)); }}
+            />
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div><label className="lb" htmlFor="stop-edit-lat">Latitudine</label><input id="stop-edit-lat" type="text" inputMode="decimal" value={edLat} onChange={(e) => setEdLat(e.target.value)} /></div>
               <div><label className="lb" htmlFor="stop-edit-lng">Longitudine</label><input id="stop-edit-lng" type="text" inputMode="decimal" value={edLng} onChange={(e) => setEdLng(e.target.value)} /></div>
