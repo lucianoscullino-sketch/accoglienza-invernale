@@ -140,6 +140,8 @@ export default function MapView({
   const lgRef = useRef<LayerGroup | null>(null);
   const Lref = useRef<LeafletModule | null>(null);
   const cbRef = useRef({ onSelect, onPlace, placing, onMove, draggableId });
+  const myDraggableIdRef = useRef<string | null>(null);
+  myDraggableIdRef.current = draggableId ?? null;
   useEffect(() => {
     cbRef.current = { onSelect, onPlace, placing, onMove, draggableId };
   });
@@ -195,6 +197,7 @@ export default function MapView({
       // iconAnchor punta in basso al centro (spigolo del palloncino): così,
       // anche cambiando zoom, il punto che resta fermo sulla mappa è la punta
       // del pin, non il centro dell'icona.
+      const isDraggable = it.id === myDraggableIdRef.current;
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: L.divIcon({
           className: "mk-div",
@@ -202,17 +205,16 @@ export default function MapView({
           iconSize: small || it.kind === "stop" ? [28, 30] : [46, 48],
           iconAnchor: small || it.kind === "stop" ? [11, 29] : [18, 46],
         }),
-        draggable: it.kind !== "draft",
+        draggable: isDraggable,
         title: it.name,
-        riseOnHover: true,
+        riseOnHover: false,
       });
       marker.on("click", () => {
         if (it.kind === "draft") return;
         cbRef.current.onSelect(it.kind as "user" | "prop" | "stop", it.id, true);
       });
       const onMove = cbRef.current.onMove;
-      const myDraggableId = cbRef.current.draggableId;
-      if (onMove && it.kind !== "draft" && it.id === myDraggableId) {
+      if (isDraggable && onMove) {
         marker.on("dragend", (e: any) => {
           const pos = e.target.getLatLng();
           onMove(it.kind as "user" | "prop" | "stop", it.id, pos.lat, pos.lng);
