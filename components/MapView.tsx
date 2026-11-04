@@ -200,7 +200,7 @@ export default function MapView({
       const isDraggable = it.id === myDraggableIdRef.current;
       // Pin a goccia con bordo bianco e interno colorato per stato
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
-      const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#f59e0b" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? "#8b5cf6" : "#6b7280";
+      const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#ef4444" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? "#8b5cf6" : "#6b7280";
       const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
       const markerIcon = L.divIcon({
         className: "",
