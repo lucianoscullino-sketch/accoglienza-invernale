@@ -140,7 +140,7 @@ export default function UserDetail({
             className="btn btn-sm"
             href={`google.navigation:q=${user.lat},${user.lng}&mode=d`}
           >
-            Naviga
+            Naviga con Maps
           </a>
         </div>
         <p className="pgtxt mono">

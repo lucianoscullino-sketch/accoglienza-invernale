@@ -205,7 +205,19 @@ export default function StopDetail({
           <ul className="list" style={{ gap: 0 }}>
             {proposals.map((p) => (
               <li key={p.id} className="calrow">
-                <span className="caldate">{p.name}</span>
+                <span
+                  className="caldate"
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    textDecoration:
+                      p.proposed_by === myOrg ? "underline" : "none",
+                    color: p.proposed_by === myOrg ? "#0f766e" : "inherit",
+                    cursor: p.proposed_by === myOrg ? "pointer" : "default",
+                  }}
+                >
+                  {p.name}
+                </span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
                 {!isAdmin && <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>}
               </li>
