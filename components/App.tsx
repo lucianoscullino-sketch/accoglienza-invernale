@@ -527,10 +527,10 @@ export default function App({ profile }: { profile: Profile }) {
     try {
       setServedStops((prev) => {
         const next = new Set(prev);
-        next.add(sid);
+        next.has(sid) ? next.delete(sid) : next.add(sid);
         return next;
       });
-      toast("Tappa marcata come servita");
+      toast(next.has(sid) ? "Tappa rimossa dai serviti" : "Tappa marcata come servita");
     } catch (err) {
       toast("Errore: " + (err instanceof Error ? err.message : String(err)));
     }
