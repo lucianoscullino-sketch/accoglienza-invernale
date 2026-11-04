@@ -738,7 +738,7 @@ export default function App({ profile }: { profile: Profile }) {
             : p
         )
       );
-      toast("Verifica registrata, firmata " + orgName(row.org_id, orgs));
+      toast("Verifica registrata, firmata " + (orgName(row.org_id, orgs) || "-"));
       return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
@@ -804,7 +804,7 @@ export default function App({ profile }: { profile: Profile }) {
           return next;
         });
       }
-      toast("Esito registrato, firmato " + orgName(row.org_id, orgs));
+      toast("Esito registrato, firmato " + (orgName(row.org_id, orgs) || "-"));
       return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
@@ -1808,7 +1808,7 @@ export default function App({ profile }: { profile: Profile }) {
           <label>Accesso come</label>
           <div className="duty" style={{ alignItems: "center" }}>
             <span className="dutyname" style={{ fontSize: "15px" }}>
-              {profile.display_name || orgName(myOrgId(), orgs)}
+              {profile.display_name || orgName(myOrgId(), orgs) || "-"}
             </span>
             <button className="linkbtn" type="button" onClick={signOut}>
               Esci
