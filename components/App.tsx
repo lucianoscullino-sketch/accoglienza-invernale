@@ -283,9 +283,6 @@ export default function App({ profile }: { profile: Profile }) {
     return vs.length ? (vs[vs.length - 1].found ? "ok" : "no") : "none";
   };
   const propTonight = (p: Proposal): Status => {
-    // Proposte validate sono considerate "servite" (verdi) dal coordinamento
-    // fino a quando un'associazione le serve (verifica con found=false)
-    if (p.status === "validated") return "done";
     const v = (p.verifications || []).find((x) => x.date === today());
     return !v ? "todo" : v.found ? "done" : "missing";
   };
@@ -1085,6 +1082,20 @@ export default function App({ profile }: { profile: Profile }) {
               note: v.note,
             })),
         ]);
+      }
+      // Crea un log "trovato" per la nuova utenza così compare verde sulla mappa
+      // fin da subito (validata dal coordinamento: pronto per le associazioni)
+      const { error: logErr } = await sb.from("daily_logs").insert({
+        user_id: newUser.id,
+        date: today(),
+        org_id: myOrgId() || "",
+        found: true,
+        provided: [],
+        requested: "",
+        note: "Tappa validata dal coordinamento",
+      });
+      if (logErr) {
+        console.error("Errore creazione log utenza:", logErr);
       }
       setUsers((prev) => [...prev, newUser]);
       // La proposta viene eliminata: l'utente ora esiste in service_users.
