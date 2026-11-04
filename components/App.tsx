@@ -536,7 +536,7 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
   // --- azioni: scritture su Supabase ---
-  const myOrgId = () => (isAdmin ? "admin" : myOrg || "admin");
+  const myOrgId = () => myOrg;
 
   // Nota stabile del coordinamento su un utente (solo admin può modificarla).
   async function saveUserNote(uid: string, note: string) {
