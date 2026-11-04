@@ -201,7 +201,7 @@ export default function MapView({
       // Pin a goccia rovesciata (palloncino): iconSize [30, 42],
       // iconAnchor [15, 42] = punta fissata sulle coordinate, metà larghezza e fondo altezza.
       const color = it.st === "done" ? "#10b981" : it.st === "todo" ? "#f59e0b" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? "#8b5cf6" : "#6b7280";
-      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42"><path d="M15 0 Q5 5 5 20 C5 35 15 42 15 42 C15 42 25 35 25 20 C25 5 25 0 15 0" fill="' + color + '" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/></svg>';
+      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42"><path d="M15 0 C8 0 3 8 3 20 C3 34 15 42 15 42 C15 42 27 34 27 20 C27 8 22 0 15 0" fill="' + color + '" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
       const iconData = 'data:image/svg+xml;base64,' + window.btoa(dropSvg);
       const iconSize = L.point(30, 42);
       const iconAnchor = L.point(15, 42);
