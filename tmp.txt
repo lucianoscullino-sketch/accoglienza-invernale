@@ -1,0 +1,3 @@
+﻿// ID organizzazione: per gli amministratori usiamo o0 come default,
+// per le associazioni usiamo il loro org_id (o o0 se non impostato).
+const myOrgId = () => (isAdmin ? o0 : myOrg || o0);

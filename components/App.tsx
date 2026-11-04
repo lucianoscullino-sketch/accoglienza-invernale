@@ -717,7 +717,7 @@ export default function App({ profile }: { profile: Profile }) {
       const row = {
         proposal_id: pid,
         date: today(),
-        org_id: myOrgId(),
+        org_id: myOrgId() || "",
         found: v.found,
         provided: v.provided,
         requested: v.requested,
@@ -738,7 +738,7 @@ export default function App({ profile }: { profile: Profile }) {
             : p
         )
       );
-      toast("Verifica registrata, firmata " + (orgName(row.org_id, orgs) || "-"));
+      toast("Verifica registrata, firmata " + (row.org_id ? orgName(row.org_id, orgs) : "-"));
       return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
@@ -778,7 +778,7 @@ export default function App({ profile }: { profile: Profile }) {
       const row = {
         user_id: uid,
         date: today(),
-        org_id: myOrgId(),
+        org_id: myOrgId() || "",
         found: v.found,
         provided: v.provided,
         requested: v.requested,
@@ -804,7 +804,7 @@ export default function App({ profile }: { profile: Profile }) {
           return next;
         });
       }
-      toast("Esito registrato, firmato " + (orgName(row.org_id, orgs) || "-"));
+      toast("Esito registrato, firmato " + (row.org_id ? orgName(row.org_id, orgs) : "-"));
       return true;
     } catch (e) {
       toast("Errore nel salvataggio: " + (e instanceof Error ? e.message : "riprova"));
@@ -822,7 +822,7 @@ export default function App({ profile }: { profile: Profile }) {
       const row = {
         user_id: uid,
         date: today(),
-        org_id: myOrgId(),
+        org_id: myOrgId() || "",
         found: true,
         provided: [] as string[],
         requested: "",
@@ -1476,7 +1476,7 @@ export default function App({ profile }: { profile: Profile }) {
                     <span className="rowmain">
                       <span className="rowname">{p.name}</span>
                       <span className="rowdesc">
-                        Proposto da {orgName(p.proposed_by, orgs)} · {VER_TXT[propVer(p)]} · visibile ancora{" "}
+                        Proposto da {orgName(p.proposed_by ?? "", orgs)} · {VER_TXT[propVer(p)]} · visibile ancora{" "}
                         {l}
                         {l === 1 ? " giorno" : " giorni"}
                       </span>
@@ -1508,7 +1508,7 @@ export default function App({ profile }: { profile: Profile }) {
                     <span className="rowmain">
                       <span className="rowname">{p.name}</span>
                       <span className="rowdesc">
-                        Scaduta il {fmtDM(expTime(p))} · proposta da {orgName(p.proposed_by, orgs)}
+                        Scaduta il {fmtDM(expTime(p))} · proposta da {orgName(p.proposed_by ?? "", orgs)}
                       </span>
                     </span>
                   </div>
@@ -1808,7 +1808,7 @@ export default function App({ profile }: { profile: Profile }) {
           <label>Accesso come</label>
           <div className="duty" style={{ alignItems: "center" }}>
             <span className="dutyname" style={{ fontSize: "15px" }}>
-              {profile.display_name || orgName(myOrgId(), orgs) || "-"}
+              {profile.display_name || (myOrgId() ? orgName(myOrgId() ?? "", orgs) : "-")}
             </span>
             <button className="linkbtn" type="button" onClick={signOut}>
               Esci
