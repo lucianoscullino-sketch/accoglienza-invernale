@@ -76,34 +76,34 @@ export default function StopDetail({
             Naviga con Maps
           </button>
         )}
-        {canManage && !confirm && !edit ? (
-          <>
-            <button className="btn btn-sm" type="button" onClick={() => setManageOpen((v) => !v)}>Gestisci tappa</button>
-            {canAddUser && (
-              <button
-                className="btn btn-sm"
-                type="button"
-                onClick={() => { setAddingUser(true); setAddUserErr(""); }}
-                style={{ background: "#0f766e", color: "#fff", border: "none" }}
-              >
-                Aggiungi utente
-              </button>
-            )}
-            {!isAdmin && users.length === 0 ? (
+        {canManage && !confirm && !edit && (
+          <button className="btn btn-sm" type="button" onClick={() => setManageOpen((v) => !v)}>
+            Gestisci tappa
+          </button>
+        )}
+        {canAddUser && !confirm && !edit && (
+          <button
+            className="btn btn-sm"
+            type="button"
+            onClick={() => { setAddingUser(true); setAddUserErr(""); }}
+            style={{ background: "#0f766e", color: "#fff", border: "none" }}
+          >
+            Aggiungi utente
+          </button>
+        )}
+        {!isAdmin && users.length === 0 && !confirm && !edit ? (
               <>
                 <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
                   {busy === "susp" ? "Servo…" : "Tappa servita"}
                 </button>
               </>
             ) : null}
-            {stop.status === "suspended" && empty ? (
+            {stop.status === "suspended" && empty && !confirm && !edit ? (
               <button className="btn btn-sm btn-ok" type="button" disabled={busy === "rest"} onClick={() => onRestore().finally(() => setBusy(""))}>
                 {busy === "rest" ? "Ripristino…" : "Riattiva tappa"}
               </button>
             ) : null}
-          </>
-        ) : null}
-      </div>
+          </div>
 
       {canManage && !confirm && !edit && manageOpen ? (
         <div className="stack" style={{ gap: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, marginTop: 4 }}>
