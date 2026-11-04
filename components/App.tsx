@@ -1083,20 +1083,6 @@ export default function App({ profile }: { profile: Profile }) {
             })),
         ]);
       }
-      // Crea un log "trovato" per la nuova utenza così compare verde sulla mappa
-      // fin da subito (validata dal coordinamento: pronto per le associazioni)
-      const { error: logErr } = await sb.from("daily_logs").insert({
-        user_id: newUser.id,
-        date: today(),
-        org_id: myOrgId() || "",
-        found: true,
-        provided: [],
-        requested: "",
-        note: "Tappa validata dal coordinamento",
-      });
-      if (logErr) {
-        console.error("Errore creazione log utenza:", logErr);
-      }
       setUsers((prev) => [...prev, newUser]);
       // La proposta viene eliminata: l'utente ora esiste in service_users.
       // Se è stata creata una nuova tappa, apri il dettaglio della tappa per
