@@ -261,7 +261,7 @@ export default function App({ profile }: { profile: Profile }) {
   const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === today());
   const statusOf = (u: ServiceUser): Status => {
     const l = tonightLog(u.id);
-    return !l ? "todo" : l.found ? "done" : "missing";
+    return !l ? "missing" : l.found ? "done" : "missing";
   };
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
   const visibleProps = showProps
