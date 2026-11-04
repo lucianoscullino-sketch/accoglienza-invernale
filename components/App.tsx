@@ -1637,6 +1637,7 @@ export default function App({ profile }: { profile: Profile }) {
               onDelete={() => deleteStop(s.id)}
               onMarkServed={() => markStopAsServed(s.id)}
               onOpenUser={(uid) => { back(); select("user", uid, false); }}
+              onOpenProp={(pid) => { back(); select("prop", pid, false); }}
               onEditChange={onStopEditChange}
               onAddUser={async (v) => {
                 const sb = supabase();

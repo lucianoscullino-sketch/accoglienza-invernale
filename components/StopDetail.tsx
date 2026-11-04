@@ -20,11 +20,13 @@ interface StopDetailProps {
   onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
   onMarkServed?: (stopId: string) => Promise<void>;
   onOpenUser?: (userId: string) => void;
+  onOpenProp?: (propId: string) => void;
   onEditChange?: (editing: boolean) => void;
 }
 
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, canAddUser, myOrg, onOpenMap,
+  onOpenProp,
   onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser, onEditChange,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
@@ -210,11 +212,11 @@ export default function StopDetail({
                   style={{
                     fontSize: 16,
                     fontWeight: 600,
-                    textDecoration:
-                      p.proposed_by === myOrg ? "underline" : "none",
-                    color: p.proposed_by === myOrg ? "#0f766e" : "inherit",
-                    cursor: p.proposed_by === myOrg ? "pointer" : "default",
+                    textDecoration: "underline",
+                    color: p.proposed_by === myOrg ? "#0f766e" : "#6b7280",
+                    cursor: "pointer",
                   }}
+                  onClick={() => onOpenProp?.(p.id)}
                 >
                   {p.name}
                 </span>
