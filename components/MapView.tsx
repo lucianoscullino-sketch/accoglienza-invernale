@@ -198,18 +198,22 @@ export default function MapView({
       // anche cambiando zoom, il punto che resta fermo sulla mappa è la punta
       // del pin, non il centro dell'icona.
       const isDraggable = it.id === myDraggableIdRef.current;
-      // Pin a goccia rovesciata (palloncino): iconSize [30, 42],
-      // iconAnchor [15, 42] = punta fissata sulle coordinate, metà larghezza e fondo altezza.
-      const color = it.st === "done" ? "#10b981" : it.st === "todo" ? "#f59e0b" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? "#8b5cf6" : "#6b7280";
-      const dropSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42"><path d="M15 0 C8 0 3 8 3 20 C3 34 15 42 15 42 C15 42 27 34 27 20 C27 8 22 0 15 0" fill="' + color + '" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
-      const iconData = 'data:image/svg+xml;base64,' + window.btoa(dropSvg);
-      const iconSize = L.point(30, 42);
-      const iconAnchor = L.point(15, 42);
-      const markerIcon = L.icon({
-        iconUrl: iconData,
-        iconSize: iconSize,
-        iconAnchor: iconAnchor,
-        popupAnchor: L.point(0, -42),
+      // Pin a goccia con bordo bianco e interno colorato per stato
+      // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
+      const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#f59e0b" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? "#8b5cf6" : "#6b7280";
+      const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
+      const markerIcon = L.divIcon({
+        className: "",
+        html: `
+          <svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
+                  fill="${colore}" stroke="#fff" stroke-width="2"/>
+            <text x="15" y="19" text-anchor="middle" font-size="12"
+                  font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>
+          </svg>`,
+        iconSize: [30, 42],
+        iconAnchor: [15, 42],
+        popupAnchor: [0, -38],
       });
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: markerIcon,
