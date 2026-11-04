@@ -1086,6 +1086,7 @@ export default function App({ profile }: { profile: Profile }) {
       }
       setUsers((prev) => [...prev, newUser]);
       // La proposta viene eliminata: l'utente ora esiste in service_users.
+      setProposals((prev) => prev.filter((x) => x.id !== p.id));
       // Se è stata creata una nuova tappa, apri il dettaglio della tappa per
       // inserire i dettagli (es: note, gestori), non solo l'utente.
       if (createdNewStop) {
