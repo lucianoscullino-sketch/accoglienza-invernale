@@ -74,7 +74,7 @@ export default function StopDetail({
   return (
     <div className="detail stack">
       <div className="actions" style={{ padding: 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {!isAdmin && proposals.length > 0 && (
+        {!isAdmin && stop.lat !== 0 && (
           <button className="btn btn-sm" type="button" onClick={() => onOpenMap(stop.lat, stop.lng, stop.name)}>
             Naviga con Maps
           </button>
