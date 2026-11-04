@@ -1082,9 +1082,10 @@ export default function App({ profile }: { profile: Profile }) {
         ]);
       }
       setUsers((prev) => [...prev, newUser]);
-      setProposals((prev) =>
-        prev.map((x) => (x.id === p.id ? { ...x, status: "validated", validated_into: newUser.id } : x))
-      );
+      // La proposta viene eliminata: l'utente ora esiste in service_users.
+      const { error: eDel } = await sb.from("proposals").delete().eq("id", p.id);
+      if (eDel) throw eDel;
+      setProposals((prev) => prev.filter((x) => x.id !== p.id));
       setSelected({ kind: "user", id: newUser.id });
       setFocus({ lat: newUser.lat, lng: newUser.lng, n: Date.now() });
       toast("Utente aggiunto all'elenco regolare");
@@ -1588,12 +1589,15 @@ export default function App({ profile }: { profile: Profile }) {
             <UserDetail
               key={u.id}
               user={u}
+              isAdmin={isAdmin}
               status={tonightLog(u.id) ? "done" : "todo"}
               tonight={tonightLog(u.id) ?? null}
               past={logs
                 .filter((l) => l.user_id === u.id && l.date !== today())
                 .sort((a, b) => b.date.localeCompare(a.date))}
               canRecord={!isAdmin && !!duty && duty.id === myOrg}
+              canEditData={isAdmin || (!!myOrg && u.created_by_org === myOrg)}
+              myOrg={myOrg}
               orgs={orgs}
               readOnlyMsg={
                 duty
@@ -1602,6 +1606,9 @@ export default function App({ profile }: { profile: Profile }) {
               }
               onSave={async (v) => {
                 await saveUserLog(u.id, v);
+              }}
+              onSaveUserData={async (patch) => {
+                await saveUserData(u.id, { ...patch, note: patch.note || "" });
               }}
               onBack={back}
             />

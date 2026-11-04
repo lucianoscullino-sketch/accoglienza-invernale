@@ -17,6 +17,10 @@ export default function UserDetail({
   readOnlyMsg,
   onSave,
   onBack,
+  isAdmin,
+  canEditData,
+  myOrg,
+  onSaveUserData,
 }: {
   user: ServiceUser;
   status: Status;
@@ -27,9 +31,29 @@ export default function UserDetail({
   readOnlyMsg: string;
   onSave: (v: EntryValues) => Promise<void>;
   onBack: () => void;
+  isAdmin: boolean;
+  canEditData: boolean;
+  myOrg: string | null;
+  onSaveUserData: (patch: {
+    name: string;
+    description: string;
+    lat: number;
+    lng: number;
+    note?: string;
+  }) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
+
+  // Modifica dati anagrafici
+  const [editing, setEditing] = useState(false);
+  const [edName, setEdName] = useState(user.name);
+  const [edDesc, setEdDesc] = useState(user.description || "");
+  const [edLat, setEdLat] = useState(String(user.lat));
+  const [edLng, setEdLng] = useState(String(user.lng));
+  const [edNote, setEdNote] = useState(user.note || "");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editErr, setEditErr] = useState("");
 
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
@@ -126,6 +150,131 @@ export default function UserDetail({
         </p>
         {form}
         {hist}
+
+        {/* --- Modifica dati anagrafici (admin o associazione proponente) --- */}
+        {canEditData && (
+          <div className="stack" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+            {!editing ? (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => {
+                  setEdName(user.name);
+                  setEdDesc(user.description || "");
+                  setEdLat(String(user.lat));
+                  setEdLng(String(user.lng));
+                  setEdNote(user.note || "");
+                  setEditErr("");
+                  setEditing(true);
+                }}
+              >
+                {myOrg && user.created_by_org === myOrg ? "Modifica i tuoi dati" : "Modifica utente"}
+              </button>
+            ) : (
+              <>
+                <form
+                  className="stack"
+                  style={{ gap: 8 }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setEditErr("");
+                    setEditBusy(true);
+                    const lat = Number(edLat);
+                    const lng = Number(edLng);
+                    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                      setEditErr("Coordinate non valide.");
+                      setEditBusy(false);
+                      return;
+                    }
+                    const patch: {
+                      name: string;
+                      description: string;
+                      lat: number;
+                      lng: number;
+                      note?: string;
+                    } = { name: edName.trim(), description: edDesc.trim(), lat, lng };
+                    if (isAdmin) patch.note = edNote.trim();
+                    onSaveUserData(patch)
+                      .then(() => setEditing(false))
+                      .catch((err) => {
+                        setEditErr(err instanceof Error ? err.message : "Errore nel salvataggio.");
+                        setEditBusy(false);
+                      });
+                  }}
+                >
+                  <div>
+                    <label className="lb">Nickname</label>
+                    <input
+                      className="input"
+                      value={edName}
+                      onChange={(e) => setEdName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="lb">Descrizione e punto in cui dorme</label>
+                    <textarea
+                      className="input"
+                      rows={3}
+                      value={edDesc}
+                      onChange={(e) => setEdDesc(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="lb">Latitudine</label>
+                      <input
+                        className="input"
+                        type="number"
+                        step="0.00001"
+                        value={edLat}
+                        onChange={(e) => setEdLat(e.target.value)}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label className="lb">Longitudine</label>
+                      <input
+                        className="input"
+                        type="number"
+                        step="0.00001"
+                        value={edLng}
+                        onChange={(e) => setEdLng(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <div>
+                      <label className="lb">Nota del coordinamento</label>
+                      <textarea
+                        className="input"
+                        rows={2}
+                        value={edNote}
+                        onChange={(e) => setEdNote(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {editErr && <p className="err">{editErr}</p>}
+                  <div className="actions" style={{ padding: 0, gap: 8 }}>
+                    <button
+                      className="btn btn-primary"
+                      type="submit"
+                      disabled={editBusy}
+                    >
+                      {editBusy ? "Salvo…" : "Salva modifiche"}
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      type="button"
+                      onClick={() => setEditing(false)}
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </>
   );
