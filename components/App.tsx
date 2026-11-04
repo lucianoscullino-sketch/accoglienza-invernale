@@ -312,8 +312,9 @@ export default function App({ profile }: { profile: Profile }) {
       // Se il coordinamento ha marcato la tappa come servita, forza "done"
       const stServed = servedStops.has(s.id) ? ("done" as Status) : undefined;
       // La tappa è "done" se tutti gli utenti sono stati serviti,
-      // "todo" (da servire) se ce ne sono di non serviti o se è nuova (nessun utente)
-      const st = stServed !== undefined ? stServed : doneUsers.length > 0 && doneUsers.length === usersInStop.length ? ("done" as Status) : ("todo" as Status);
+      // "todo" (da servire) se ce ne sono di non serviti,
+      // "missing" (vuota) se non ha utenti
+      const st = stServed !== undefined ? stServed : usersInStop.length === 0 ? ("missing" as Status) : doneUsers.length > 0 && doneUsers.length === usersInStop.length ? ("done" as Status) : ("todo" as Status);
       return {
         kind: "stop" as const,
         id: s.id,
