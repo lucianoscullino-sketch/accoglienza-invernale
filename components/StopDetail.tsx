@@ -185,10 +185,9 @@ export default function StopDetail({
                   style={{
                     fontSize: 16,
                     fontWeight: 600,
-                    textDecoration:
-                      u.created_by_org === myOrg ? "underline" : "none",
-                    color: u.created_by_org === myOrg ? "#0f766e" : "inherit",
-                    cursor: u.created_by_org === myOrg ? "pointer" : "default",
+                    textDecoration: "underline",
+                    color: u.created_by_org === myOrg ? "#0f766e" : "#1e293b",
+                    cursor: "pointer",
                   }}
                 >
                   {u.name}
