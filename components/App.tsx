@@ -283,6 +283,9 @@ export default function App({ profile }: { profile: Profile }) {
     return vs.length ? (vs[vs.length - 1].found ? "ok" : "no") : "none";
   };
   const propTonight = (p: Proposal): Status => {
+    // Proposte validate sono considerate "servite" (verdi) dal coordinamento
+    // fino a quando un'associazione le serve (verifica con found=false)
+    if (p.status === "validated") return "done";
     const v = (p.verifications || []).find((x) => x.date === today());
     return !v ? "todo" : v.found ? "done" : "missing";
   };
