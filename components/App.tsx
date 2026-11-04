@@ -1088,7 +1088,7 @@ export default function App({ profile }: { profile: Profile }) {
       // Se è stata creata una nuova tappa, apri il dettaglio della tappa per
       // inserire i dettagli (es: note, gestori), non solo l'utente.
       if (createdNewStop) {
-        setSelected({ kind: "stop", id: stopId });
+        setSelected({ kind: "stop", id: stopId! });
       } else {
         setSelected({ kind: "user", id: newUser.id });
       }
