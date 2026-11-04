@@ -1041,7 +1041,7 @@ export default function App({ profile }: { profile: Profile }) {
       }
       const { data: nu, error } = await sb
         .from("service_users")
-        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: p.proposed_by, stop_id: stopId })
+        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: myOrgId(), stop_id: stopId })
         .select()
         .single();
       if (error) throw error;
