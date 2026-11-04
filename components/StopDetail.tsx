@@ -11,6 +11,7 @@ interface StopDetailProps {
   orgs: Org[];
   isAdmin: boolean;
   canAddUser: boolean;
+  myOrg: string | null;
   onOpenMap: (lat: number, lng: number, label: string) => void;
   onSaveStop: (patch: { name: string; lat: number; lng: number; note: string }) => Promise<void>;
   onSuspend: (note: string) => Promise<void>;
@@ -23,7 +24,7 @@ interface StopDetailProps {
 }
 
 export default function StopDetail({
-  stop, users, proposals, orgs, isAdmin, canAddUser, onOpenMap,
+  stop, users, proposals, orgs, isAdmin, canAddUser, myOrg, onOpenMap,
   onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser, onEditChange,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
@@ -177,7 +178,19 @@ export default function StopDetail({
           <ul className="list" style={{ gap: 0 }}>
             {users.map((u) => (
               <li key={u.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenUser?.(u.id)}>
-                <span className="caldate" style={{ fontSize: 16, fontWeight: 600 }} onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")} onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{u.name}</span>
+                <span
+                  className="caldate"
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    textDecoration:
+                      u.created_by_org === myOrg ? "underline" : "none",
+                    color: u.created_by_org === myOrg ? "#0f766e" : "inherit",
+                    cursor: u.created_by_org === myOrg ? "pointer" : "default",
+                  }}
+                >
+                  {u.name}
+                </span>
                 <span className="pgtxt">{u.description}</span>
                 {!isAdmin && <button className="btn btn-sm" type="button" onClick={(e) => { e.stopPropagation(); onOpenMap(u.lat, u.lng, u.name); }}>Naviga con Maps</button>}
               </li>

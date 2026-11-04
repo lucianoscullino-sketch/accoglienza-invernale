@@ -1629,6 +1629,7 @@ export default function App({ profile }: { profile: Profile }) {
               orgs={orgs}
               isAdmin={isAdmin}
               canAddUser={isAdmin || !!myOrg}
+              myOrg={myOrg}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
               onSaveStop={(patch) => saveStop(s.id, patch)}
               onSuspend={() => suspendStop(s.id)}

@@ -138,11 +138,9 @@ export default function UserDetail({
         <div className="actions" style={{ padding: 0 }}>
           <a
             className="btn btn-sm"
-            href={`https://www.google.com/maps/dir/?api=1&origin=My+Location&destination=${user.lat},${user.lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`google.navigation:q=${user.lat},${user.lng}&mode=d`}
           >
-            Naviga con Maps
+            Naviga
           </a>
         </div>
         <p className="pgtxt mono">
