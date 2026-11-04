@@ -1022,6 +1022,7 @@ export default function App({ profile }: { profile: Profile }) {
       const sb = supabase();
       // Se il candidato non è già in una tappa, ne creiamo una colocata a lui.
       let stopId = p.stop_id;
+      let createdNewStop = false;
       if (!stopId) {
         const { data: ns, error: se } = await sb
           .from("stops")
@@ -1038,6 +1039,7 @@ export default function App({ profile }: { profile: Profile }) {
         if (se) throw se;
         stopId = ns.id;
         setStops((prev) => [...prev, ns as Stop]);
+        createdNewStop = true;
       }
       const { data: nu, error } = await sb
         .from("service_users")
@@ -1083,10 +1085,13 @@ export default function App({ profile }: { profile: Profile }) {
       }
       setUsers((prev) => [...prev, newUser]);
       // La proposta viene eliminata: l'utente ora esiste in service_users.
-      const { error: eDel } = await sb.from("proposals").delete().eq("id", p.id);
-      if (eDel) throw eDel;
-      setProposals((prev) => prev.filter((x) => x.id !== p.id));
-      setSelected({ kind: "user", id: newUser.id });
+      // Se è stata creata una nuova tappa, apri il dettaglio della tappa per
+      // inserire i dettagli (es: note, gestori), non solo l'utente.
+      if (createdNewStop) {
+        setSelected({ kind: "stop", id: stopId });
+      } else {
+        setSelected({ kind: "user", id: newUser.id });
+      }
       setFocus({ lat: newUser.lat, lng: newUser.lng, n: Date.now() });
       toast("Utente aggiunto all'elenco regolare");
     } catch (e) {
