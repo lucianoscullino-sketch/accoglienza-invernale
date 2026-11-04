@@ -1628,6 +1628,7 @@ export default function App({ profile }: { profile: Profile }) {
               proposals={stopProps}
               orgs={orgs}
               isAdmin={isAdmin}
+              canAddUser={isAdmin || !!myOrg}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
               onSaveStop={(patch) => saveStop(s.id, patch)}
               onSuspend={() => suspendStop(s.id)}
@@ -1638,21 +1639,25 @@ export default function App({ profile }: { profile: Profile }) {
               onEditChange={onStopEditChange}
               onAddUser={async (v) => {
                 const sb = supabase();
+                const by = myOrgId();
                 const { data, error } = await sb
-                  .from("service_users")
+                  .from("proposals")
                   .insert({
                     name: v.name,
                     description: v.desc,
                     lat: s.lat,
                     lng: s.lng,
-                    created_by_org: myOrg || null,
+                    proposed_by: by,
+                    status: "pending",
                     stop_id: s.id,
                   })
-                  .select()
+                  .select("*, verifications:proposal_verifications(*)")
                   .single();
                 if (error) throw error;
-                setUsers((prev) => [...prev, data as ServiceUser]);
-                toast("Utente aggiunto alla tappa");
+                let prop = data as Proposal;
+                prop = { ...prop, verifications: prop.verifications || [] };
+                setProposals((prev) => [prop, ...prev]);
+                toast("Proposta inviata: resta sulla mappa fino al " + fmtDM(Date.now() + 7 * DAY));
               }}
             />
             </Popup>

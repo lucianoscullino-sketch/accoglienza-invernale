@@ -10,6 +10,7 @@ interface StopDetailProps {
   proposals: Proposal[];
   orgs: Org[];
   isAdmin: boolean;
+  canAddUser: boolean;
   onOpenMap: (lat: number, lng: number, label: string) => void;
   onSaveStop: (patch: { name: string; lat: number; lng: number; note: string }) => Promise<void>;
   onSuspend: (note: string) => Promise<void>;
@@ -22,7 +23,7 @@ interface StopDetailProps {
 }
 
 export default function StopDetail({
-  stop, users, proposals, orgs, isAdmin, onOpenMap,
+  stop, users, proposals, orgs, isAdmin, canAddUser, onOpenMap,
   onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser, onEditChange,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
@@ -78,14 +79,16 @@ export default function StopDetail({
         {canManage && !confirm && !edit ? (
           <>
             <button className="btn btn-sm" type="button" onClick={() => setManageOpen((v) => !v)}>Gestisci tappa</button>
-            <button
-              className="btn btn-sm"
-              type="button"
-              onClick={() => { setAddingUser(true); setAddUserErr(""); }}
-              style={{ background: "#0f766e", color: "#fff", border: "none" }}
-            >
-              Aggiungi utente
-            </button>
+            {canAddUser && (
+              <button
+                className="btn btn-sm"
+                type="button"
+                onClick={() => { setAddingUser(true); setAddUserErr(""); }}
+                style={{ background: "#0f766e", color: "#fff", border: "none" }}
+              >
+                Aggiungi utente
+              </button>
+            )}
             {!isAdmin && users.length === 0 ? (
               <>
                 <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
@@ -118,7 +121,7 @@ export default function StopDetail({
         </div>
       ) : null}
 
-      {addingUser && canManage && onAddUser ? (
+      {addingUser && canAddUser && onAddUser ? (
         <div className="stack" style={{ gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
           <h4 className="pgtxt" style={{ margin: 0 }}>Nuovo utente in questa tappa</h4>
           <div>
