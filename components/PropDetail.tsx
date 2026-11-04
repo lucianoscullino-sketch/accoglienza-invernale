@@ -276,30 +276,32 @@ export default function PropDetail({
           )
         ) : null}
         {isAdmin && !readOnly ? (
-          <div className="actions" style={{ padding: 0 }}>
-            <button
-              className="btn btn-ok"
-              type="button"
-              disabled={busy === "val"}
-              onClick={() => {
-                setBusy("val");
-                onValidate().finally(() => setBusy(""));
-              }}
-            >
-              {busy === "val" ? "Valido…" : "Valida e aggiungi agli utenti"}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={busy === "rej"}
-              onClick={() => {
-                setBusy("rej");
-                onReject().finally(() => setBusy(""));
-              }}
-            >
-              {busy === "rej" ? "Rimuovo…" : "Rifiuta"}
-            </button>
-          </div>
+          p.status === "pending" ? (
+            <div className="actions" style={{ padding: 0 }}>
+              <button
+                className="btn btn-ok"
+                type="button"
+                disabled={busy === "val"}
+                onClick={() => {
+                  setBusy("val");
+                  onValidate().finally(() => setBusy(""));
+                }}
+              >
+                {busy === "val" ? "Valido…" : "Valida e aggiungi agli utenti"}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={busy === "rej"}
+                onClick={() => {
+                  setBusy("rej");
+                  onReject().finally(() => setBusy(""));
+                }}
+              >
+                {busy === "rej" ? "Rimuovo…" : "Rifiuta"}
+              </button>
+            </div>
+          ) : null
         ) : null}
         {onDeleteAdmin && !readOnly ? (
           <div className="stack">

@@ -1518,9 +1518,11 @@ export default function App({ profile }: { profile: Profile }) {
                     </span>
                   </div>
                   <div className="actions">
-                    <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
-                      Valida comunque
-                    </button>
+                    {p.status === "pending" ? (
+                      <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
+                        Valida comunque
+                      </button>
+                    ) : null}
                     <button className="btn btn-sm" type="button" onClick={() => reject(p)}>
                       Elimina
                     </button>
