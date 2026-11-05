@@ -175,7 +175,18 @@ export default function StopDetail({
           {stop.name}
         </h3>
         <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
-
+        {/* Toggle stato */}
+        {!isAdmin && (
+          <div style={{ marginTop: 8, fontSize: 12 }}>
+            <button
+              className="btn btn-sm"
+              type="button"
+              onClick={() => onMarkServed?.(stop.id)}
+            >
+              {stop.served_at ? "Da servire" : "Servito"}
+            </button>
+          </div>
+        )}
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Utenti assegnati ({users.length})</h4>
         {users.length === 0 ? (
           <p className="notice">Nessun utente assegnato a questa tappa.</p>

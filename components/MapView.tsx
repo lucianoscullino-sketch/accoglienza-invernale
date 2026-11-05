@@ -202,7 +202,9 @@ export default function MapView({
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
       const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#ef4444" : it.st === "missing" ? "#9ca3af" : "#6b7280";
 const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
-// Stesso identico pin a goccia rovesciata per tutti, ma dimensioni/bordo diversi per proposte
+// Stesso identico pin a goccia rovesciata per tutti,
+// ma proposte più piccole (20x28) con bordo tratteggiato,
+// altri elementi 30x42 con bordo solido
 const isProp = it.kind === "prop" || it.kind === "draft";
 const w = isProp ? 20 : 30;
 const h = isProp ? 28 : 42;

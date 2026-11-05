@@ -135,14 +135,6 @@ export default function UserDetail({
           </div>
         </div>
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
-        <div className="actions" style={{ padding: 0 }}>
-          <a
-            className="btn btn-sm"
-            href={`google.navigation:q=${user.lat},${user.lng}&mode=d`}
-          >
-            Naviga con Maps
-          </a>
-        </div>
         <p className="pgtxt mono">
           Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
         </p>
