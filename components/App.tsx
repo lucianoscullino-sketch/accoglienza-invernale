@@ -16,6 +16,7 @@ import CalendarView from "@/components/CalendarView";
 import ReportView from "@/components/ReportView";
 import OrgReport from "@/components/OrgReport";
 import AdminPanel from "@/components/AdminPanel";
+import ServedBadge from "@/components/ServedBadge";
 import { supabase } from "@/lib/supabase";
 import type {
   CalendarOverride,
@@ -35,6 +36,7 @@ import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, t
 import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
+
 
 type Tab =
   | "utenti"
@@ -1631,12 +1633,34 @@ export default function App({ profile }: { profile: Profile }) {
             </Popup>
           );
       } else if (selected.kind === "stop") {
-        const s = stops.find((x) => x.id === selected.id);
-        if (s) {
-          const stopUsers = users.filter((u) => u.stop_id === s.id);
-          const stopProps = proposals.filter((p) => p.stop_id === s.id);
-          return (
-            <Popup title={s.name} titleExtra={<span className={`badge badge-${s.status}`}>{s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}</span>} onClose={back} noBackdrop>
+      const s = stops.find((x) => x.id === selected.id);
+      if (s) {
+        const stopUsers = users.filter((u) => u.stop_id === s.id);
+        const stopProps = proposals.filter((p) => p.stop_id === s.id);
+
+        // Stessa logica del colore del pin sulla mappa
+        const servedToday =
+          !!s.served_at && new Date(s.served_at).toDateString() === new Date().toDateString();
+        const allUsersDone =
+          stopUsers.length > 0 && stopUsers.every((u) => tonightLog(u.id)?.found);
+        const isServed = servedToday || allUsersDone;
+
+        return (
+          <Popup
+            title={s.name}
+            titleExtra={
+              <>
+                <span className={`badge badge-${s.status}`}>
+                  {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}
+                </span>
+                {!isAdmin && s.status === "active" && (
+                  <ServedBadge served={isServed} onReset={() => markStopAsServed(s.id)} />
+                )}
+              </>
+            }
+            onClose={back}
+            noBackdrop
+          >
             <StopDetail
               key={s.id}
               stop={s}
@@ -1651,7 +1675,6 @@ export default function App({ profile }: { profile: Profile }) {
               onSuspend={() => suspendStop(s.id)}
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
-              onMarkServed={() => markStopAsServed(s.id)}
               onOpenUser={(uid) => { back(); select("user", uid, false); }}
               onOpenProp={(pid) => { back(); select("prop", pid, false); }}
               onEditChange={onStopEditChange}
@@ -1678,9 +1701,9 @@ export default function App({ profile }: { profile: Profile }) {
                 toast("Proposta inviata: resta sulla mappa fino al " + fmtDM(Date.now() + 7 * DAY));
               }}
             />
-            </Popup>
-          );
-        }
+          </Popup>
+        );
+      }
       } else {
         // Ogni proposta cliccata su mappa apre la scheda: quelle eliminate
         // (visibili col flag "Eliminati") hanno status="rejected" e vengono

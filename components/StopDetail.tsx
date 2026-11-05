@@ -18,7 +18,6 @@ interface StopDetailProps {
   onRestore: () => Promise<void>;
   onDelete: (note: string) => Promise<void>;
   onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
-  onMarkServed?: (stopId: string) => Promise<void>;
   onOpenUser?: (userId: string) => void;
   onOpenProp?: (propId: string) => void;
   onEditChange?: (editing: boolean) => void;
@@ -27,7 +26,7 @@ interface StopDetailProps {
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, canAddUser, myOrg, onOpenMap,
   onOpenProp,
-  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onMarkServed, onOpenUser, onEditChange,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onOpenUser, onEditChange,
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
@@ -49,7 +48,6 @@ export default function StopDetail({
   const [addUserDesc, setAddUserDesc] = useState("");
   const [addUserErr, setAddUserErr] = useState("");
   const empty = users.length === 0 && proposals.length === 0;
-  const statusLabel = { active: "Attiva", suspended: "Sospesa", deleted: "Eliminata" }[stop.status];
   const canManage = isAdmin;
 
   async function doAddUser() {
@@ -159,22 +157,7 @@ export default function StopDetail({
           </div>
         </div>
       ) : null}
-
       <div className="stack" style={{ gap: 8 }}>
-        <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {stop.name}
-        </h3>
-        {!isAdmin && (
-          <div style={{ marginLeft: 12, fontSize: 12, marginTop: 4 }}>
-            <button
-              className="btn btn-sm"
-              type="button"
-              onClick={() => onMarkServed?.(stop.id)}
-            >
-              {stop.served_at ? "Da servire" : "Servito"}
-            </button>
-          </div>
-        )}
         <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Utenti assegnati ({users.length})</h4>
         {users.length === 0 ? (
