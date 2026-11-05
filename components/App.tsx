@@ -311,8 +311,10 @@ export default function App({ profile }: { profile: Profile }) {
         return l && l.found;
       });
       // Se il coordinamento ha marcato la tappa come servita, forza "done"
-      // Se il coordinamento ha marcato la tappa come servita, forza "done" (reset dopo 2 ore)
-      const stServed = s.served_at && new Date(s.served_at).getTime() > Date.now() - 2 * 60 * 60 * 1000 ? ("done" as Status) : undefined;
+      // Se il coordinamento ha marcato la tappa come servita oggi, forza "done"
+      // Reset automatico alle 2:00 del giorno successivo (gestito da cron su Supabase)
+      const servedToday = s.served_at && new Date(s.served_at).toDateString() === new Date().toDateString();
+      const stServed = servedToday ? ("done" as Status) : undefined;
       // La tappa è "done" se tutti gli utenti sono stati serviti,
       // "todo" (da servire) se ce ne sono di non serviti,
       // "missing" (vuota) se non ha utenti
