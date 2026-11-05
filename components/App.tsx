@@ -531,10 +531,13 @@ export default function App({ profile }: { profile: Profile }) {
   async function markStopAsServed(sid: string) {
     try {
       const stop = stops.find((s) => s.id === sid);
-      const isServed = !!stop?.served_at;
+      // Ripristino SOLO da Servito a Da servire (azzeramento timestamp).
+// Il passaggio contrario (Da servire → Servito) avviene già quando
+// l'associazione traccia l'intervento di verifica, quindi non lo
+// gestiamo qui: cliccando si rimuove sempre il timestamp.
       const { error } = await supabase()
         .from("stops")
-        .update({ served_at: isServed ? null : new Date().toISOString() })
+        .update({ served_at: null })
         .eq("id", sid);
       if (error) throw error;
       // Aggiorna lo stato locale
