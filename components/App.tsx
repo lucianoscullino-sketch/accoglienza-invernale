@@ -806,13 +806,6 @@ export default function App({ profile }: { profile: Profile }) {
         rec,
       ]);
       const u = [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === uid);
-      if (u?.stop_id) {
-        setServedStops((prev) => {
-          const next = new Set(prev);
-          next.add(u.stop_id!);
-          return next;
-        });
-      }
       toast("Esito registrato, firmato " + (row.org_id ? orgName(row.org_id, orgs) : "-"));
       return true;
     } catch (e) {

@@ -201,7 +201,8 @@ export default function MapView({
       // Pin a goccia con bordo bianco e interno colorato per stato
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
       const isProposal = it.kind === "prop" || it.kind === "draft";
-      const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#ef4444" : it.st === "missing" ? "#9ca3af" : it.kind === "prop" ? (it.st === "done" ? "#10b981" : it.st === "todo" ? "#ef4444" : it.st === "missing" ? "#9ca3af" : "#9ca3af") : "#6b7280";
+      const st = (it.st as Status);
+      const colore = st === "done" ? "#10b981" : st === "todo" ? "#ef4444" : st === "missing" ? "#9ca3af" : "#6b7280";
       const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
       const w = isProposal ? 20 : 30;
       const h = isProposal ? 28 : 42;

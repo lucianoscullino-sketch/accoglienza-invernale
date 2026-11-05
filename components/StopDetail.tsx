@@ -196,33 +196,6 @@ export default function StopDetail({
                   {u.name}
                 </span>
                 <span className="pgtxt">{u.description}</span>
-                {u.stop_id && myOrg && (
-                  <button
-                    className="btn btn-sm"
-                    style={{ marginLeft: 8, float: "right" }}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const hasFound = u.logs?.some((l) => l.date === today() && l.found);
-                      const newFound = !hasFound;
-                      // Update the daily log
-                      const { error } = await supabase()
-                        .from("daily_logs")
-                        .upsert({
-                          user_id: u.id,
-                          date: today(),
-                          org_id: myOrg,
-                          found: newFound,
-                          provided: u.provided || [],
-                          requested: u.requested || "",
-                          note: newFound ? "Ripristinato a da servire" : u.note || "",
-                        }, { onConflict: "user_id,date" });
-                      if (error) throw error;
-                      toast(newFound ? "Utente ripristinato a Da servire" : "Utente segnato come servito");
-                    }}
-                  >
-                    {u.logs?.some((l) => l.date === today() && l.found) ? "Da servire" : "Servito"}
-                  </button>
-                )}
               </li>
             ))}
           </ul>
