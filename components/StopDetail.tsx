@@ -222,6 +222,7 @@ export default function StopDetail({
                   {p.name}
                 </span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
+                {!isAdmin && <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>}
               </li>
             ))}
           </ul>
