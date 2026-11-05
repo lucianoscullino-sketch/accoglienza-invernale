@@ -174,10 +174,8 @@ export default function StopDetail({
         <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {stop.name}
         </h3>
-        <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
-        {/* Toggle stato */}
         {!isAdmin && (
-          <div style={{ marginTop: 8, fontSize: 12 }}>
+          <div style={{ marginLeft: 12, fontSize: 12, marginTop: 4 }}>
             <button
               className="btn btn-sm"
               type="button"
@@ -187,6 +185,7 @@ export default function StopDetail({
             </button>
           </div>
         )}
+        <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Utenti assegnati ({users.length})</h4>
         {users.length === 0 ? (
           <p className="notice">Nessun utente assegnato a questa tappa.</p>
