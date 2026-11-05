@@ -208,22 +208,23 @@ const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
 const isProp = it.kind === "prop" || it.kind === "draft";
 const w = isProp ? 20 : 30;
 const h = isProp ? 28 : 42;
-const y = isProp ? 13 : 19;
-const fontSize = isProp ? 8 : 12;
+const scale = w / 30;
 const strokeDash = isProp ? "4 2" : "";
+
 const markerIcon = L.divIcon({
   className: "",
   html: `
-    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
-      <path d="M${w/2} ${h-1}C${w/2} ${h-1} 1 ${h/2+1.5} 1 ${h/2+5.5}C${w/2-2} ${h/2+9.5-w/2} 7.3 2 ${w/2} 2s${w/2-1-7.3} 3.5 ${w/2-1} ${h-3}s${-1} ${h-3} ${w/2} ${h-1}z"
-            fill="${colore}" stroke="#fff" stroke-width="2" stroke-dasharray="${strokeDash}"/>
-      <text x="${w/2}" y="${y}" text-anchor="middle" font-size="${fontSize}"
+    <svg width="${w}" height="${h}" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
+            fill="${colore}" stroke="#fff" stroke-width="2"
+            ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ""}/>
+      <text x="15" y="19" text-anchor="middle" font-size="12"
             font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>
     </svg>`,
   iconSize: [w, h],
-  iconAnchor: [w/2, h],
-  popupAnchor: [0, -38]
-      });
+  iconAnchor: [w / 2, h],
+  popupAnchor: [0, -(h - 4)]
+});
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: markerIcon,
         draggable: isDraggable,
