@@ -95,11 +95,14 @@ export default function StopDetail({
           </button>
         )}
         {!isAdmin && users.length === 0 && !confirm && !edit ? (
-              <>
-                <button className="btn btn-sm btn-success" type="button" disabled={busy === "susp"} onClick={() => onMarkServed?.(stop.id)}>
-                  {busy === "susp" ? "Servo…" : "Tappa servita"}
-                </button>
-              </>
+              <button
+                className="btn btn-sm"
+                style={{ background: stop.served_at ? "#10b981" : "#ef4444", color: "#fff", border: "none" }}
+                disabled={busy === "susp"}
+                onClick={() => onMarkServed?.(stop.id)}
+              >
+                {busy === "susp" ? "Servo…" : stop.served_at ? "Tappa servita" : "Tappa da servire"}
+              </button>
             ) : null}
             {stop.status === "suspended" && empty && !confirm && !edit ? (
               <button className="btn btn-sm btn-ok" type="button" disabled={busy === "rest"} onClick={() => onRestore().finally(() => setBusy(""))}>
@@ -197,7 +200,7 @@ export default function StopDetail({
                   <button
                     className="btn btn-sm"
                     style={{ marginLeft: 8, float: "right" }}
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
                       const hasFound = u.logs?.some((l) => l.date === today() && l.found);
                       const newFound = !hasFound;

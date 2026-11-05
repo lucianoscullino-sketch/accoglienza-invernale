@@ -95,7 +95,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [noticesErr, setNoticesErr] = useState("");
   // Tappe marcate come servite dal coordinamento (anche se non hanno utenti)
-  const [servedStops, setServedStops] = useState<Set<string>>(new Set());
+  // Stato servita/da servire delle tappe: letto da served_at (Supabase),
+  // non più in client-side state. Reset automatico dopo 2 ore (alle 2:00 del giorno successivo).
   // Composizione dell'avviso (solo coordinamento), aperta dal tab Comunicazioni.
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeDraft, setNoticeDraft] = useState("");
@@ -310,7 +311,8 @@ export default function App({ profile }: { profile: Profile }) {
         return l && l.found;
       });
       // Se il coordinamento ha marcato la tappa come servita, forza "done"
-      const stServed = servedStops.has(s.id) ? ("done" as Status) : undefined;
+      // Se il coordinamento ha marcato la tappa come servita, forza "done" (reset dopo 2 ore)
+      const stServed = s.served_at && new Date(s.served_at).getTime() > Date.now() - 2 * 60 * 60 * 1000 ? ("done" as Status) : undefined;
       // La tappa è "done" se tutti gli utenti sono stati serviti,
       // "todo" (da servire) se ce ne sono di non serviti,
       // "missing" (vuota) se non ha utenti
@@ -523,15 +525,21 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
 
-// Tappa marcata come servita dal coordinamento
+// Tappa marcata come servita/da servire dal coordinamento
   async function markStopAsServed(sid: string) {
     try {
-      setServedStops((prev) => {
-        const next = new Set(prev);
-        next.has(sid) ? next.delete(sid) : next.add(sid);
-        return next;
-      });
-      toast(next.has(sid) ? "Tappa rimossa dai serviti" : "Tappa marcata come servita");
+      const stop = stops.find((s) => s.id === sid);
+      const isServed = !!stop?.served_at;
+      const { error } = await supabase()
+        .from("stops")
+        .update({ served_at: isServed ? null : new Date().toISOString() })
+        .eq("id", sid);
+      if (error) throw error;
+      // Aggiorna lo stato locale
+      setStops((prev) => prev.map((s) =>
+        s.id === sid ? { ...s, served_at: isServed ? null : new Date().toISOString() } : s
+      ));
+      toast(isServed ? "Tappa rimossa dai serviti" : "Tappa marcata come servita");
     } catch (err) {
       toast("Errore: " + (err instanceof Error ? err.message : String(err)));
     }

@@ -111,4 +111,5 @@ export interface Stop {
   note?: string;
   created_at?: string;
   created_by?: string | null;
+  served_at?: string | null; // timestamp quando la tappa è stata marcata come servita
 }
