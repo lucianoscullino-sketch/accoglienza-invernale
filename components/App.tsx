@@ -541,6 +541,7 @@ export default function App({ profile }: { profile: Profile }) {
         .eq("id", sid);
       if (error) throw error;
       // Aggiorna lo stato locale
+      const isServed = !!stop?.served_at;
       setStops((prev) => prev.map((s) =>
         s.id === sid ? { ...s, served_at: isServed ? null : new Date().toISOString() } : s
       ));
