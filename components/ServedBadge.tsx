@@ -4,15 +4,18 @@ import { useState } from "react";
 
 export default function ServedBadge({
   served,
+  canReset,
   onReset,
 }: {
   served: boolean;
+  canReset: boolean;
   onReset: () => Promise<void> | void;
 }) {
   const [busy, setBusy] = useState(false);
+  const clickable = served && canReset && !busy;
 
   async function click() {
-    if (!served || busy) return;
+    if (!clickable) return;
     setBusy(true);
     try {
       await onReset();
@@ -25,10 +28,16 @@ export default function ServedBadge({
     <button
       type="button"
       onClick={click}
-      disabled={!served || busy}
-      title={served ? "Clicca per segnare come da servire" : "Da servire"}
+      disabled={!clickable}
+      title={
+        !served
+          ? "Da servire"
+          : canReset
+            ? "Clicca per segnare come da servire"
+            : "Servito (modificabile solo dall'associazione in uscita)"
+      }
       style={{
-        cursor: served && !busy ? "pointer" : "default",
+        cursor: clickable ? "pointer" : "default",
         padding: "2px 10px",
         borderRadius: 999,
         fontSize: 14,

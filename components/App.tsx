@@ -266,6 +266,26 @@ export default function App({ profile }: { profile: Profile }) {
     const l = tonightLog(u.id);
     return !l ? "missing" : l.found ? "done" : "missing";
   };
+  // Il "giorno di servizio" va dalle 02:00 alle 02:00 del giorno dopo
+  const serviceDayKey = (d: Date = new Date()): string =>
+    new Date(d.getTime() - 2 * 3600 * 1000).toLocaleDateString("sv-SE"); // YYYY-MM-DD
+
+  const sameServiceDay = (iso?: string | null) =>
+    !!iso && serviceDayKey(new Date(iso)) === serviceDayKey();
+
+  const stopServed = (s: Stop): boolean => {
+    const resetToday = sameServiceDay(s.reset_at);
+    const servedAfterReset =
+      !!s.served_at && (!s.reset_at || new Date(s.served_at) > new Date(s.reset_at));
+    if (resetToday && !servedAfterReset) return false;
+    const su = users.filter((u) => u.stop_id === s.id);
+    const allDone = su.length > 0 && su.every((u) => tonightLog(u.id)?.found);
+    return sameServiceDay(s.served_at) || allDone;
+  };
+
+  // Solo l'associazione in uscita nel giorno di servizio può modificare lo stato
+  const dutyNow = dutyOrg(serviceDayKey());
+  const canResetServed = !isAdmin && !!myOrg && dutyNow?.id === myOrg;
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
   const visibleProps = showProps
     ? proposals.filter(
@@ -302,25 +322,18 @@ export default function App({ profile }: { profile: Profile }) {
     return c;
   }
 
-  const mapItems: MapItem[] = [
+    const mapItems: MapItem[] = [
     // Le tappe sono sempre mostrate (anche se vuote); sospese/eliminate solo
     // con i relativi flag attivi.
     ...stops.filter((s) => s.status === "active").map((s) => {
-      // Calcola lo stato della tappa basandosi sui suoi utenti associati
+      // Lo stato "servita" è calcolato da stopServed (stessa logica del badge)
       const usersInStop = users.filter((u) => u.stop_id === s.id);
-      const doneUsers = usersInStop.filter((u) => {
-        const l = tonightLog(u.id);
-        return l && l.found;
-      });
-      // Se il coordinamento ha marcato la tappa come servita, forza "done"
-      // Se il coordinamento ha marcato la tappa come servita oggi, forza "done"
-      // Reset automatico alle 2:00 del giorno successivo (gestito da cron su Supabase)
-      const servedToday = s.served_at && new Date(s.served_at).toDateString() === new Date().toDateString();
-      const stServed = servedToday ? ("done" as Status) : undefined;
-      // La tappa è "done" se tutti gli utenti sono stati serviti,
-      // "todo" (da servire) se ce ne sono di non serviti,
-      // "missing" (vuota) se non ha utenti
-      const st = stServed !== undefined ? stServed : usersInStop.length === 0 ? ("missing" as Status) : doneUsers.length > 0 && doneUsers.length === usersInStop.length ? ("done" as Status) : ("todo" as Status);
+      // "done" se servita, "missing" se vuota, "todo" (da servire) negli altri casi
+      const st: Status = stopServed(s)
+        ? "done"
+        : usersInStop.length === 0
+          ? "missing"
+          : "todo";
       return {
         kind: "stop" as const,
         id: s.id,
@@ -1654,7 +1667,7 @@ export default function App({ profile }: { profile: Profile }) {
                   {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}
                 </span>
                 {!isAdmin && s.status === "active" && (
-                  <ServedBadge served={isServed} onReset={() => markStopAsServed(s.id)} />
+                  <ServedBadge served={isServed} canReset={canResetServed} onReset={() => markStopAsServed(s.id)} />
                 )}
               </>
             }
