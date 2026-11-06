@@ -2,10 +2,16 @@
 
 // Scheda di un utente regolare: descrizione, esito di stasera (firmato) e uscite precedenti.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 import type { DailyLog, Org, ServiceUser, Status } from "@/lib/types";
 import { ST_LABEL, fmtShort, fmtTime, orgName } from "@/lib/format";
+
+const sameEntry = (a: EntryValues, b: EntryValues) =>
+  a.found === b.found &&
+  a.requested.trim() === b.requested.trim() &&
+  a.note.trim() === b.note.trim() &&
+  [...a.provided].sort().join("|") === [...b.provided].sort().join("|");
 
 export default function UserDetail({
   user,
@@ -21,6 +27,7 @@ export default function UserDetail({
   canEditData,
   myOrg,
   onSaveUserData,
+  onDirtyChange,
 }: {
   user: ServiceUser;
   status: Status;
@@ -29,7 +36,7 @@ export default function UserDetail({
   canRecord: boolean;
   orgs: Org[];
   readOnlyMsg: string;
-  onSave: (v: EntryValues) => Promise<void>;
+  onSave: (v: EntryValues) => Promise<boolean | void>;
   onBack: () => void;
   isAdmin: boolean;
   canEditData: boolean;
@@ -41,9 +48,13 @@ export default function UserDetail({
     lng: number;
     note?: string;
   }) => Promise<void>;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
+  // Valori dell'ultimo salvataggio (o iniziali): servono a capire se ci sono modifiche
+  const baseRef = useRef<EntryValues>(entryFrom(tonight));
+  const [entryDirty, setEntryDirty] = useState(false);
 
   // Modifica dati anagrafici
   const [editing, setEditing] = useState(false);
@@ -55,6 +66,20 @@ export default function UserDetail({
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState("");
 
+  const dataDirty =
+    editing &&
+    (edName !== user.name ||
+      edDesc !== (user.description || "") ||
+      edLat !== String(user.lat) ||
+      edLng !== String(user.lng) ||
+      (isAdmin && edNote !== (user.note || "")));
+  const dirty = entryDirty || dataDirty;
+
+  // Comunica al genitore se ci sono modifiche non salvate
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
   const form = canRecord ? (
@@ -63,7 +88,15 @@ export default function UserDetail({
       onSubmit={(e) => {
         e.preventDefault();
         setBusy(true);
-        onSave(vref.current).finally(() => setBusy(false));
+        const values = vref.current;
+        onSave(values)
+          .then((ok) => {
+            if (ok !== false) {
+              baseRef.current = values;
+              setEntryDirty(false);
+            }
+          })
+          .finally(() => setBusy(false));
       }}
     >
       <h3>Esito di stasera</h3>
@@ -73,7 +106,14 @@ export default function UserDetail({
           {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}. Puoi modificarlo.
         </p>
       )}
-      <EntryFields initial={entryFrom(tonight)} idPrefix="f" onValues={(v) => (vref.current = v)} />
+      <EntryFields
+        initial={entryFrom(tonight)}
+        idPrefix="f"
+        onValues={(v) => {
+          vref.current = v;
+          setEntryDirty(!sameEntry(v, baseRef.current));
+        }}
+      />
       <button className="btn btn-primary" type="submit" disabled={busy}>
         {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
       </button>
@@ -185,7 +225,10 @@ export default function UserDetail({
                     } = { name: edName.trim(), description: edDesc.trim(), lat, lng };
                     if (isAdmin) patch.note = edNote.trim();
                     onSaveUserData(patch)
-                      .then(() => setEditing(false))
+                      .then(() => {
+                        setEditing(false);
+                        setEditBusy(false);
+                      })
                       .catch((err) => {
                         setEditErr(err instanceof Error ? err.message : "Errore nel salvataggio.");
                         setEditBusy(false);

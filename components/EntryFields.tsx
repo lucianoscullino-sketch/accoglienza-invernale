@@ -38,7 +38,7 @@ export function EntryFields({
   initial,
   idPrefix,
   legend = "Cosa è stato fornito o lasciato sul posto",
-  noteLabel = "Note per le prossime uscite",
+  noteLabel = "Note importanti (vengono riportate al Coordinamento)",
   onValues,
 }: {
   initial: EntryValues;
@@ -119,26 +119,17 @@ export function EntryFields({
         </div>
       </fieldset>
       <div>
-        <label className="lb" htmlFor={`${idPrefix}-req`}>
-          Cosa chiede
-        </label>
-        <textarea
-          id={`${idPrefix}-req`}
-          rows={2}
-          value={requested}
-          onChange={(e) => {
-            setRequested(e.target.value);
-            emit({ requested: e.target.value });
-          }}
-        />
-      </div>
-      <div>
-        <label className="lb" htmlFor={`${idPrefix}-note`}>
+        <label
+          className="lb"
+          htmlFor={`${idPrefix}-note`}
+          style={{ color: "#dc2626", fontWeight: 600 }}
+        >
           {noteLabel}
         </label>
         <textarea
           id={`${idPrefix}-note`}
           rows={2}
+          style={{ borderColor: "#dc2626" }}
           value={note}
           onChange={(e) => {
             setNote(e.target.value);

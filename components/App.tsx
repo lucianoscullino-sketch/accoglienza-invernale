@@ -131,6 +131,7 @@ export default function App({ profile }: { profile: Profile }) {
   const [rep, setRep] = useState({ from: addDaysKey(-6), to: today() });
   const [toastMsg, setToastMsg] = useState("");
   const toastT = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userDirtyRef = useRef(false);
 
   const isAdmin = profile.role === "admin";
   const myOrg = profile.org_id;
@@ -413,6 +414,7 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- selezione e proposta ---
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
+    userDirtyRef.current = false;
     setSelected({ kind, id });
     setPlacing(false);
     if (fromMap) {
@@ -430,8 +432,18 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
   function back() {
+    userDirtyRef.current = false;
     setSelected(null);
     setFocus(null);
+  }
+  function closeUserCard() {
+    if (
+      userDirtyRef.current &&
+      !window.confirm("Hai modifiche non salvate. Vuoi chiudere la scheda senza salvare?")
+    ) {
+      return;
+    }
+    back();
   }
   function startPropose() {
     setPlacing(true);
@@ -1510,11 +1522,31 @@ export default function App({ profile }: { profile: Profile }) {
 
   function propsTabHTML() {
     const v = [...visibleProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
+        const everyUser = [...users, ...suspendedUsers, ...deletedUsers];
+    const noteRows = [
+      ...logs
+        .filter((l) => l.org_id && (l.note || "").trim())
+        .map((l) => ({
+          key: `l-${l.user_id}-${l.date}`,
+          org: l.org_id,
+          user: everyUser.find((x) => x.id === l.user_id)?.name || "Utenza",
+          note: l.note,
+          date: l.date,
+        })),
+      ...proposals.flatMap((p) =>
+        (p.verifications || [])
+          .filter((vv) => vv.org_id && (vv.note || "").trim())
+          .map((vv) => ({
+            key: `v-${p.id}-${vv.date}`,
+            org: vv.org_id,
+            user: `${p.name} (candidato)`,
+            note: vv.note,
+            date: vv.date,
+          }))
+      ),
+    ].sort((a, b) => b.date.localeCompare(a.date));
     return (
       <>
-        {/* Sezione avvisi in alto, compatta: solo tasto e form. L'elenco degli
-            avvisi pubblicati non serve qui — restano visibili nel banner in
-            testata al pannello, con «Rimuovi» per il coordinamento. */}
         {isAdmin && (
           <div className="stack">
             {!noticeOpen ? (
@@ -1569,10 +1601,54 @@ export default function App({ profile }: { profile: Profile }) {
             )}
           </div>
         )}
-        {!v.length && (
-          <p className="notice">Nessuna proposta in attesa.</p>
+
+        {isAdmin && (
+          <div className="stack" style={{ marginTop: 12 }}>
+            <p className="subhead">Note importanti dalle associazioni ({noteRows.length})</p>
+            {!noteRows.length ? (
+              <p className="notice">Nessuna nota segnalata dalle associazioni.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      {["Associazione", "Utente", "Nota", "Data"].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            textAlign: "left",
+                            padding: "6px 8px",
+                            borderBottom: "1px solid var(--line)",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {noteRows.map((r) => (
+                      <tr key={r.key}>
+                        <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{orgName(r.org ?? "", orgs)}</td>
+                        <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{r.user}</td>
+                        <td style={{ padding: "6px 8px", verticalAlign: "top", minWidth: 160 }}>{r.note}</td>
+                        <td style={{ padding: "6px 8px", verticalAlign: "top", whiteSpace: "nowrap" }}>
+                          {fmtDay(r.date)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
-        {!!v.length && (
+
+        {/* Il coordinamento gestisce le proposte nel tab "Proposte da validare" */}
+        {!isAdmin && !v.length && <p className="notice">Nessuna proposta in attesa.</p>}
+        {!isAdmin && !!v.length && (
           <ul className="list">
             {v.map((p) => {
               const l = daysLeft(p);
@@ -1589,52 +1665,11 @@ export default function App({ profile }: { profile: Profile }) {
                       </span>
                     </span>
                   </button>
-                  {isAdmin && (
-                    <div className="actions">
-                      <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
-                        Valida
-                      </button>
-                      <button className="btn btn-sm" type="button" onClick={() => reject(p)}>
-                        Rifiuta
-                      </button>
-                    </div>
-                  )}
                 </li>
               );
             })}
           </ul>
         )}
-        {isAdmin && !!expiredProps.length && (
-          <>
-            <p className="subhead">Scadute, non più sulla mappa</p>
-            <ul className="list">
-              {expiredProps.map((p) => (
-                <li key={p.id}>
-                  <div className="row" style={{ cursor: "default" }}>
-                    <span className="dot st-missing" />
-                    <span className="rowmain">
-                      <span className="rowname">{p.name}</span>
-                      <span className="rowdesc">
-                        Scaduta il {fmtDM(expTime(p))} · proposta da {orgName(p.proposed_by ?? "", orgs)}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="actions">
-                    {p.status === "pending" ? (
-                      <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
-                        Valida comunque
-                      </button>
-                    ) : null}
-                    <button className="btn btn-sm" type="button" onClick={() => reject(p)}>
-                      Elimina
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-        {/* Tasto di proposta spostato accanto a "Stasera in uscita" */}
       </>
     );
   }
@@ -1694,7 +1729,7 @@ export default function App({ profile }: { profile: Profile }) {
           deletedUsers.find((x) => x.id === selected.id);
         if (u)
           return (
-            <Popup title={u.name} onClose={back}>
+            <Popup title={u.name} onClose={closeUserCard}>
             <UserDetail
               key={u.id}
               user={u}
@@ -1713,13 +1748,12 @@ export default function App({ profile }: { profile: Profile }) {
                   ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito.`
                   : "Stasera non c'è un'uscita in calendario."
               }
-              onSave={async (v) => {
-                await saveUserLog(u.id, v);
-              }}
+              onSave={(v) => saveUserLog(u.id, v)}
               onSaveUserData={async (patch) => {
                 await saveUserData(u.id, { ...patch, note: patch.note || "" });
               }}
-              onBack={back}
+              onDirtyChange={(d) => { userDirtyRef.current = d; }}
+              onBack={closeUserCard}
             />
             </Popup>
           );
@@ -1728,12 +1762,6 @@ export default function App({ profile }: { profile: Profile }) {
       if (s) {
         const stopUsers = users.filter((u) => u.stop_id === s.id);
         const stopProps = proposals.filter((p) => p.stop_id === s.id);
-
-        // Stessa logica del colore del pin sulla mappa
-        const servedToday =
-          !!s.served_at && new Date(s.served_at).toDateString() === new Date().toDateString();
-        const allUsersDone =
-          stopUsers.length > 0 && stopUsers.every((u) => tonightLog(u.id)?.found);
         const isServed = stopServed(s);
 
         return (
@@ -1891,15 +1919,12 @@ export default function App({ profile }: { profile: Profile }) {
   const c = counts();
   const menuWide = isAdmin;
   // Tappe: da servire (almeno un utente todo), vuote (nessun utente), servite (utenti done e nessuno todo)
-  const stopUserStats = stops.map((s) => {
-    const su = users.filter((u) => u.stop_id === s.id);
-    const todo = su.filter((u) => statusOf(u) === "todo").length;
-    const done = su.filter((u) => statusOf(u) === "done").length;
-    return { stop: s, todo, done, n: su.length };
-  });
-  const stopsServing = stopUserStats.filter((x) => x.todo > 0).length;
-  const stopsEmpty = stopUserStats.filter((x) => x.n === 0).length;
-  const stopsDone = stopUserStats.filter((x) => x.n > 0 && x.todo === 0 && x.done > 0).length;
+  const activeStops = stops.filter((s) => s.status === "active");
+  const stopsDone = activeStops.filter((s) => stopServed(s)).length;
+  const stopsEmpty = activeStops.filter(
+    (s) => !stopServed(s) && !users.some((u) => u.stop_id === s.id)
+  ).length;
+  const stopsServing = activeStops.length - stopsDone - stopsEmpty;
   const legend = (
     <ul className="legend">
       <li>
