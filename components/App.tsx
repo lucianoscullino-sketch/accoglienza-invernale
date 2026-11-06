@@ -1761,7 +1761,9 @@ export default function App({ profile }: { profile: Profile }) {
       const s = stops.find((x) => x.id === selected.id);
       if (s) {
         const stopUsers = users.filter((u) => u.stop_id === s.id);
-        const stopProps = proposals.filter((p) => p.stop_id === s.id);
+        const stopProps = proposals.filter(
+          (p) => p.stop_id === s.id && p.status === "pending" && !p.suspended
+        );
         const isServed = stopServed(s);
 
         return (
@@ -2125,7 +2127,7 @@ export default function App({ profile }: { profile: Profile }) {
               ) : (
                 !!yLogs.length && (
                   <p className="notice">
-                    Ieri nessun esito contiene note per la prossima uscita.
+                    Ieri nessuna nota importante riportata.
                   </p>
                 )
               )}

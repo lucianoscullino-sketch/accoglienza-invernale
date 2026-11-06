@@ -115,7 +115,30 @@ export default function UserDetail({
         }}
       />
       <button className="btn btn-primary" type="submit" disabled={busy}>
-        {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
+              {(() => {
+        // Se l'esito esiste già e non è cambiato nulla, il pulsante è bianco e disabilitato.
+        // Se l'esito non è ancora stato registrato, resta attivo.
+        const unchanged = !!tonight && !entryDirty;
+        return (
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={busy || unchanged}
+            style={
+              unchanged
+                ? {
+                    background: "#fff",
+                    color: "#94a3b8",
+                    border: "1px solid #cbd5e1",
+                    cursor: "default",
+                  }
+                : undefined
+            }
+          >
+            {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
+          </button>
+        );
+      })()}
       </button>
     </form>
   ) : (
