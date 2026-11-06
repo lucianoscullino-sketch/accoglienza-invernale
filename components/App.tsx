@@ -40,6 +40,7 @@ import { downloadExcel, reportFileName } from "@/lib/excel";
 
 type Tab =
   | "utenti"
+  | "validare"
   | "proposte"
   | "associazioni"
   | "calendario"
@@ -297,6 +298,8 @@ export default function App({ profile }: { profile: Profile }) {
         (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
       )
     : [];
+    // Tutte le proposte in attesa di validazione (anche scadute), escluse le eliminate
+  const pendingProps = proposals.filter((p) => p.status === "pending" && !p.suspended);
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
   // elenchi di default, ma rivisibili con il flag "Eliminati" come le utenze.
@@ -1398,6 +1401,7 @@ export default function App({ profile }: { profile: Profile }) {
     return (
       <div className="tabs" role="tablist">
         {t("utenti", "Stasera")}
+        {isAdmin && t("validare", "Proposte da validare", pendingProps.length)}
         {t("proposte", "Comunicazioni")}
         {isAdmin && t("associazioni", "Associazioni")}
         {t("calendario", "Calendario")}
@@ -1409,27 +1413,53 @@ export default function App({ profile }: { profile: Profile }) {
 
   function listHTML() {
     const order: Record<string, number> = { active: 0, suspended: 1, deleted: 2 };
-    // Elenca le tappe (non gli utenti) nel tab "Stasera"
-    const items = [
-      ...stops.map((s) => ({
-        kind: "stop" as const,
-        id: s.id,
-        name: s.name,
-        desc: s.note || "",
-        status: s.status,
-        usersCount: users.filter((u) => u.stop_id === s.id).length,
-      })),
-    ].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.name.localeCompare(b.name));
+    const items = stops.map((s) => ({
+      kind: "stop" as const,
+      id: s.id,
+      name: s.name,
+      desc: s.note || "",
+      status: s.status,
+      usersCount: users.filter((u) => u.stop_id === s.id).length,
+      // Solo le tappe attive hanno uno stato servita / da servire
+      served: s.status === "active" && stopServed(s),
+    }));
+
+    // Attive prima, poi sospese ed eliminate; tra le attive le servite vanno in fondo
+    items.sort(
+      (a, b) =>
+        (order[a.status] ?? 9) - (order[b.status] ?? 9) ||
+        Number(a.served) - Number(b.served) ||
+        a.name.localeCompare(b.name)
+    );
+
+    const tint = (it: (typeof items)[number]): React.CSSProperties | undefined => {
+      if (it.status !== "active") return undefined;
+      return it.served
+        ? { background: "#ecfdf5", borderColor: "#bbf7d0" }
+        : { background: "#fef2f2", borderColor: "#fecaca" };
+    };
+
     return (
       <>
         <ul className="list">
           {items.map((it) => (
             <li key={it.id}>
-              <button className="row" type="button" onClick={() => select("stop", it.id, false)}>
+              <button
+                className="row"
+                type="button"
+                style={tint(it)}
+                onClick={() => select("stop", it.id, false)}
+              >
                 <span className="rowmain">
                   <span className="rowname">{it.name}</span>
                   <span className="rowdesc">
-                    {it.status === "active" ? "Attiva" : it.status === "suspended" ? "Sospesa" : "Eliminata"}
+                    {it.status === "active"
+                      ? it.served
+                        ? "Servita"
+                        : "Da servire"
+                      : it.status === "suspended"
+                        ? "Sospesa"
+                        : "Eliminata"}
                     {it.usersCount > 0 ? ` · ${it.usersCount} utenti` : " · vuota"}
                   </span>
                 </span>
@@ -1438,6 +1468,43 @@ export default function App({ profile }: { profile: Profile }) {
           ))}
         </ul>
       </>
+    );
+  }
+
+  function validateTabHTML() {
+    const list = [...pendingProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    if (!list.length) return <p className="notice">Nessuna proposta da validare.</p>;
+    return (
+      <ul className="list">
+        {list.map((p) => {
+          const expired = Date.now() >= expTime(p);
+          const l = daysLeft(p);
+          return (
+            <li key={p.id}>
+              <button className="row" type="button" onClick={() => select("prop", p.id, false)}>
+                <span className={`dot pr st-${expired ? "missing" : propTonight(p)}`} />
+                <span className="rowmain">
+                  <span className="rowname">{p.name}</span>
+                  <span className="rowdesc">
+                    Proposto da {orgName(p.proposed_by ?? "", orgs)} · {VER_TXT[propVer(p)]} ·{" "}
+                    {expired
+                      ? `scaduta il ${fmtDM(expTime(p))}`
+                      : `visibile ancora ${l} ${l === 1 ? "giorno" : "giorni"}`}
+                  </span>
+                </span>
+              </button>
+              <div className="actions">
+                <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
+                  {expired ? "Valida comunque" : "Valida"}
+                </button>
+                <button className="btn btn-sm" type="button" onClick={() => reject(p)}>
+                  {expired ? "Elimina" : "Rifiuta"}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
@@ -1809,6 +1876,8 @@ export default function App({ profile }: { profile: Profile }) {
             setProfiles={setProfiles}
             onToast={toast}
           />
+        ) : tab === "validare" && isAdmin ? (
+          validateTabHTML()
         ) : tab === "proposte" ? (
           propsTabHTML()
         ) : (
