@@ -274,13 +274,13 @@ export default function App({ profile }: { profile: Profile }) {
     !!iso && serviceDayKey(new Date(iso)) === serviceDayKey();
 
   const stopServed = (s: Stop): boolean => {
-    const resetToday = sameServiceDay(s.reset_at);
-    const servedAfterReset =
-      !!s.served_at && (!s.reset_at || new Date(s.served_at) > new Date(s.reset_at));
+  const resetToday = sameServiceDay(s.reset_at);
+  const servedAfterReset =
+    !!s.served_at && (!s.reset_at || new Date(s.served_at) > new Date(s.reset_at));
     if (resetToday && !servedAfterReset) return false;
-    const su = users.filter((u) => u.stop_id === s.id);
-    const allDone = su.length > 0 && su.every((u) => tonightLog(u.id)?.found);
-    return sameServiceDay(s.served_at) || allDone;
+  // Basta un esito registrato stasera (trovato o no) per un utente della tappa
+  const someLogged = users.some((u) => u.stop_id === s.id && !!tonightLog(u.id));
+    return sameServiceDay(s.served_at) || someLogged;
   };
 
   // Solo l'associazione in uscita nel giorno di servizio può modificare lo stato
@@ -541,30 +541,26 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-
-// Tappa marcata come servita/da servire dal coordinamento
+  // Tappa riportata da "Servito" a "Da servire" dall'associazione in uscita
   async function markStopAsServed(sid: string) {
+    if (!canResetServed) {
+      toast("Solo l'associazione in uscita può modificare lo stato della tappa.");
+      return;
+    }
     try {
-      const stop = stops.find((s) => s.id === sid);
-      // Ripristino SOLO da Servito a Da servire (azzeramento timestamp).
-// Il passaggio contrario (Da servire → Servito) avviene già quando
-// l'associazione traccia l'intervento di verifica, quindi non lo
-// gestiamo qui: cliccando si rimuove sempre il timestamp.
-      const { error } = await supabase()
-        .from("stops")
-        .update({ served_at: null })
-        .eq("id", sid);
+      const { error } = await supabase().rpc("reset_stop_served", { p_stop: sid });
       if (error) throw error;
-      // Aggiorna lo stato locale
-      const isServed = !!stop?.served_at;
-      setStops((prev) => prev.map((s) =>
-        s.id === sid ? { ...s, served_at: isServed ? null : new Date().toISOString() } : s
-      ));
-      toast(isServed ? "Tappa rimossa dai serviti" : "Tappa marcata come servita");
+      setStops((prev) =>
+        prev.map((s) =>
+          s.id === sid ? { ...s, served_at: null, reset_at: new Date().toISOString() } : s
+        )
+      );
+      toast("Tappa segnata come da servire");
     } catch (err) {
-      toast("Errore: " + (err instanceof Error ? err.message : String(err)));
+      toast("Errore: " + (err instanceof Error ? err.message : JSON.stringify(err)));
     }
   }
+
   // --- azioni: scritture su Supabase ---
   const myOrgId = () => myOrg;
 
@@ -826,7 +822,22 @@ export default function App({ profile }: { profile: Profile }) {
         ...prev.filter((l) => !(l.user_id === uid && l.date === row.date)),
         rec,
       ]);
-      const u = [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === uid);
+
+      // Qualsiasi esito registrato (trovato o no): la tappa risulta servita
+      const u = users.find((x) => x.id === uid);
+      if (u?.stop_id && !isAdmin) {
+        const { error: e2 } = await supabase().rpc("mark_stop_served", { p_stop: u.stop_id });
+        if (!e2) {
+          setStops((prev) =>
+            prev.map((s) =>
+              s.id === u.stop_id ? { ...s, served_at: new Date().toISOString() } : s
+            )
+          );
+        } else {
+          console.error("mark_stop_served", e2);
+        }
+      }
+
       toast("Esito registrato, firmato " + (row.org_id ? orgName(row.org_id, orgs) : "-"));
       return true;
     } catch (e) {
@@ -1656,7 +1667,7 @@ export default function App({ profile }: { profile: Profile }) {
           !!s.served_at && new Date(s.served_at).toDateString() === new Date().toDateString();
         const allUsersDone =
           stopUsers.length > 0 && stopUsers.every((u) => tonightLog(u.id)?.found);
-        const isServed = servedToday || allUsersDone;
+        const isServed = stopServed(s);
 
         return (
           <Popup
