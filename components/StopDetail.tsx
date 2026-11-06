@@ -12,6 +12,7 @@ interface StopDetailProps {
   isAdmin: boolean;
   canAddUser: boolean;
   myOrg: string | null;
+  inactiveUsers?: ServiceUser[];
   onOpenMap: (lat: number, lng: number, label: string) => void;
   onSaveStop: (patch: { name: string; lat: number; lng: number; note: string }) => Promise<void>;
   onSuspend: (note: string) => Promise<void>;
@@ -26,7 +27,7 @@ interface StopDetailProps {
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, canAddUser, myOrg, onOpenMap,
   onOpenProp,
-  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onOpenUser, onEditChange,
+  onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onOpenUser, onEditChange, inactiveUsers = [],
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
   const [confirm, setConfirm] = useState(false);
@@ -184,6 +185,30 @@ export default function StopDetail({
           </ul>
         )}
 
+        {isAdmin && inactiveUsers.length > 0 && (
+          <>
+            <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>
+              Utenti sospesi o eliminati ({inactiveUsers.length})
+            </h4>
+            <ul className="list" style={{ gap: 0 }}>
+              {inactiveUsers.map((u) => (
+                <li key={u.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenUser?.(u.id)}>
+                  <span
+                    className="caldate"
+                    style={{ fontSize: 16, fontWeight: 600, textDecoration: "underline", color: "#6b7280", cursor: "pointer" }}
+                  >
+                    {u.name}
+                  </span>
+                  <span className="pgtxt">
+                    {u.deleted ? "eliminato" : "sospeso"}
+                    {u.suspension_note ? ` · ${u.suspension_note}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Candidati di questa tappa ({proposals.length})</h4>
         {proposals.length === 0 ? (
           <p className="notice">Nessun candidato assegnato a questa tappa.</p>
@@ -205,7 +230,6 @@ export default function StopDetail({
                   {p.name}
                 </span>
                 <span className="pgtxt">{orgName(p.proposed_by, orgs)} · {p.status === "pending" ? "in attesa" : p.status === "validated" ? "validata" : "rifiutata"}</span>
-                {!isAdmin && <button className="btn btn-sm" type="button" onClick={() => onOpenMap(p.lat, p.lng, p.name)}>Naviga con Maps</button>}
               </li>
             ))}
           </ul>

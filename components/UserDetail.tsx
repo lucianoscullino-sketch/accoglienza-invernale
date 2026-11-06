@@ -28,6 +28,10 @@ export default function UserDetail({
   myOrg,
   onSaveUserData,
   onDirtyChange,
+  onSuspend,
+  onResume,
+  onDelete,
+  onRestore,
 }: {
   user: ServiceUser;
   status: Status;
@@ -49,10 +53,13 @@ export default function UserDetail({
     note?: string;
   }) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
+  onSuspend?: (note: string) => Promise<void>;
+  onResume?: () => Promise<void>;
+  onDelete?: (note: string) => Promise<void>;
+  onRestore?: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
-  // Valori dell'ultimo salvataggio (o iniziali): servono a capire se ci sono modifiche
   const baseRef = useRef<EntryValues>(entryFrom(tonight));
   const [entryDirty, setEntryDirty] = useState(false);
 
@@ -66,6 +73,13 @@ export default function UserDetail({
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState("");
 
+  // Sospensione / eliminazione (solo coordinamento)
+  const [action, setAction] = useState<"" | "susp" | "del">("");
+  const [actNote, setActNote] = useState("");
+  const [actBusy, setActBusy] = useState(false);
+  const isDeleted = !!user.deleted;
+  const isSuspended = !user.active && !user.deleted;
+
   const dataDirty =
     editing &&
     (edName !== user.name ||
@@ -75,10 +89,31 @@ export default function UserDetail({
       (isAdmin && edNote !== (user.note || "")));
   const dirty = entryDirty || dataDirty;
 
-  // Comunica al genitore se ci sono modifiche non salvate
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  async function runAct(fn?: () => Promise<void>) {
+    if (!fn) return;
+    setActBusy(true);
+    try {
+      await fn();
+    } finally {
+      setActBusy(false);
+    }
+  }
+
+  async function confirmAction() {
+    setActBusy(true);
+    try {
+      if (action === "susp") await onSuspend?.(actNote.trim());
+      else if (action === "del") await onDelete?.(actNote.trim());
+      setAction("");
+      setActNote("");
+    } finally {
+      setActBusy(false);
+    }
+  }
 
   const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
@@ -114,10 +149,7 @@ export default function UserDetail({
           setEntryDirty(!sameEntry(v, baseRef.current));
         }}
       />
-      <button className="btn btn-primary" type="submit" disabled={busy}>
-              {(() => {
-        // Se l'esito esiste già e non è cambiato nulla, il pulsante è bianco e disabilitato.
-        // Se l'esito non è ancora stato registrato, resta attivo.
+      {(() => {
         const unchanged = !!tonight && !entryDirty;
         return (
           <button
@@ -126,12 +158,7 @@ export default function UserDetail({
             disabled={busy || unchanged}
             style={
               unchanged
-                ? {
-                    background: "#fff",
-                    color: "#94a3b8",
-                    border: "1px solid #cbd5e1",
-                    cursor: "default",
-                  }
+                ? { background: "#fff", color: "#94a3b8", border: "1px solid #cbd5e1", cursor: "default" }
                 : undefined
             }
           >
@@ -139,7 +166,6 @@ export default function UserDetail({
           </button>
         );
       })()}
-      </button>
     </form>
   ) : (
     <div className="stack">
@@ -193,16 +219,93 @@ export default function UserDetail({
       <div className="detail stack">
         <div>
           <h2>{user.name}</h2>
-          <div className="meta">
+          <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <span className={tagCls}>{ST_LABEL[status]}</span>
+            {isDeleted ? (
+              <span className="tag tag-muted">Eliminato</span>
+            ) : isSuspended ? (
+              <span className="tag tag-muted">Sospeso</span>
+            ) : null}
           </div>
         </div>
+        {(isSuspended || isDeleted) && user.suspension_note ? (
+          <p className="notice">Motivo: {user.suspension_note}</p>
+        ) : null}
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
         <p className="pgtxt mono">
           Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
         </p>
         {form}
         {hist}
+
+        {/* --- Sospensione / eliminazione (solo coordinamento) --- */}
+        {isAdmin && (
+          <div className="stack" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #e2e8f0" }}>
+            {isDeleted ? (
+              <button
+                className="btn btn-sm btn-ok"
+                type="button"
+                disabled={actBusy}
+                onClick={() => runAct(onRestore)}
+              >
+                {actBusy ? "Ripristino…" : "Ripristina utente"}
+              </button>
+            ) : action ? (
+              <div className="stack" style={{ gap: 8 }}>
+                <p className="notice">
+                  {action === "susp"
+                    ? "L'utente non comparirà più negli elenchi e nelle uscite; potrai riattivarlo quando vuoi."
+                    : "L'utente verrà nascosto da mappa ed elenchi; lo storico degli esiti resta e potrai ripristinarlo."}
+                </p>
+                <label className="lb" htmlFor="user-act-note">
+                  Motivo (facoltativo)
+                </label>
+                <textarea
+                  id="user-act-note"
+                  rows={2}
+                  value={actNote}
+                  onChange={(e) => setActNote(e.target.value)}
+                />
+                <div className="actions" style={{ padding: 0, display: "flex", gap: 8 }}>
+                  <button className="btn btn-danger btn-sm" type="button" disabled={actBusy} onClick={confirmAction}>
+                    {actBusy ? "Attendo…" : action === "susp" ? "Sì, sospendi" : "Sì, elimina"}
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    type="button"
+                    disabled={actBusy}
+                    onClick={() => {
+                      setAction("");
+                      setActNote("");
+                    }}
+                  >
+                    Annulla
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="actions" style={{ padding: 0, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {isSuspended ? (
+                  <button
+                    className="btn btn-sm btn-ok"
+                    type="button"
+                    disabled={actBusy}
+                    onClick={() => runAct(onResume)}
+                  >
+                    {actBusy ? "Riattivo…" : "Riattiva utente"}
+                  </button>
+                ) : (
+                  <button className="btn btn-sm btn-warning" type="button" onClick={() => setAction("susp")}>
+                    Sospendi utente
+                  </button>
+                )}
+                <button className="btn btn-sm btn-danger" type="button" onClick={() => setAction("del")}>
+                  Elimina utente
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* --- Modifica dati anagrafici (admin o associazione proponente) --- */}
         {canEditData && (
@@ -260,12 +363,7 @@ export default function UserDetail({
                 >
                   <div>
                     <label className="lb">Nickname</label>
-                    <input
-                      className="input"
-                      value={edName}
-                      onChange={(e) => setEdName(e.target.value)}
-                      required
-                    />
+                    <input className="input" value={edName} onChange={(e) => setEdName(e.target.value)} required />
                   </div>
                   <div>
                     <label className="lb">Descrizione e punto in cui dorme</label>
@@ -311,18 +409,10 @@ export default function UserDetail({
                   )}
                   {editErr && <p className="err">{editErr}</p>}
                   <div className="actions" style={{ padding: 0, gap: 8 }}>
-                    <button
-                      className="btn btn-primary"
-                      type="submit"
-                      disabled={editBusy}
-                    >
+                    <button className="btn btn-primary" type="submit" disabled={editBusy}>
                       {editBusy ? "Salvo…" : "Salva modifiche"}
                     </button>
-                    <button
-                      className="btn btn-sm"
-                      type="button"
-                      onClick={() => setEditing(false)}
-                    >
+                    <button className="btn btn-sm" type="button" onClick={() => setEditing(false)}>
                       Annulla
                     </button>
                   </div>

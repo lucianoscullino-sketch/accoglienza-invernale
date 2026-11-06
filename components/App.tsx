@@ -1753,6 +1753,10 @@ export default function App({ profile }: { profile: Profile }) {
                 await saveUserData(u.id, { ...patch, note: patch.note || "" });
               }}
               onDirtyChange={(d) => { userDirtyRef.current = d; }}
+              onSuspend={(note) => suspendUser(u, note)}
+              onResume={() => resumeUser(u)}
+              onDelete={(note) => deleteUser(u, note)}
+              onRestore={() => restoreUser(u)}
               onBack={closeUserCard}
             />
             </Popup>
@@ -1764,6 +1768,7 @@ export default function App({ profile }: { profile: Profile }) {
         const stopProps = proposals.filter(
           (p) => p.stop_id === s.id && p.status === "pending" && !p.suspended
         );
+        const stopInactive = [...suspendedUsers, ...deletedUsers].filter((u) => u.stop_id === s.id);
         const isServed = stopServed(s);
 
         return (
@@ -1791,6 +1796,7 @@ export default function App({ profile }: { profile: Profile }) {
               isAdmin={isAdmin}
               canAddUser={isAdmin || !!myOrg}
               myOrg={myOrg}
+              inactiveUsers={isAdmin ? stopInactive : []}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
               onSaveStop={(patch) => saveStop(s.id, patch)}
               onSuspend={() => suspendStop(s.id)}
