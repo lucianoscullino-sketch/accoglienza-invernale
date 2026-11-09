@@ -295,6 +295,9 @@ export default function App({ profile }: { profile: Profile }) {
   const activeDuty = new Date().getHours() < SHIFT_SWITCH_HOUR ? dutyYesterday : duty;
   const isActiveOrg = !isAdmin && !!myOrg && activeDuty?.id === myOrg;
 
+  // Chi può scrivere ora: il coordinamento sempre, le associazioni solo nel proprio turno
+  const canWrite = isAdmin || isActiveOrg;
+
   // Gli esiti del giorno prima restano modificabili dall'associazione fino alle 20:00
   const EDIT_YESTERDAY_UNTIL_HOUR = 20;
   const editYesterdayOpen =
@@ -488,6 +491,7 @@ export default function App({ profile }: { profile: Profile }) {
     back();
   }
   function startPropose() {
+    if (!canWrite) return;
     setPlacing(true);
     setSelected(null);
     setDraftPos(null);
@@ -1098,6 +1102,10 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   async function doPropose(v: { name: string; desc: string; entry: EntryValues }) {
+    if (!canWrite) {
+      toast("Non hai diritti di scrittura in questo momento.");
+      return;
+    }
     if (!draftPos) return;
     try {
       const by = myOrgId();
@@ -1409,12 +1417,15 @@ export default function App({ profile }: { profile: Profile }) {
 
 
   // --- render: pannello ---
-  function headHTML() {
-    const mine = !!duty && duty.id === myOrg && !isAdmin;
-    const tag = mine ? (
+    function headHTML() {
+    const beforeSwitch = new Date().getHours() < SHIFT_SWITCH_HOUR;
+    const writerName = activeDuty ? activeDuty.name : "Solo Coordinamento";
+    const tag = isActiveOrg ? (
       <span className="tag tag-me">Tocca a voi</span>
     ) : isAdmin ? (
       <span className="tag">Vista coordinamento</span>
+    ) : myTurnToday ? (
+      <span className="tag">Stasera tocca a voi · dalle {SHIFT_SWITCH_HOUR}:00</span>
     ) : (
       <span className="tag">Sola consultazione</span>
     );
@@ -1424,6 +1435,15 @@ export default function App({ profile }: { profile: Profile }) {
           <div>
             <p className="eyebrow">Stasera in uscita</p>
             <p className="dutyname">{dutyName}</p>
+          </div>
+          <div>
+            <p className="eyebrow">In scrittura ora</p>
+            <p className="dutyname">{writerName}</p>
+            {beforeSwitch && duty && duty.id !== activeDuty?.id ? (
+              <p className="pgtxt" style={{ margin: 0, fontSize: 12 }}>
+                dalle {SHIFT_SWITCH_HOUR}:00: {duty.name}
+              </p>
+            ) : null}
           </div>
           {tag}
           <div className="duty-actions" style={{ marginLeft: "auto", display: "flex", gap: 8, flexShrink: 0 }}>
@@ -1447,24 +1467,26 @@ export default function App({ profile }: { profile: Profile }) {
                 Crea tappa
               </button>
             )}
-            <button
-              className="btn btn-prop"
-              type="button"
-              onClick={startPropose}
-              style={{
-                minWidth: 190,
-                height: 52,
-                background: "#2563eb",
-                color: "#fff",
-                border: "none",
-                padding: "10px 24px",
-                fontSize: "15px",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
-            >
-              Proponi utente
-            </button>
+            {canWrite && (
+              <button
+                className="btn btn-prop"
+                type="button"
+                onClick={startPropose}
+                style={{
+                  minWidth: 190,
+                  height: 52,
+                  background: "#2563eb",
+                  color: "#fff",
+                  border: "none",
+                  padding: "10px 24px",
+                  fontSize: "15px",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                }}
+              >
+                Proponi utente
+              </button>
+            )}
           </div>
         </div>
       </>
@@ -1832,7 +1854,7 @@ export default function App({ profile }: { profile: Profile }) {
                   )
                   .sort((a, b) => b.date.localeCompare(a.date))}
                 canRecord={isActiveOrg}
-                canEditData={isAdmin || (!!myOrg && u.created_by_org === myOrg)}
+                canEditData={isAdmin || (isActiveOrg && !!myOrg && u.created_by_org === myOrg)}
                 myOrg={myOrg}
                 orgs={orgs}
                 readOnlyMsg={
@@ -1939,7 +1961,11 @@ export default function App({ profile }: { profile: Profile }) {
               isAdmin={isAdmin}
               expired={daysLeft(p) <= 0}
               canVerify={!propReadOnly && isActiveOrg}
-              verifyMsg={dutyMsg(": tocca a loro andare a trovare l'utente.")}
+              verifyMsg={
+                duty
+                  ? `Fino alle ${SHIFT_SWITCH_HOUR}:00 scrivono solo il Coordinamento e l'associazione uscita ieri; da quell'ora tocca a ${duty.name}.`
+                  : "Stasera non c'è un'uscita in calendario."
+              }
               onSaveVer={async (v) => {
                 // Dopo il salvataggio la scheda si chiude da sola (torna
                 // all'elenco/mappa); se fallisce resta aperta per riprovare.
@@ -1947,11 +1973,11 @@ export default function App({ profile }: { profile: Profile }) {
               }}
               onValidate={() => validate(p)}
               onReject={() => reject(p)}
-              onDelete={!propReadOnly && !isAdmin && !!myOrg ? () => deleteProposal(p.id) : null}
-              canDelete={!propReadOnly && !isAdmin && !!myOrg && p.proposed_by === myOrg}
+              onDelete={!propReadOnly && isActiveOrg ? () => deleteProposal(p.id) : null}
+              canDelete={!propReadOnly && isActiveOrg && p.proposed_by === myOrg}
               onDeleteAdmin={!propReadOnly && isAdmin ? () => deleteProposalAdmin(p.id) : null}
               myOrg={myOrg}
-              readOnly={propReadOnly}
+              readOnly={propReadOnly || !canWrite}
               onUpdateProp={(patch) => updateProposal(p.id, patch)}
               onUpdateVer={(v, vals) => updateVerification(v, vals)}
             />
