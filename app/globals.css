@@ -66,8 +66,8 @@ textarea { resize: vertical; min-height: 64px; }
 .zoom button { min-width: 44px; height: 44px; padding: 0 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-size: 18px; line-height: 1; color: var(--ink); }
 .zoom button.txt { font-size: 12px; font-family: var(--font-mono); }
 .hint { position: absolute; top: 10px; left: 10px; right: 70px; z-index: 500; background: var(--prop); color: #fff; padding: 9px 12px; border-radius: 8px; font-weight: 500; }
-/* Legenda: sempre 2 colonne (2 simboli per riga), anche con 5-6 voci. */
-.legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; max-width: calc(100% - 20px); margin: 0; padding: 7px 11px; list-style: none; display: grid; grid-template-columns: repeat(2, auto); gap: 4px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
+/* Legenda: una sola colonna, stretta */
+.legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; width: max-content; max-width: 48%; margin: 0; padding: 7px 11px; list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .legend b { font-family: var(--font-mono); font-weight: 500; }
 
@@ -405,38 +405,5 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
 @media (min-width: 900px) {
   .app.app-wide {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  }
-}
-
-/* Legenda mappa: una colonna, stretta */
-.legend {
-  display: flex !important;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: flex-start;
-  gap: 4px;
-  width: max-content;
-  max-width: 48%;
-}
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-/* I flag in basso a destra restano sopra la legenda */
-.mapflags-bottomright {
-  z-index: 5;
-}
-
-@media (max-width: 899px) {
-  .legend {
-    font-size: 12px;
-    gap: 3px;
-  }
-  .mapflags-bottomright {
-    max-width: 46%;
-    font-size: 12px;
   }
 }
