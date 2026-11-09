@@ -18,7 +18,7 @@ interface StopDetailProps {
   onSuspend: (note: string) => Promise<void>;
   onRestore: () => Promise<void>;
   onDelete: (note: string) => Promise<void>;
-  onAddUser?: (values: { name: string; desc: string }) => Promise<void>;
+  onAddUser?: (values: { name: string; desc: string; multiple: boolean }) => Promise<void>;
   onOpenUser?: (userId: string) => void;
   onOpenProp?: (propId: string) => void;
   onEditChange?: (editing: boolean) => void;
@@ -37,6 +37,7 @@ export default function StopDetail({
   const [edLng, setEdLng] = useState(String(stop.lng));
   const [edNote, setEdNote] = useState(stop.note || "");
   const [editErr, setEditErr] = useState("");
+  const [addUserMulti, setAddUserMulti] = useState(false);
 
   // Sincronizza le coordinate quando la tappa viene spostata dal pin sulla mappa principale
   useEffect(() => {
@@ -56,10 +57,11 @@ export default function StopDetail({
     setBusy("add");
     setAddUserErr("");
     try {
-      await onAddUser({ name: addUserName.trim(), desc: addUserDesc.trim() });
+      await onAddUser({ name: addUserName.trim(), desc: addUserDesc.trim(), multiple: addUserMulti });
       setAddingUser(false);
       setAddUserName("");
       setAddUserDesc("");
+      setAddUserMulti(false);
     } catch (e) {
       // Mostra errore reale in console per il debug
     console.error("Errore add user:", e);
@@ -125,6 +127,10 @@ export default function StopDetail({
           </div>
           <div>
             <label className="lb" htmlFor="add-user-desc">Descrizione / dove dorme</label>
+            <label className="check">
+            <input type="checkbox" checked={addUserMulti} onChange={(e) => setAddUserMulti(e.target.checked)} />{" "}
+            Utenti multipli (più persone insieme)
+          </label>
             <textarea id="add-user-desc" rows={2} value={addUserDesc} onChange={(e) => setAddUserDesc(e.target.value)} />
           </div>
           {addUserErr ? <p className="notice" style={{ color: "var(--danger)" }}>{addUserErr}</p> : null}
@@ -178,6 +184,7 @@ export default function StopDetail({
                   }}
                 >
                   {u.name}
+                  {u.multiple ? " (multipli)" : ""}
                 </span>
                 <span className="pgtxt">{u.description}</span>
               </li>
@@ -251,7 +258,7 @@ export default function StopDetail({
             {editErr ? <p className="notice" style={{ color: "var(--danger)" }}>{editErr}</p> : null}
             <div className="actions" style={{ padding: 0 }}>
               <button className="btn btn-primary btn-sm" type="submit" disabled={busy === "save"}>{busy === "save" ? "Salvo…" : "Salva tappa"}</button>
-              <button className="btn btn-sm" type="button" disabled={busy === "save"} onClick={() => { setEdit(false); onEditChange?.(false); setEditErr(""); }}>Annulla</button>
+              <button className="btn btn-sm" type="button" disabled={busy === "save"} onClick={() => { setEdit(false); onEditChange?.(false); setEditErr(""); setAddUserMulti(false); }}>Annulla</button>
             </div>
           </form>
         ) : null}

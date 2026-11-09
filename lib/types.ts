@@ -28,6 +28,7 @@ export interface ServiceUser {
   deleted?: boolean; // eliminato (soft-delete): nascosto, visibile solo con flag
   created_by_org?: string | null; // associazione che ha proposto/creato l'utenza (null = non tracciato)
   stop_id: string | null; // tappa di appartenenza (null = nessuna tappa)
+  multiple?: boolean; // per utenti numerosi non identificati singolarmente (es. "senza fissa dimora", "famiglia di 4 persone", ecc.)
 }
 
 export interface DailyLog {
@@ -70,6 +71,7 @@ export interface Proposal {
   suspension_note?: string; // motivo della sospensione
   verifications?: ProposalVerification[];
   stop_id: string | null; // tappa di assegnazione (null = fuori tappa)
+  multiple?: boolean; // per utenti numerosi non identificati singolarmente (es. "senza fissa dimora", "famiglia di 4 persone", ecc.)
 }
 
 // Avviso del coordinamento a tutte le associazioni: resta visibile in testata

@@ -6,6 +6,8 @@ export const ITEMS = [
   "Tè caldo",
   "Salato",
   "Dolce",
+  "Kit viveri",
+  "Acqua",
   "Coperta",
   "Sacco a pelo",
   "Vestiti caldi",

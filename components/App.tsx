@@ -257,6 +257,23 @@ export default function App({ profile }: { profile: Profile }) {
   const yFound = yLogs.filter((l) => l.found).length;
   const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
   const myTurnToday = !!duty && duty.id === myOrg;
+    // Finestra di scrittura: l'associazione in uscita il giorno X scrive per tutto
+  // il giorno X e fino alle 20:00 del giorno successivo.
+    // Gli esiti del giorno prima restano modificabili dall'associazione fino alle 20:00
+  const EDIT_YESTERDAY_UNTIL_HOUR = 20;
+  const editYesterdayOpen =
+    !isAdmin && !!myOrg && new Date().getHours() < EDIT_YESTERDAY_UNTIL_HOUR;
+  const WRITE_UNTIL_HOUR = 20;
+  const writeKey: string | null = (() => {
+    if (isAdmin || !myOrg) return null;
+    if (new Date().getHours() < WRITE_UNTIL_HOUR && dutyYesterday?.id === myOrg) return yKey;
+    if (duty?.id === myOrg) return today();
+    return null;
+  })();
+  // Data dell'esito mostrato e modificato: quella della finestra, altrimenti oggi
+  const viewKey = writeKey ?? today();
+  const logOn = (uid: string, key: string) =>
+    logs.find((l) => l.user_id === uid && l.date === key);
   // Popup di briefing: si ripresenta a ogni refresh finché l'associazione ha
   // il turno stasera (riepilogo della sera prima), più eventuali avvisi del
   // coordinamento non ancora letti (una volta per dispositivo, per avviso).
@@ -598,7 +615,14 @@ export default function App({ profile }: { profile: Profile }) {
   // associazioni la salviamo solo se l'utente è admin.
   async function saveUserData(
     uid: string,
-    patch: { name: string; description: string; lat: number; lng: number; note: string }
+    patch: {
+      name: string;
+      description: string;
+      lat: number;
+      lng: number;
+      note: string;
+      multiple?: boolean;
+    }
   ) {
     try {
       const payload: Record<string, unknown> = {
@@ -608,6 +632,7 @@ export default function App({ profile }: { profile: Profile }) {
         lng: patch.lng,
       };
       if (isAdmin) payload.note = patch.note;
+      if (patch.multiple !== undefined) payload.multiple = patch.multiple;
       const { error } = await supabase().from("service_users").update(payload).eq("id", uid);
       if (error) throw error;
       setUsers((prev) =>
@@ -620,6 +645,7 @@ export default function App({ profile }: { profile: Profile }) {
                 lat: patch.lat,
                 lng: patch.lng,
                 note: isAdmin ? patch.note : x.note,
+                multiple: patch.multiple ?? x.multiple,
               }
             : x
         )
@@ -814,11 +840,26 @@ export default function App({ profile }: { profile: Profile }) {
   // accendere il pin verde/grigio sulla mappa (statusOf legge proprio questi log).
   // Restituisce true se salvato: in quel caso la scheda si chiude da sola per
   // tornare all'elenco/mappa. In caso di errore resta aperta, così si può riprovare.
-  async function saveUserLog(uid: string, v: EntryValues): Promise<boolean> {
+  async function saveUserLog(
+    uid: string,
+    v: EntryValues,
+    dateKey: string = today()
+  ): Promise<boolean> {
     try {
+      if (dateKey !== today()) {
+        const existing = logs.find((l) => l.user_id === uid && l.date === dateKey);
+        const allowed =
+          dateKey === yKey &&
+          editYesterdayOpen &&
+          (existing ? existing.org_id === myOrg : dutyYesterday?.id === myOrg);
+        if (!allowed) {
+          toast("Non puoi più modificare questo esito (finestra chiusa alle 20:00).");
+          return false;
+        }
+      }
       const row = {
         user_id: uid,
-        date: today(),
+        date: dateKey,
         org_id: myOrgId() || "",
         found: v.found,
         provided: v.provided,
@@ -838,9 +879,9 @@ export default function App({ profile }: { profile: Profile }) {
         rec,
       ]);
 
-      // Qualsiasi esito registrato (trovato o no): la tappa risulta servita
+      // La tappa risulta servita solo per l'uscita di oggi
       const u = users.find((x) => x.id === uid);
-      if (u?.stop_id && !isAdmin) {
+      if (u?.stop_id && !isAdmin && dateKey === today()) {
         const { error: e2 } = await supabase().rpc("mark_stop_served", { p_stop: u.stop_id });
         if (!e2) {
           setStops((prev) =>
@@ -860,7 +901,6 @@ export default function App({ profile }: { profile: Profile }) {
       return false;
     }
   }
-
   // Segnalazione al coordinamento per un'utenza sospesa/eliminata ritrovata in
   // strada: registriamo un log "trovato" di oggi firmato dall'associazione, senza
   // riattivare l'utenza (la decisione spetta al coordinamento). Nessuna
@@ -1092,7 +1132,15 @@ export default function App({ profile }: { profile: Profile }) {
       }
       const { data: nu, error } = await sb
         .from("service_users")
-        .insert({ name: p.name, description: p.description, lat: p.lat, lng: p.lng, created_by_org: myOrg, stop_id: stopId })
+        .insert({
+          name: p.name,
+          description: p.description,
+          lat: p.lat,
+          lng: p.lng,
+          created_by_org: myOrg,
+          stop_id: stopId,
+          multiple: !!p.multiple,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -1734,18 +1782,18 @@ export default function App({ profile }: { profile: Profile }) {
               key={u.id}
               user={u}
               isAdmin={isAdmin}
-              status={tonightLog(u.id) ? "done" : "todo"}
-              tonight={tonightLog(u.id) ?? null}
+              status={logOn(u.id, viewKey) ? "done" : "todo"}
+              tonight={logOn(u.id, viewKey) ?? null}
               past={logs
-                .filter((l) => l.user_id === u.id && l.date !== today())
+                .filter((l) => l.user_id === u.id && l.date !== viewKey)
                 .sort((a, b) => b.date.localeCompare(a.date))}
-              canRecord={!isAdmin && !!duty && duty.id === myOrg}
+              canRecord={!!writeKey}
               canEditData={isAdmin || (!!myOrg && u.created_by_org === myOrg)}
               myOrg={myOrg}
               orgs={orgs}
               readOnlyMsg={
                 duty
-                  ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito.`
+                  ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito (fino alle 20:00 del giorno dopo).`
                   : "Stasera non c'è un'uscita in calendario."
               }
               onSave={(v) => saveUserLog(u.id, v)}
@@ -1794,7 +1842,7 @@ export default function App({ profile }: { profile: Profile }) {
               proposals={stopProps}
               orgs={orgs}
               isAdmin={isAdmin}
-              canAddUser={isAdmin || !!myOrg}
+              canAddUser={isAdmin || (!!myOrg && !!duty && duty.id === myOrg)}
               myOrg={myOrg}
               inactiveUsers={isAdmin ? stopInactive : []}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
@@ -1806,26 +1854,22 @@ export default function App({ profile }: { profile: Profile }) {
               onOpenProp={(pid) => { back(); select("prop", pid, false); }}
               onEditChange={onStopEditChange}
               onAddUser={async (v) => {
-                const sb = supabase();
-                const by = myOrgId();
-                const { data, error } = await sb
-                  .from("proposals")
+                const { data, error } = await supabase()
+                  .from("service_users")
                   .insert({
                     name: v.name,
                     description: v.desc,
                     lat: s.lat,
                     lng: s.lng,
-                    proposed_by: by,
-                    status: "pending",
+                    created_by_org: myOrgId(),
                     stop_id: s.id,
+                    multiple: v.multiple,
                   })
-                  .select("*, verifications:proposal_verifications(*)")
+                  .select()
                   .single();
                 if (error) throw error;
-                let prop = data as Proposal;
-                prop = { ...prop, verifications: prop.verifications || [] };
-                setProposals((prev) => [prop, ...prev]);
-                toast("Proposta inviata: resta sulla mappa fino al " + fmtDM(Date.now() + 7 * DAY));
+                setUsers((prev) => [...prev, data as ServiceUser]);
+                toast("Utente aggiunto alla tappa");
               }}
             />
           </Popup>

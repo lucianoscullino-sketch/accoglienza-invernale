@@ -200,31 +200,48 @@ export default function MapView({
       const isDraggable = it.id === myDraggableIdRef.current;
       // Pin a goccia con bordo bianco e interno colorato per stato
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
-      const colore = it.st === "done" ? "#10b981" : it.st === "todo" ? "#ef4444" : it.st === "missing" ? "#9ca3af" : "#6b7280";
-const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
-// Stesso identico pin a goccia rovesciata per tutti,
-// ma proposte più piccole (20x28) con bordo tratteggiato,
-// altri elementi 30x42 con bordo solido
-const isProp = it.kind === "prop" || it.kind === "draft";
-const w = isProp ? 20 : 30;
-const h = isProp ? 28 : 42;
-const scale = w / 30;
-const strokeDash = isProp ? "4 2" : "";
+            // Colori: sospese ed eliminate hanno un colore e un glifo propri, come in legenda
+      const colore =
+        it.inactive === "susp"
+          ? "#f59e0b"
+          : it.inactive === "del"
+            ? "#374151"
+            : it.st === "done"
+              ? "#10b981"
+              : it.st === "todo"
+                ? "#ef4444"
+                : it.st === "missing"
+                  ? "#9ca3af"
+                  : "#6b7280";
+      const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
+      // Stesso pin a goccia per tutti: proposte più piccole (20x28) con bordo
+      // tratteggiato, altri elementi 30x42 con bordo solido
+      const isProp = it.kind === "prop" || it.kind === "draft";
+      const w = isProp ? 20 : 30;
+      const h = isProp ? 28 : 42;
+      const strokeDash = isProp ? "4 2" : "";
 
-const markerIcon = L.divIcon({
-  className: "",
-  html: `
+      // Al centro del pin: barra diagonale (sospesa), X (eliminata) o iniziale
+      const glifo =
+        it.inactive === "susp"
+          ? '<path d="M10 20L20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
+          : it.inactive === "del"
+            ? '<path d="M10.5 9.5L19.5 18.5M19.5 9.5L10.5 18.5" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
+            : `<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>`;
+
+      const markerIcon = L.divIcon({
+        className: "",
+        html: `
     <svg width="${w}" height="${h}" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
       <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
             fill="${colore}" stroke="#fff" stroke-width="2"
             ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ""}/>
-      <text x="15" y="19" text-anchor="middle" font-size="12"
-            font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>
+      ${glifo}
     </svg>`,
-  iconSize: [w, h],
-  iconAnchor: [w / 2, h],
-  popupAnchor: [0, -(h - 4)]
-});
+        iconSize: [w, h],
+        iconAnchor: [w / 2, h],
+        popupAnchor: [0, -(h - 4)],
+      });
       const marker: Marker = L.marker([it.lat, it.lng], {
         icon: markerIcon,
         draggable: isDraggable,
