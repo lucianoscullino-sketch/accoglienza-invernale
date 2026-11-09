@@ -1,6 +1,7 @@
 "use client";
 
-// Scheda di un utente regolare: descrizione, esito di stasera (firmato) e uscite precedenti.
+// Scheda di un utente regolare: descrizione, esito di stasera (firmato), esito di ieri
+// (modificabile fino alle 20:00) e uscite precedenti.
 
 import { useEffect, useRef, useState } from "react";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
@@ -17,6 +18,9 @@ export default function UserDetail({
   user,
   status,
   tonight,
+  yesterday,
+  canEditYesterday,
+  onSaveYesterday,
   past,
   canRecord,
   orgs,
@@ -36,6 +40,9 @@ export default function UserDetail({
   user: ServiceUser;
   status: Status;
   tonight: DailyLog | null;
+  yesterday?: DailyLog | null;
+  canEditYesterday?: boolean;
+  onSaveYesterday?: (v: EntryValues) => Promise<boolean | void>;
   past: DailyLog[];
   canRecord: boolean;
   orgs: Org[];
@@ -51,6 +58,7 @@ export default function UserDetail({
     lat: number;
     lng: number;
     note?: string;
+    multiple?: boolean;
   }) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
   onSuspend?: (note: string) => Promise<void>;
@@ -58,10 +66,17 @@ export default function UserDetail({
   onDelete?: (note: string) => Promise<void>;
   onRestore?: () => Promise<void>;
 }) {
+  // Esito di stasera
   const [busy, setBusy] = useState(false);
   const vref = useRef<EntryValues>(entryFrom(tonight));
   const baseRef = useRef<EntryValues>(entryFrom(tonight));
   const [entryDirty, setEntryDirty] = useState(false);
+
+  // Esito di ieri
+  const yvref = useRef<EntryValues>(entryFrom(yesterday));
+  const ybaseRef = useRef<EntryValues>(entryFrom(yesterday));
+  const [yDirty, setYDirty] = useState(false);
+  const [yBusy, setYBusy] = useState(false);
 
   // Modifica dati anagrafici
   const [editing, setEditing] = useState(false);
@@ -70,6 +85,7 @@ export default function UserDetail({
   const [edLat, setEdLat] = useState(String(user.lat));
   const [edLng, setEdLng] = useState(String(user.lng));
   const [edNote, setEdNote] = useState(user.note || "");
+  const [edMulti, setEdMulti] = useState(!!user.multiple);
   const [editBusy, setEditBusy] = useState(false);
   const [editErr, setEditErr] = useState("");
 
@@ -86,8 +102,9 @@ export default function UserDetail({
       edDesc !== (user.description || "") ||
       edLat !== String(user.lat) ||
       edLng !== String(user.lng) ||
+      edMulti !== !!user.multiple ||
       (isAdmin && edNote !== (user.note || "")));
-  const dirty = entryDirty || dataDirty;
+  const dirty = entryDirty || yDirty || dataDirty;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -185,6 +202,60 @@ export default function UserDetail({
     </div>
   );
 
+  const yForm =
+    canEditYesterday && onSaveYesterday ? (
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setYBusy(true);
+          const values = yvref.current;
+          onSaveYesterday(values)
+            .then((ok) => {
+              if (ok !== false) {
+                ybaseRef.current = values;
+                setYDirty(false);
+              }
+            })
+            .finally(() => setYBusy(false));
+        }}
+      >
+        <h3>Esito di ieri</h3>
+        <p className="notice">Puoi modificarlo fino alle 20:00 di oggi.</p>
+        {yesterday && (
+          <p className="signed">
+            Firmato da <strong>{orgName(yesterday.org_id, orgs)}</strong>
+            {yesterday.created_at ? ` alle ${fmtTime(yesterday.created_at)}` : ""}.
+          </p>
+        )}
+        <EntryFields
+          initial={entryFrom(yesterday)}
+          idPrefix="y"
+          onValues={(v) => {
+            yvref.current = v;
+            setYDirty(!sameEntry(v, ybaseRef.current));
+          }}
+        />
+        {(() => {
+          const unchanged = !!yesterday && !yDirty;
+          return (
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={yBusy || unchanged}
+              style={
+                unchanged
+                  ? { background: "#fff", color: "#94a3b8", border: "1px solid #cbd5e1", cursor: "default" }
+                  : undefined
+              }
+            >
+              {yBusy ? "Salvo…" : yesterday ? "Aggiorna esito di ieri" : "Registra esito di ieri"}
+            </button>
+          );
+        })()}
+      </form>
+    ) : null;
+
   const hist = past.length ? (
     <div className="stack">
       <h3>Uscite precedenti</h3>
@@ -221,6 +292,7 @@ export default function UserDetail({
           <h2>{user.name}</h2>
           <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <span className={tagCls}>{ST_LABEL[status]}</span>
+            {user.multiple ? <span className="tag tag-muted">Utenti multipli</span> : null}
             {isDeleted ? (
               <span className="tag tag-muted">Eliminato</span>
             ) : isSuspended ? (
@@ -236,6 +308,7 @@ export default function UserDetail({
           Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
         </p>
         {form}
+        {yForm}
         {hist}
 
         {/* --- Sospensione / eliminazione (solo coordinamento) --- */}
@@ -320,6 +393,7 @@ export default function UserDetail({
                   setEdLat(String(user.lat));
                   setEdLng(String(user.lng));
                   setEdNote(user.note || "");
+                  setEdMulti(!!user.multiple);
                   setEditErr("");
                   setEditing(true);
                 }}
@@ -327,97 +401,100 @@ export default function UserDetail({
                 {myOrg && user.created_by_org === myOrg ? "Modifica i tuoi dati" : "Modifica utente"}
               </button>
             ) : (
-              <>
-                <form
-                  className="stack"
-                  style={{ gap: 8 }}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setEditErr("");
-                    setEditBusy(true);
-                    const lat = Number(edLat);
-                    const lng = Number(edLng);
-                    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-                      setEditErr("Coordinate non valide.");
+              <form
+                className="stack"
+                style={{ gap: 8 }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setEditErr("");
+                  setEditBusy(true);
+                  const lat = Number(edLat);
+                  const lng = Number(edLng);
+                  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                    setEditErr("Coordinate non valide.");
+                    setEditBusy(false);
+                    return;
+                  }
+                  const patch: {
+                    name: string;
+                    description: string;
+                    lat: number;
+                    lng: number;
+                    note?: string;
+                    multiple?: boolean;
+                  } = { name: edName.trim(), description: edDesc.trim(), lat, lng, multiple: edMulti };
+                  if (isAdmin) patch.note = edNote.trim();
+                  onSaveUserData(patch)
+                    .then(() => {
+                      setEditing(false);
                       setEditBusy(false);
-                      return;
-                    }
-                    const patch: {
-                      name: string;
-                      description: string;
-                      lat: number;
-                      lng: number;
-                      note?: string;
-                    } = { name: edName.trim(), description: edDesc.trim(), lat, lng };
-                    if (isAdmin) patch.note = edNote.trim();
-                    onSaveUserData(patch)
-                      .then(() => {
-                        setEditing(false);
-                        setEditBusy(false);
-                      })
-                      .catch((err) => {
-                        setEditErr(err instanceof Error ? err.message : "Errore nel salvataggio.");
-                        setEditBusy(false);
-                      });
-                  }}
-                >
-                  <div>
-                    <label className="lb">Nickname</label>
-                    <input className="input" value={edName} onChange={(e) => setEdName(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label className="lb">Descrizione e punto in cui dorme</label>
-                    <textarea
+                    })
+                    .catch((err) => {
+                      setEditErr(err instanceof Error ? err.message : "Errore nel salvataggio.");
+                      setEditBusy(false);
+                    });
+                }}
+              >
+                <div>
+                  <label className="lb">Nickname</label>
+                  <input className="input" value={edName} onChange={(e) => setEdName(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="lb">Descrizione e punto in cui dorme</label>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    value={edDesc}
+                    onChange={(e) => setEdDesc(e.target.value)}
+                  />
+                </div>
+                <label className="check">
+                  <input type="checkbox" checked={edMulti} onChange={(e) => setEdMulti(e.target.checked)} />{" "}
+                  Utenti multipli (più persone insieme)
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="lb">Latitudine</label>
+                    <input
                       className="input"
-                      rows={3}
-                      value={edDesc}
-                      onChange={(e) => setEdDesc(e.target.value)}
+                      type="number"
+                      step="0.00001"
+                      value={edLat}
+                      onChange={(e) => setEdLat(e.target.value)}
                     />
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="lb">Latitudine</label>
-                      <input
-                        className="input"
-                        type="number"
-                        step="0.00001"
-                        value={edLat}
-                        onChange={(e) => setEdLat(e.target.value)}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label className="lb">Longitudine</label>
-                      <input
-                        className="input"
-                        type="number"
-                        step="0.00001"
-                        value={edLng}
-                        onChange={(e) => setEdLng(e.target.value)}
-                      />
-                    </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="lb">Longitudine</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.00001"
+                      value={edLng}
+                      onChange={(e) => setEdLng(e.target.value)}
+                    />
                   </div>
-                  {isAdmin && (
-                    <div>
-                      <label className="lb">Nota del coordinamento</label>
-                      <textarea
-                        className="input"
-                        rows={2}
-                        value={edNote}
-                        onChange={(e) => setEdNote(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {editErr && <p className="err">{editErr}</p>}
-                  <div className="actions" style={{ padding: 0, gap: 8 }}>
-                    <button className="btn btn-primary" type="submit" disabled={editBusy}>
-                      {editBusy ? "Salvo…" : "Salva modifiche"}
-                    </button>
-                    <button className="btn btn-sm" type="button" onClick={() => setEditing(false)}>
-                      Annulla
-                    </button>
+                </div>
+                {isAdmin && (
+                  <div>
+                    <label className="lb">Nota del coordinamento</label>
+                    <textarea
+                      className="input"
+                      rows={2}
+                      value={edNote}
+                      onChange={(e) => setEdNote(e.target.value)}
+                    />
                   </div>
-                </form>
-              </>
+                )}
+                {editErr && <p className="err">{editErr}</p>}
+                <div className="actions" style={{ padding: 0, gap: 8 }}>
+                  <button className="btn btn-primary" type="submit" disabled={editBusy}>
+                    {editBusy ? "Salvo…" : "Salva modifiche"}
+                  </button>
+                  <button className="btn btn-sm" type="button" onClick={() => setEditing(false)}>
+                    Annulla
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         )}

@@ -157,6 +157,12 @@ export default function App({ profile }: { profile: Profile }) {
   const [toastMsg, setToastMsg] = useState("");
   const toastT = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userDirtyRef = useRef(false);
+  // --- Ridisegna l’app ogni minuto, quindi il cambio turno compare entro 60 secondi.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const isAdmin = profile.role === "admin";
   const myOrg = profile.org_id;
@@ -282,23 +288,18 @@ export default function App({ profile }: { profile: Profile }) {
   const yFound = yLogs.filter((l) => l.found).length;
   const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
   const myTurnToday = !!duty && duty.id === myOrg;
-    // Finestra di scrittura: l'associazione in uscita il giorno X scrive per tutto
-  // il giorno X e fino alle 20:00 del giorno successivo.
-    // Gli esiti del giorno prima restano modificabili dall'associazione fino alle 20:00
+  
+  // Cambio turno alle 20:00: fino a quell'ora scrive l'associazione uscita ieri,
+  // dopo quella di stasera. Il coordinamento scrive sempre.
+  const SHIFT_SWITCH_HOUR = 20;
+  const activeDuty = new Date().getHours() < SHIFT_SWITCH_HOUR ? dutyYesterday : duty;
+  const isActiveOrg = !isAdmin && !!myOrg && activeDuty?.id === myOrg;
+
+  // Gli esiti del giorno prima restano modificabili dall'associazione fino alle 20:00
   const EDIT_YESTERDAY_UNTIL_HOUR = 20;
   const editYesterdayOpen =
     !isAdmin && !!myOrg && new Date().getHours() < EDIT_YESTERDAY_UNTIL_HOUR;
-  const WRITE_UNTIL_HOUR = 20;
-  const writeKey: string | null = (() => {
-    if (isAdmin || !myOrg) return null;
-    if (new Date().getHours() < WRITE_UNTIL_HOUR && dutyYesterday?.id === myOrg) return yKey;
-    if (duty?.id === myOrg) return today();
-    return null;
-  })();
-  // Data dell'esito mostrato e modificato: quella della finestra, altrimenti oggi
-  const viewKey = writeKey ?? today();
-  const logOn = (uid: string, key: string) =>
-    logs.find((l) => l.user_id === uid && l.date === key);
+
   // Popup di briefing: si ripresenta a ogni refresh finché l'associazione ha
   // il turno stasera (riepilogo della sera prima), più eventuali avvisi del
   // coordinamento non ancora letti (una volta per dispositivo, per avviso).
@@ -328,8 +329,7 @@ export default function App({ profile }: { profile: Profile }) {
   };
 
   // Solo l'associazione in uscita nel giorno di servizio può modificare lo stato
-  const dutyNow = dutyOrg(serviceDayKey());
-  const canResetServed = !isAdmin && !!myOrg && dutyNow?.id === myOrg;
+  const canResetServed = isActiveOrg;
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
   const visibleProps = showProps
     ? proposals.filter(
@@ -806,6 +806,10 @@ export default function App({ profile }: { profile: Profile }) {
   // all'elenco/mappa. In caso di errore resta aperta, così si può riprovare.
   async function saveVerification(pid: string, v: EntryValues): Promise<boolean> {
     try {
+      if (!isActiveOrg) {
+        toast("Non hai diritti di scrittura in questo momento.");
+        return false;
+      }
       const row = {
         proposal_id: pid,
         date: today(),
@@ -871,6 +875,10 @@ export default function App({ profile }: { profile: Profile }) {
     dateKey: string = today()
   ): Promise<boolean> {
     try {
+      if (dateKey === today() && !isActiveOrg) {
+        toast("Non hai diritti di scrittura in questo momento.");
+        return false;
+      }
       if (dateKey !== today()) {
         const existing = logs.find((l) => l.user_id === uid && l.date === dateKey);
         const allowed =
@@ -1800,40 +1808,52 @@ export default function App({ profile }: { profile: Profile }) {
           users.find((x) => x.id === selected.id) ||
           suspendedUsers.find((x) => x.id === selected.id) ||
           deletedUsers.find((x) => x.id === selected.id);
-        if (u)
+        if (u) {
+          const yLogU = logs.find((l) => l.user_id === u.id && l.date === yKey) ?? null;
+          const canEditY =
+            editYesterdayOpen && (yLogU ? yLogU.org_id === myOrg : dutyYesterday?.id === myOrg);
           return (
             <Popup title={u.name} onClose={closeUserCard}>
-            <UserDetail
-              key={u.id}
-              user={u}
-              isAdmin={isAdmin}
-              status={logOn(u.id, viewKey) ? "done" : "todo"}
-              tonight={logOn(u.id, viewKey) ?? null}
-              past={logs
-                .filter((l) => l.user_id === u.id && l.date !== viewKey)
-                .sort((a, b) => b.date.localeCompare(a.date))}
-              canRecord={!!writeKey}
-              canEditData={isAdmin || (!!myOrg && u.created_by_org === myOrg)}
-              myOrg={myOrg}
-              orgs={orgs}
-              readOnlyMsg={
-                duty
-                  ? `Stasera è in uscita ${duty.name}: è a loro registrare l'esito (fino alle 20:00 del giorno dopo).`
-                  : "Stasera non c'è un'uscita in calendario."
-              }
-              onSave={(v) => saveUserLog(u.id, v)}
-              onSaveUserData={async (patch) => {
-                await saveUserData(u.id, { ...patch, note: patch.note || "" });
-              }}
-              onDirtyChange={(d) => { userDirtyRef.current = d; }}
-              onSuspend={(note) => suspendUser(u, note)}
-              onResume={() => resumeUser(u)}
-              onDelete={(note) => deleteUser(u, note)}
-              onRestore={() => restoreUser(u)}
-              onBack={closeUserCard}
-            />
+              <UserDetail
+                key={u.id}
+                user={u}
+                isAdmin={isAdmin}
+                status={tonightLog(u.id) ? "done" : "todo"}
+                tonight={tonightLog(u.id) ?? null}
+                yesterday={yLogU}
+                canEditYesterday={canEditY}
+                onSaveYesterday={(v) => saveUserLog(u.id, v, yKey)}
+                past={logs
+                  .filter(
+                    (l) =>
+                      l.user_id === u.id &&
+                      l.date !== today() &&
+                      !(canEditY && l.date === yKey)
+                  )
+                  .sort((a, b) => b.date.localeCompare(a.date))}
+                canRecord={isActiveOrg}
+                canEditData={isAdmin || (!!myOrg && u.created_by_org === myOrg)}
+                myOrg={myOrg}
+                orgs={orgs}
+                readOnlyMsg={
+                  duty
+                    ? `Fino alle 20:00 scrivono solo il Coordinamento e l'associazione uscita ieri; da quell'ora tocca a ${duty.name}.`
+                    : "Stasera non c'è un'uscita in calendario."
+                }
+                onSave={(v) => saveUserLog(u.id, v)}
+                onSaveUserData={async (patch) => {
+                  await saveUserData(u.id, { ...patch, note: patch.note || "" });
+                }}
+                onDirtyChange={(d) => { userDirtyRef.current = d; }}
+                onSuspend={(note) => suspendUser(u, note)}
+                onResume={() => resumeUser(u)}
+                onDelete={(note) => deleteUser(u, note)}
+                onRestore={() => restoreUser(u)}
+                onBack={closeUserCard}
+              />
             </Popup>
           );
+        }
       } else if (selected.kind === "stop") {
       const s = stops.find((x) => x.id === selected.id);
       if (s) {
@@ -1867,7 +1887,7 @@ export default function App({ profile }: { profile: Profile }) {
               proposals={stopProps}
               orgs={orgs}
               isAdmin={isAdmin}
-              canAddUser={isAdmin || (!!myOrg && !!duty && duty.id === myOrg)}
+              canAddUser={isAdmin || isActiveOrg}
               myOrg={myOrg}
               inactiveUsers={isAdmin ? stopInactive : []}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
@@ -1879,6 +1899,9 @@ export default function App({ profile }: { profile: Profile }) {
               onOpenProp={(pid) => { back(); select("prop", pid, false); }}
               onEditChange={onStopEditChange}
               onAddUser={async (v) => {
+                if (!isAdmin && !isActiveOrg) {
+                  throw new Error("Non hai diritti di scrittura in questo momento.");
+                }
                 const { data, error } = await supabase()
                   .from("service_users")
                   .insert({
@@ -1915,7 +1938,7 @@ export default function App({ profile }: { profile: Profile }) {
               orgs={orgs}
               isAdmin={isAdmin}
               expired={daysLeft(p) <= 0}
-              canVerify={!propReadOnly && !isAdmin && !!duty && duty.id === myOrg}
+              canVerify={!propReadOnly && isActiveOrg}
               verifyMsg={dutyMsg(": tocca a loro andare a trovare l'utente.")}
               onSaveVer={async (v) => {
                 // Dopo il salvataggio la scheda si chiude da sola (torna
@@ -1995,43 +2018,52 @@ export default function App({ profile }: { profile: Profile }) {
   // --- legenda e layout ---
   const c = counts();
   const menuWide = isAdmin;
-  // Tappe: da servire (almeno un utente todo), vuote (nessun utente), servite (utenti done e nessuno todo)
+  // Conteggi allineati ai segnaposto sulla mappa (stessa regola di mapItems)
   const activeStops = stops.filter((s) => s.status === "active");
   const stopsDone = activeStops.filter((s) => stopServed(s)).length;
   const stopsEmpty = activeStops.filter(
     (s) => !stopServed(s) && !users.some((u) => u.stop_id === s.id)
   ).length;
   const stopsServing = activeStops.length - stopsDone - stopsEmpty;
-  const legend = (
-    <ul className="legend">
-      <li>
-        <span className="dot st-todo" /> Tappe da servire <b>{stopsServing}</b>
-      </li>
-      <li>
-        <span className="dot st-done" /> Tappe servite <b>{stopsDone}</b>
-      </li>
-      <li>
-        <span className="dot st-missing" /> Tappe vuote <b>{stopsEmpty}</b>
-      </li>
-      {showSuspended ? (
-        <li>
-          <LegendPin color="#f59e0b" glyph="slash" /> Tappe sospese{" "}
-          <b>{stops.filter((s) => s.status === "suspended").length}</b>
-        </li>
-      ) : null}
-      {showDeleted ? (
-        <li>
-          <LegendPin color="#374151" glyph="cross" /> Tappe eliminate{" "}
-          <b>{stops.filter((s) => s.status === "deleted").length}</b>
-        </li>
-      ) : null}
-      {showProps ? (
-        <li>
-          <span className="dot pr st-todo" /> Proposte <b>{visibleProps.filter((p) => !p.stop_id).length}</b>
-        </li>
-      ) : null}
-    </ul>
-  );
+  const stopsSusp = showSuspended ? stops.filter((s) => s.status === "suspended").length : 0;
+  const stopsDel = showDeleted ? stops.filter((s) => s.status === "deleted").length : 0;
+  const propsOnMap = showProps ? visibleProps.filter((p) => !p.stop_id).length : 0;
+
+  const legend =
+    stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsOnMap > 0 ? (
+      <ul className="legend">
+        {stopsServing > 0 && (
+          <li>
+            <span className="dot st-todo" /> Tappe da servire <b>{stopsServing}</b>
+          </li>
+        )}
+        {stopsDone > 0 && (
+          <li>
+            <span className="dot st-done" /> Tappe servite <b>{stopsDone}</b>
+          </li>
+        )}
+        {stopsEmpty > 0 && (
+          <li>
+            <span className="dot st-missing" /> Tappe vuote <b>{stopsEmpty}</b>
+          </li>
+        )}
+        {stopsSusp > 0 && (
+          <li>
+            <LegendPin color="#f59e0b" glyph="slash" /> Tappe sospese <b>{stopsSusp}</b>
+          </li>
+        )}
+        {stopsDel > 0 && (
+          <li>
+            <LegendPin color="#374151" glyph="cross" /> Tappe eliminate <b>{stopsDel}</b>
+          </li>
+        )}
+        {propsOnMap > 0 && (
+          <li>
+            <span className="dot pr st-todo" /> Proposte <b>{propsOnMap}</b>
+          </li>
+        )}
+      </ul>
+    ) : null;
 
   return (
     <div className={menuWide ? "app app-wide" : "app"}>
