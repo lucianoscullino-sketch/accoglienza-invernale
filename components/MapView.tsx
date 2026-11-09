@@ -232,12 +232,18 @@ export default function MapView({
       const markerIcon = L.divIcon({
         className: "",
         html: `
+    <div style="transform-origin:50% 100%;${
+      sel
+        ? "transform:scale(1.4);filter:drop-shadow(0 0 3px #2563eb) drop-shadow(0 0 7px #2563eb);"
+        : ""
+    }">
     <svg width="${w}" height="${h}" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
       <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
-            fill="${colore}" stroke="#fff" stroke-width="2"
+            fill="${colore}" stroke="${sel ? "#2563eb" : "#fff"}" stroke-width="${sel ? 3 : 2}"
             ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ""}/>
       ${glifo}
-    </svg>`,
+    </svg>
+    </div>`,
         iconSize: [w, h],
         iconAnchor: [w / 2, h],
         popupAnchor: [0, -(h - 4)],
@@ -247,6 +253,7 @@ export default function MapView({
         draggable: isDraggable,
         title: it.name,
         riseOnHover: false,
+        zIndexOffset: sel ? 1000 : 0,
       });
       marker.on("click", () => {
         if (it.kind === "draft") return;

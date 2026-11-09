@@ -144,6 +144,7 @@ export default function App({ profile }: { profile: Profile }) {
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
   const [selected, setSelected] = useState<Selection | null>(null);
+  const [hlProp, setHlProp] = useState<string | null>(null);
   // Id della tappa attualmente in modifica: solo il suo pin è trascinabile sulla mappa.
   const [editingStopId, setEditingStopId] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -346,6 +347,21 @@ export default function App({ profile }: { profile: Profile }) {
     : [];
     // Tutte le proposte in attesa di validazione (anche scadute), escluse le eliminate
   const pendingProps = proposals.filter((p) => p.status === "pending" && !p.suspended);
+
+    // Proposta evidenziata su mappa dal tab "Proposte da validare" (solo coordinamento)
+  const hlProposal = hlProp ? pendingProps.find((p) => p.id === hlProp) ?? null : null;
+  // Compare sulla mappa anche con il flag "Proposte" spento o se scaduta
+  const mapProps =
+    hlProposal && !visibleProps.some((p) => p.id === hlProposal.id)
+      ? [...visibleProps, hlProposal]
+      : visibleProps;
+  // Se la proposta è dentro una tappa, si evidenzia il pin della tappa
+  const mapSelected: Selection | null = hlProposal
+    ? hlProposal.stop_id
+      ? { kind: "stop", id: hlProposal.stop_id }
+      : { kind: "prop", id: hlProposal.id }
+    : selected;
+
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
   // elenchi di default, ma rivisibili con il flag "Eliminati" come le utenze.
@@ -421,7 +437,7 @@ export default function App({ profile }: { profile: Profile }) {
           }))
       : []),
     // Candidati fuori tappa (stop_id === null): pin viola sulla mappa.
-    ...visibleProps
+    ...mapProps
       .filter((p) => !p.stop_id)
       .map((p) => {
         const st = propTonight(p),
@@ -460,6 +476,7 @@ export default function App({ profile }: { profile: Profile }) {
   // --- selezione e proposta ---
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     userDirtyRef.current = false;
+    setHlProp(null);
     setSelected({ kind, id });
     setPlacing(false);
     if (fromMap) {
@@ -1503,8 +1520,7 @@ export default function App({ profile }: { profile: Profile }) {
         aria-selected={tab === id}
         onClick={() => {
           setSelected(null);
-          // Uscita anche dalla modalità "posiziona sulla mappa" di una proposta,
-          // così cambiare tab non lascia l'app bloccata in placement.
+          setHlProp(null);
           cancelPropose();
           setTab(id);
         }}
@@ -1589,6 +1605,14 @@ export default function App({ profile }: { profile: Profile }) {
   function validateTabHTML() {
     const list = [...pendingProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (!list.length) return <p className="notice">Nessuna proposta da validare.</p>;
+
+    // Apre la scheda e, insieme, evidenzia la proposta sulla mappa
+    function openAndHighlight(p: Proposal) {
+      select("prop", p.id, false);
+      setHlProp(p.id);
+      setFocus({ lat: p.lat, lng: p.lng, n: Date.now() });
+    }
+
     return (
       <ul className="list">
         {list.map((p) => {
@@ -1596,15 +1620,22 @@ export default function App({ profile }: { profile: Profile }) {
           const l = daysLeft(p);
           return (
             <li key={p.id}>
-              <button className="row" type="button" onClick={() => select("prop", p.id, false)}>
+              <button
+                className="row"
+                type="button"
+                style={hlProp === p.id ? { background: "var(--surface2)" } : undefined}
+                onClick={() => openAndHighlight(p)}
+              >
                 <span className={`dot pr st-${expired ? "missing" : propTonight(p)}`} />
                 <span className="rowmain">
                   <span className="rowname">{p.name}</span>
                   <span className="rowdesc">
-                    Proposto da {orgName(p.proposed_by ?? "", orgs)} · {VER_TXT[propVer(p)]} ·{" "}
+                    Proposto da {p.proposed_by ? orgName(p.proposed_by, orgs) : "Coordinamento"} ·{" "}
+                    {VER_TXT[propVer(p)]} ·{" "}
                     {expired
                       ? `scaduta il ${fmtDM(expTime(p))}`
                       : `visibile ancora ${l} ${l === 1 ? "giorno" : "giorni"}`}
+                    {p.stop_id ? " · in una tappa" : ""}
                   </span>
                 </span>
               </button>
@@ -2113,7 +2144,7 @@ export default function App({ profile }: { profile: Profile }) {
 
       <MapView
         items={mapItems}
-        selected={selected}
+        selected={mapSelected}
         placing={placing}
         focusTo={focus}
         onSelect={select}
