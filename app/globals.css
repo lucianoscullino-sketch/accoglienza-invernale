@@ -408,3 +408,35 @@ th.num, td.num { text-align: right; font-family: var(--font-mono); white-space: 
   }
 }
 
+/* Legenda mappa: una colonna, stretta */
+.legend {
+  display: flex !important;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 4px;
+  width: max-content;
+  max-width: 48%;
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* I flag in basso a destra restano sopra la legenda */
+.mapflags-bottomright {
+  z-index: 5;
+}
+
+@media (max-width: 899px) {
+  .legend {
+    font-size: 12px;
+    gap: 3px;
+  }
+  .mapflags-bottomright {
+    max-width: 46%;
+    font-size: 12px;
+  }
+}

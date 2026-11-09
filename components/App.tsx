@@ -75,6 +75,31 @@ const seenNoticeIds = (): string[] => {
   }
 };
 
+// Mini segnaposto per la legenda: stessa forma e stessi colori dei pin sulla mappa
+function LegendPin({ color, glyph }: { color: string; glyph: "slash" | "cross" }) {
+  return (
+    <svg width="14" height="20" viewBox="0 0 30 42" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path
+        d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
+        fill={color}
+        stroke="#fff"
+        strokeWidth="2"
+      />
+      {glyph === "slash" ? (
+        <path d="M10 20L20 9" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      ) : (
+        <path
+          d="M10.5 9.5L19.5 18.5M19.5 9.5L10.5 18.5"
+          stroke="#fff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+    </svg>
+  );
+}
+
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
 
@@ -1990,12 +2015,14 @@ export default function App({ profile }: { profile: Profile }) {
       </li>
       {showSuspended ? (
         <li>
-          <span className="dot st-susp" /> Tappe sospese <b>{stops.filter((s) => s.status === "suspended").length}</b>
+          <LegendPin color="#f59e0b" glyph="slash" /> Tappe sospese{" "}
+          <b>{stops.filter((s) => s.status === "suspended").length}</b>
         </li>
       ) : null}
       {showDeleted ? (
         <li>
-          <span className="dot st-del" /> Tappe eliminate <b>{stops.filter((s) => s.status === "deleted").length}</b>
+          <LegendPin color="#374151" glyph="cross" /> Tappe eliminate{" "}
+          <b>{stops.filter((s) => s.status === "deleted").length}</b>
         </li>
       ) : null}
       {showProps ? (
