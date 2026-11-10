@@ -76,18 +76,29 @@ const seenNoticeIds = (): string[] => {
 };
 
 // Mini segnaposto per la legenda: stessa forma e stessi colori dei pin sulla mappa
-function LegendPin({ color, glyph }: { color: string; glyph: "slash" | "cross" }) {
+function LegendPin({
+  color,
+  glyph,
+  badge,
+}: {
+  color: string;
+  glyph: "slash" | "cross" | "prop";
+  badge?: "todo" | "done" | "missing";
+}) {
+  const prop = glyph === "prop";
+  const badgeBg = badge === "done" ? "#10b981" : badge === "missing" ? "#6b7280" : "#ef4444";
   return (
-    <svg width="14" height="20" viewBox="0 0 30 42" aria-hidden="true" style={{ flexShrink: 0 }}>
+    <svg width="17" height="20" viewBox="0 0 34 42" aria-hidden="true" style={{ flexShrink: 0 }}>
       <path
         d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
-        fill={color}
-        stroke="#fff"
-        strokeWidth="2"
+        fill={prop ? "#fff" : color}
+        stroke={prop ? color : "#fff"}
+        strokeWidth={prop ? 3 : 2}
+        strokeDasharray={prop ? "5 3" : undefined}
       />
       {glyph === "slash" ? (
         <path d="M10 20L20 9" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-      ) : (
+      ) : glyph === "cross" ? (
         <path
           d="M10.5 9.5L19.5 18.5M19.5 9.5L10.5 18.5"
           stroke="#fff"
@@ -95,6 +106,25 @@ function LegendPin({ color, glyph }: { color: string; glyph: "slash" | "cross" }
           strokeLinecap="round"
           fill="none"
         />
+      ) : (
+        <text x="15" y="21" textAnchor="middle" fontSize="16" fontWeight="bold" fill={color} fontFamily="sans-serif">
+          ?
+        </text>
+      )}
+      {badge && (
+        <>
+          <circle cx="26" cy="8" r="8" fill={badgeBg} stroke="#fff" strokeWidth="1.5" />
+          {badge === "done" ? (
+            <path d="M22 8l3 3 5-6" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          ) : badge === "missing" ? (
+            <path d="M22 8H30" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+          ) : (
+            <>
+              <path d="M26 4V8.5" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+              <circle cx="26" cy="11.5" r="1.3" fill="#fff" />
+            </>
+          )}
+        </>
       )}
     </svg>
   );
@@ -2071,10 +2101,13 @@ export default function App({ profile }: { profile: Profile }) {
   const stopsServing = activeStops.length - stopsDone - stopsEmpty;
   const stopsSusp = showSuspended ? stops.filter((s) => s.status === "suspended").length : 0;
   const stopsDel = showDeleted ? stops.filter((s) => s.status === "deleted").length : 0;
-  const propsOnMap = showProps ? visibleProps.filter((p) => !p.stop_id).length : 0;
+  const propsMap = showProps ? visibleProps.filter((p) => !p.stop_id) : [];
+  const propsTodo = propsMap.filter((p) => propTonight(p) === "todo").length;
+  const propsDone = propsMap.filter((p) => propTonight(p) === "done").length;
+  const propsMiss = propsMap.filter((p) => propTonight(p) === "missing").length;
 
   const legend =
-    stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsOnMap > 0 ? (
+    stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsTodo + propsDone + propsMiss > 0 ? (
       <ul className="legend">
         {stopsServing > 0 && (
           <li>
@@ -2101,9 +2134,19 @@ export default function App({ profile }: { profile: Profile }) {
             <LegendPin color="#374151" glyph="cross" /> Tappe eliminate <b>{stopsDel}</b>
           </li>
         )}
-        {propsOnMap > 0 && (
+        {propsTodo > 0 && (
           <li>
-            <span className="dot pr st-todo" /> Proposte <b>{propsOnMap}</b>
+            <LegendPin color="#7c3aed" glyph="prop" badge="todo" /> Proposte da servire <b>{propsTodo}</b>
+          </li>
+        )}
+        {propsDone > 0 && (
+          <li>
+            <LegendPin color="#7c3aed" glyph="prop" badge="done" /> Proposte servite <b>{propsDone}</b>
+          </li>
+        )}
+        {propsMiss > 0 && (
+          <li>
+            <LegendPin color="#7c3aed" glyph="prop" badge="missing" /> Proposte non trovate <b>{propsMiss}</b>
           </li>
         )}
       </ul>

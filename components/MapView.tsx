@@ -218,8 +218,8 @@ export default function MapView({
                   ? "#9ca3af"
                   : "#6b7280";
       const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
-      const w = isProp ? 24 : 30;
-      const h = isProp ? 34 : 42;
+      const w = isProp ? 21 : 30;
+      const h = isProp ? 29 : 42;
       const strokeDash = isProp ? "4 2" : "";
 
       // Glifo al centro: barra (sospesa), X (eliminata), "?" (proposta) o iniziale
@@ -232,14 +232,27 @@ export default function MapView({
               ? '<text x="15" y="19" text-anchor="middle" font-size="14" font-weight="bold" fill="#7c3aed" font-family="sans-serif">?</text>'
               : `<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>`;
 
-      // Badge della visita di stasera (solo proposte): spunta verde = trovato,
-      // trattino grigio = non trovato, nessun badge = ancora da visitare
+      // Badge della visita di stasera (solo proposte):
+      // rosso "!" = da servire, verde spunta = trovato, grigio trattino = non trovato
+      const badgeSvg = (bg: string, inner: string) =>
+        `<circle cx="25.5" cy="7" r="7.5" fill="${bg}" stroke="#fff" stroke-width="1.5"/>${inner}`;
       const badge =
-        hollow && it.kind === "prop" && it.st === "done"
-          ? '<circle cx="26" cy="5" r="7" fill="#10b981" stroke="#fff" stroke-width="1.5"/><path d="M22.5 5l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-          : hollow && it.kind === "prop" && it.st === "missing"
-            ? '<circle cx="26" cy="5" r="7" fill="#6b7280" stroke="#fff" stroke-width="1.5"/><path d="M22.5 5H29.5" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>'
-            : "";
+        hollow && it.kind === "prop"
+          ? it.st === "done"
+            ? badgeSvg(
+                "#10b981",
+                '<path d="M21.5 7l3 3 5-6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+              )
+            : it.st === "missing"
+              ? badgeSvg(
+                  "#6b7280",
+                  '<path d="M21.5 7H29.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/>'
+                )
+              : badgeSvg(
+                  "#ef4444",
+                  '<path d="M25.5 3.5V7.5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" fill="none"/><circle cx="25.5" cy="10.4" r="1.2" fill="#fff"/>'
+                )
+          : "";
 
       const markerIcon = L.divIcon({
         className: "",
