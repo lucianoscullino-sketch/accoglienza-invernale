@@ -200,7 +200,11 @@ export default function MapView({
       const isDraggable = it.id === myDraggableIdRef.current;
       // Pin a goccia con bordo bianco e interno colorato per stato
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
-            // Colori: sospese ed eliminate hanno un colore e un glifo propri, come in legenda
+      // Proposta attiva: pin bianco con contorno viola tratteggiato e "?" al centro
+      const isProp = it.kind === "prop" || it.kind === "draft";
+      const hollow = isProp && !it.inactive;
+
+      // Colori delle tappe (e di sospese/eliminate, come in legenda)
       const colore =
         it.inactive === "susp"
           ? "#f59e0b"
@@ -214,20 +218,28 @@ export default function MapView({
                   ? "#9ca3af"
                   : "#6b7280";
       const iniziale = (it.name || "?").trim().charAt(0).toUpperCase();
-      // Stesso pin a goccia per tutti: proposte più piccole (20x28) con bordo
-      // tratteggiato, altri elementi 30x42 con bordo solido
-      const isProp = it.kind === "prop" || it.kind === "draft";
-      const w = isProp ? 20 : 30;
-      const h = isProp ? 28 : 42;
+      const w = isProp ? 24 : 30;
+      const h = isProp ? 34 : 42;
       const strokeDash = isProp ? "4 2" : "";
 
-      // Al centro del pin: barra diagonale (sospesa), X (eliminata) o iniziale
+      // Glifo al centro: barra (sospesa), X (eliminata), "?" (proposta) o iniziale
       const glifo =
         it.inactive === "susp"
           ? '<path d="M10 20L20 9" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
           : it.inactive === "del"
             ? '<path d="M10.5 9.5L19.5 18.5M19.5 9.5L10.5 18.5" stroke="#fff" stroke-width="2.5" stroke-linecap="round" fill="none"/>'
-            : `<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>`;
+            : hollow
+              ? '<text x="15" y="19" text-anchor="middle" font-size="14" font-weight="bold" fill="#7c3aed" font-family="sans-serif">?</text>'
+              : `<text x="15" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="sans-serif">${iniziale}</text>`;
+
+      // Badge della visita di stasera (solo proposte): spunta verde = trovato,
+      // trattino grigio = non trovato, nessun badge = ancora da visitare
+      const badge =
+        hollow && it.kind === "prop" && it.st === "done"
+          ? '<circle cx="26" cy="5" r="7" fill="#10b981" stroke="#fff" stroke-width="1.5"/><path d="M22.5 5l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+          : hollow && it.kind === "prop" && it.st === "missing"
+            ? '<circle cx="26" cy="5" r="7" fill="#6b7280" stroke="#fff" stroke-width="1.5"/><path d="M22.5 5H29.5" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>'
+            : "";
 
       const markerIcon = L.divIcon({
         className: "",
@@ -237,11 +249,14 @@ export default function MapView({
         ? "transform:scale(1.4);filter:drop-shadow(0 0 3px #2563eb) drop-shadow(0 0 7px #2563eb);"
         : ""
     }">
-    <svg width="${w}" height="${h}" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${w}" height="${h}" viewBox="0 0 30 42" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
       <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
-            fill="${colore}" stroke="${sel ? "#2563eb" : "#fff"}" stroke-width="${sel ? 3 : 2}"
+            fill="${hollow ? "#fff" : colore}"
+            stroke="${sel ? "#2563eb" : hollow ? "#7c3aed" : "#fff"}"
+            stroke-width="${sel ? 3 : hollow ? 2.5 : 2}"
             ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ""}/>
       ${glifo}
+      ${badge}
     </svg>
     </div>`,
         iconSize: [w, h],
