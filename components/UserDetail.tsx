@@ -30,6 +30,7 @@ export default function UserDetail({
   isAdmin,
   canEditData,
   myOrg,
+  outingTitle = "Esito di stasera",
   onSaveUserData,
   onDirtyChange,
   onSuspend,
@@ -52,6 +53,7 @@ export default function UserDetail({
   isAdmin: boolean;
   canEditData: boolean;
   myOrg: string | null;
+  outingTitle?: string;
   onSaveUserData: (patch: {
     name: string;
     description: string;
@@ -109,7 +111,7 @@ export default function UserDetail({
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
-
+  
   async function runAct(fn?: () => Promise<void>) {
     if (!fn) return;
     setActBusy(true);
@@ -151,7 +153,7 @@ export default function UserDetail({
           .finally(() => setBusy(false));
       }}
     >
-      <h3>Esito di stasera</h3>
+      <h3>{outingTitle}</h3>
       {tonight && (
         <p className="signed">
           Firmato da <strong>{orgName(tonight.org_id, orgs)}</strong>
@@ -186,7 +188,7 @@ export default function UserDetail({
     </form>
   ) : (
     <div className="stack">
-      <h3>Esito di stasera</h3>
+      <h3>{outingTitle}</h3>
       <p className="notice">{readOnlyMsg}</p>
       {tonight && (
         <p className="signed">

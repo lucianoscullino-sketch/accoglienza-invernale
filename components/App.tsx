@@ -142,8 +142,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [showSuspended, setShowSuspended] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [stops, setStops] = useState<Stop[]>([]);
-  // Bandierina "Proposte" sulla mappa (attiva di default): mostra i pin viola.
-  const [showProps, setShowProps] = useState(true);
+  // Bandierina "Proposte" sulla mappa (spenta di default): mostra i pin piccoli a bordo viola.
+  const [showProps, setShowProps] = useState(false);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
@@ -320,19 +320,19 @@ export default function App({ profile }: { profile: Profile }) {
   const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
   const myTurnToday = !!duty && duty.id === myOrg;
   
-  // Cambio turno alle 20:00: fino a quell'ora scrive l'associazione uscita ieri,
-  // dopo quella di stasera. Il coordinamento scrive sempre.
+  // Giorno di servizio: dalle 20:00 alle 20:00 del giorno dopo. Coincide con il cambio
+  // dei diritti di scrittura: a quell'ora tutte le tappe tornano "da servire".
   const SHIFT_SWITCH_HOUR = 20;
-  const activeDuty = new Date().getHours() < SHIFT_SWITCH_HOUR ? dutyYesterday : duty;
+  const serviceDayKey = (d: Date = new Date()): string =>
+    new Date(d.getTime() - SHIFT_SWITCH_HOUR * 3600 * 1000).toLocaleDateString("sv-SE"); // YYYY-MM-DD
+  // Data dell'uscita "aperta" ora: con questa si leggono e si salvano esiti e visite
+  const serviceKey = serviceDayKey();
+
+  // Fino alle 20:00 scrive l'associazione uscita ieri, dopo quella di stasera.
+  // Il coordinamento scrive sempre.
+  const activeDuty = dutyOrg(serviceKey);
   const isActiveOrg = !isAdmin && !!myOrg && activeDuty?.id === myOrg;
-
-  // Chi può scrivere ora: il coordinamento sempre, le associazioni solo nel proprio turno
   const canWrite = isAdmin || isActiveOrg;
-
-  // Gli esiti del giorno prima restano modificabili dall'associazione fino alle 20:00
-  const EDIT_YESTERDAY_UNTIL_HOUR = 20;
-  const editYesterdayOpen =
-    !isAdmin && !!myOrg && new Date().getHours() < EDIT_YESTERDAY_UNTIL_HOUR;
 
   // Popup di briefing: si ripresenta a ogni refresh finché l'associazione ha
   // il turno stasera (riepilogo della sera prima), più eventuali avvisi del
@@ -340,14 +340,11 @@ export default function App({ profile }: { profile: Profile }) {
   const briefUnseen = isAdmin || !myOrg ? [] : notices.filter((n) => !seenIds.includes(n.id));
   const briefOpen = !briefClosed && (briefUnseen.length > 0 || myTurnToday);
 
-  const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === today());
+  const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === serviceKey);
   const statusOf = (u: ServiceUser): Status => {
     const l = tonightLog(u.id);
     return !l ? "missing" : l.found ? "done" : "missing";
   };
-  // Il "giorno di servizio" va dalle 02:00 alle 02:00 del giorno dopo
-  const serviceDayKey = (d: Date = new Date()): string =>
-    new Date(d.getTime() - 2 * 3600 * 1000).toLocaleDateString("sv-SE"); // YYYY-MM-DD
 
   const sameServiceDay = (iso?: string | null) =>
     !!iso && serviceDayKey(new Date(iso)) === serviceDayKey();
@@ -401,7 +398,7 @@ export default function App({ profile }: { profile: Profile }) {
     return vs.length ? (vs[vs.length - 1].found ? "ok" : "no") : "none";
   };
   const propTonight = (p: Proposal): Status => {
-    const v = (p.verifications || []).find((x) => x.date === today());
+    const v = (p.verifications || []).find((x) => x.date === serviceKey);
     return !v ? "todo" : v.found ? "done" : "missing";
   };
 
@@ -863,7 +860,7 @@ export default function App({ profile }: { profile: Profile }) {
       }
       const row = {
         proposal_id: pid,
-        date: today(),
+        date: serviceKey,
         org_id: myOrgId() || "",
         found: v.found,
         provided: v.provided,
@@ -920,30 +917,16 @@ export default function App({ profile }: { profile: Profile }) {
   // accendere il pin verde/grigio sulla mappa (statusOf legge proprio questi log).
   // Restituisce true se salvato: in quel caso la scheda si chiude da sola per
   // tornare all'elenco/mappa. In caso di errore resta aperta, così si può riprovare.
-  async function saveUserLog(
-    uid: string,
-    v: EntryValues,
-    dateKey: string = today()
-  ): Promise<boolean> {
+
+    async function saveUserLog(uid: string, v: EntryValues): Promise<boolean> {
+    if (!isActiveOrg) {
+      toast("Non hai diritti di scrittura in questo momento.");
+      return false;
+    }
     try {
-      if (dateKey === today() && !isActiveOrg) {
-        toast("Non hai diritti di scrittura in questo momento.");
-        return false;
-      }
-      if (dateKey !== today()) {
-        const existing = logs.find((l) => l.user_id === uid && l.date === dateKey);
-        const allowed =
-          dateKey === yKey &&
-          editYesterdayOpen &&
-          (existing ? existing.org_id === myOrg : dutyYesterday?.id === myOrg);
-        if (!allowed) {
-          toast("Non puoi più modificare questo esito (finestra chiusa alle 20:00).");
-          return false;
-        }
-      }
       const row = {
         user_id: uid,
-        date: dateKey,
+        date: serviceKey,
         org_id: myOrgId() || "",
         found: v.found,
         provided: v.provided,
@@ -963,9 +946,9 @@ export default function App({ profile }: { profile: Profile }) {
         rec,
       ]);
 
-      // La tappa risulta servita solo per l'uscita di oggi
+      // Qualsiasi esito registrato (trovato o no): la tappa risulta servita
       const u = users.find((x) => x.id === uid);
-      if (u?.stop_id && !isAdmin && dateKey === today()) {
+      if (u?.stop_id) {
         const { error: e2 } = await supabase().rpc("mark_stop_served", { p_stop: u.stop_id });
         if (!e2) {
           setStops((prev) =>
@@ -985,6 +968,7 @@ export default function App({ profile }: { profile: Profile }) {
       return false;
     }
   }
+
   // Segnalazione al coordinamento per un'utenza sospesa/eliminata ritrovata in
   // strada: registriamo un log "trovato" di oggi firmato dall'associazione, senza
   // riattivare l'utenza (la decisione spetta al coordinamento). Nessuna
@@ -994,7 +978,7 @@ export default function App({ profile }: { profile: Profile }) {
     try {
       const row = {
         user_id: uid,
-        date: today(),
+        date: serviceKey,
         org_id: myOrgId() || "",
         found: true,
         provided: [] as string[],
@@ -1169,7 +1153,7 @@ export default function App({ profile }: { profile: Profile }) {
           .from("proposal_verifications")
           .insert({
             proposal_id: prop.id,
-            date: today(),
+            date: serviceKey,
             org_id: by,
             found: v.entry.found,
             provided: v.entry.provided,
@@ -1879,9 +1863,6 @@ export default function App({ profile }: { profile: Profile }) {
           suspendedUsers.find((x) => x.id === selected.id) ||
           deletedUsers.find((x) => x.id === selected.id);
         if (u) {
-          const yLogU = logs.find((l) => l.user_id === u.id && l.date === yKey) ?? null;
-          const canEditY =
-            editYesterdayOpen && (yLogU ? yLogU.org_id === myOrg : dutyYesterday?.id === myOrg);
           return (
             <Popup title={u.name} onClose={closeUserCard}>
               <UserDetail
@@ -1890,16 +1871,13 @@ export default function App({ profile }: { profile: Profile }) {
                 isAdmin={isAdmin}
                 status={tonightLog(u.id) ? "done" : "todo"}
                 tonight={tonightLog(u.id) ?? null}
-                yesterday={yLogU}
-                canEditYesterday={canEditY}
-                onSaveYesterday={(v) => saveUserLog(u.id, v, yKey)}
+                outingTitle={
+                  serviceKey === today()
+                    ? "Esito di stasera"
+                    : `Esito dell'uscita: ${fmtDay(serviceKey)}`
+                }
                 past={logs
-                  .filter(
-                    (l) =>
-                      l.user_id === u.id &&
-                      l.date !== today() &&
-                      !(canEditY && l.date === yKey)
-                  )
+                  .filter((l) => l.user_id === u.id && l.date !== serviceKey)
                   .sort((a, b) => b.date.localeCompare(a.date))}
                 canRecord={isActiveOrg}
                 canEditData={isAdmin || (isActiveOrg && !!myOrg && u.created_by_org === myOrg)}
@@ -1907,7 +1885,7 @@ export default function App({ profile }: { profile: Profile }) {
                 orgs={orgs}
                 readOnlyMsg={
                   duty
-                    ? `Fino alle 20:00 scrivono solo il Coordinamento e l'associazione uscita ieri; da quell'ora tocca a ${duty.name}.`
+                    ? `Fino alle ${SHIFT_SWITCH_HOUR}:00 scrivono solo il Coordinamento e l'associazione uscita ieri; da quell'ora tocca a ${duty.name}.`
                     : "Stasera non c'è un'uscita in calendario."
                 }
                 onSave={(v) => saveUserLog(u.id, v)}
