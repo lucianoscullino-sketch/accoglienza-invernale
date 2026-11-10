@@ -4,16 +4,16 @@ export const DAY = 86400000;
 
 export const ITEMS = [
   "Tè caldo",
+  "Acqua",
   "Salato",
   "Dolce",
   "Kit viveri",
-  "Acqua",
+  "Kit igiene",
   "Coperta",
   "Sacco a pelo",
-  "Vestiti caldi",
+  "Indumenti",
   "Calze",
-  "Kit igiene",
-  "Guanti e cappello",
+  "Guanti/cappello",
 ] as const;
 
 export const ST_LABEL: Record<string, string> = {

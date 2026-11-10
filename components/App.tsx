@@ -1655,14 +1655,16 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   function propsTabHTML() {
-    const v = [...visibleProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
-        const everyUser = [...users, ...suspendedUsers, ...deletedUsers];
+    // Note importanti riportate dalle associazioni (esiti degli utenti e visite ai candidati)
+    const everyUser = [...users, ...suspendedUsers, ...deletedUsers];
     const noteRows = [
       ...logs
         .filter((l) => l.org_id && (l.note || "").trim())
         .map((l) => ({
           key: `l-${l.user_id}-${l.date}`,
           org: l.org_id,
+          kind: "user" as const,
+          targetId: l.user_id,
           user: everyUser.find((x) => x.id === l.user_id)?.name || "Utenza",
           note: l.note,
           date: l.date,
@@ -1673,12 +1675,15 @@ export default function App({ profile }: { profile: Profile }) {
           .map((vv) => ({
             key: `v-${p.id}-${vv.date}`,
             org: vv.org_id,
+            kind: "prop" as const,
+            targetId: p.id,
             user: `${p.name} (candidato)`,
             note: vv.note,
             date: vv.date,
           }))
       ),
     ].sort((a, b) => b.date.localeCompare(a.date));
+
     return (
       <>
         {isAdmin && (
@@ -1736,74 +1741,56 @@ export default function App({ profile }: { profile: Profile }) {
           </div>
         )}
 
-        {isAdmin && (
-          <div className="stack" style={{ marginTop: 12 }}>
-            <p className="subhead">Note importanti dalle associazioni ({noteRows.length})</p>
-            {!noteRows.length ? (
-              <p className="notice">Nessuna nota segnalata dalle associazioni.</p>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr>
-                      {["Associazione", "Utente", "Nota", "Data"].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            textAlign: "left",
-                            padding: "6px 8px",
-                            borderBottom: "1px solid var(--line)",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {noteRows.map((r) => (
-                      <tr key={r.key}>
-                        <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{orgName(r.org ?? "", orgs)}</td>
-                        <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{r.user}</td>
-                        <td style={{ padding: "6px 8px", verticalAlign: "top", minWidth: 160 }}>{r.note}</td>
-                        <td style={{ padding: "6px 8px", verticalAlign: "top", whiteSpace: "nowrap" }}>
-                          {fmtDay(r.date)}
-                        </td>
-                      </tr>
+        <div className="stack" style={{ marginTop: isAdmin ? 12 : 0 }}>
+          <p className="subhead">Note importanti ({noteRows.length})</p>
+          {!noteRows.length ? (
+            <p className="notice">Nessuna nota importante.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {["Associazione", "Utente", "Nota", "Data"].map((h) => (
+                      <th
+                        key={h}
+                        style={{
+                          textAlign: "left",
+                          padding: "6px 8px",
+                          borderBottom: "1px solid var(--line)",
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {h}
+                      </th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Il coordinamento gestisce le proposte nel tab "Proposte da validare" */}
-        {!isAdmin && !v.length && <p className="notice">Nessuna proposta in attesa.</p>}
-        {!isAdmin && !!v.length && (
-          <ul className="list">
-            {v.map((p) => {
-              const l = daysLeft(p);
-              return (
-                <li key={p.id}>
-                  <button className="row" type="button" onClick={() => select("prop", p.id, false)}>
-                    <span className={`dot pr st-${propTonight(p)}`} />
-                    <span className="rowmain">
-                      <span className="rowname">{p.name}</span>
-                      <span className="rowdesc">
-                        Proposto da {orgName(p.proposed_by ?? "", orgs)} · {VER_TXT[propVer(p)]} · visibile ancora{" "}
-                        {l}
-                        {l === 1 ? " giorno" : " giorni"}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {noteRows.map((r) => (
+                    <tr key={r.key}>
+                      <td style={{ padding: "6px 8px", verticalAlign: "top" }}>{orgName(r.org ?? "", orgs)}</td>
+                      <td style={{ padding: "6px 8px", verticalAlign: "top" }}>
+                        <button
+                          className="linkbtn"
+                          type="button"
+                          style={{ padding: 0, textAlign: "left" }}
+                          onClick={() => select(r.kind, r.targetId, false)}
+                        >
+                          {r.user}
+                        </button>
+                      </td>
+                      <td style={{ padding: "6px 8px", verticalAlign: "top", minWidth: 160 }}>{r.note}</td>
+                      <td style={{ padding: "6px 8px", verticalAlign: "top", whiteSpace: "nowrap" }}>
+                        {fmtDay(r.date)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </>
     );
   }
