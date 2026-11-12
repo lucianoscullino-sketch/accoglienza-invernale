@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 const bricolage = Bricolage_Grotesque({
@@ -18,6 +19,17 @@ const plexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="it">
+      <body className={`${bricolage.variable} ${plexSans.variable} ${plexMono.variable}`}>
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  );
+}
+
 export const metadata: Metadata = {
   title: "Accoglienza Invernale",
   description: "Mappa e diario di servizio per l'accoglienza invernale ai senza dimora",
@@ -28,13 +40,3 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
 };
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="it">
-      <body className={`${bricolage.variable} ${plexSans.variable} ${plexMono.variable}`}>
-        {children}
-      </body>
-    </html>
-  );
-}
