@@ -26,6 +26,8 @@ export interface MapItem {
   // Tappa di appartenenza (solo per utenti/proposte): usata per raggruppare
   // visivamente i pin dentro la tappa.
   stop_id?: string | null;
+  // Se true, la tappa è una proposta di nuova tappa (pin viola tratteggiato)
+  isProposal?: boolean;
 }
 
 export interface Selection {
@@ -201,7 +203,7 @@ export default function MapView({
       // Pin a goccia con bordo bianco e interno colorato per stato
       // (suggerimento utente): iconSize [30, 42], iconAnchor [15, 42] sulla punta.
       // Proposta attiva: pin bianco con contorno viola tratteggiato e "?" al centro
-      const isProp = it.kind === "prop" || it.kind === "draft";
+      const isProp = it.kind === "prop" || it.kind === "draft" || it.isProposal;
       const hollow = isProp && !it.inactive;
 
       // Colori delle tappe (e di sospese/eliminate, come in legenda)
@@ -237,7 +239,7 @@ export default function MapView({
       const badgeSvg = (bg: string, inner: string) =>
         `<circle cx="25.5" cy="7" r="7.5" fill="${bg}" stroke="#fff" stroke-width="1.5"/>${inner}`;
       const badge =
-        hollow && it.kind === "prop"
+        hollow && (it.kind === "prop" || it.isProposal)
           ? it.st === "done"
             ? badgeSvg(
                 "#10b981",

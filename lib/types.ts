@@ -102,7 +102,7 @@ export interface Settings {
 
 export type Status = "todo" | "done" | "missing";
 
-export type StopStatus = "active" | "suspended" | "deleted";
+export type StopStatus = "active" | "suspended" | "deleted" | "pending";
 
 export interface Stop {
   id: string;

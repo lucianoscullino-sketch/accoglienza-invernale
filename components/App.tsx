@@ -3,11 +3,12 @@
 // Applicazione principale: mappa, elenco, schede, esiti firmati, proposte,
 // calendario delle uscite e report. Dati letti/scritti su Supabase (RLS).
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import MapView, { type MapItem, type Selection } from "@/components/MapView";
 import type { EntryValues } from "@/components/EntryFields";
 import ProposeForm from "@/components/ProposeForm";
+import ProposeStopForm from "@/components/ProposeStopForm";
 import UserDetail from "@/components/UserDetail";
 import PropDetail from "@/components/PropDetail";
 import StopDetail from "@/components/StopDetail";
@@ -142,8 +143,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [showSuspended, setShowSuspended] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [stops, setStops] = useState<Stop[]>([]);
-  // Bandierina "Proposte" sulla mappa (spenta di default): mostra i pin piccoli a bordo viola.
-  const [showProps, setShowProps] = useState(false);
+  // Bandierina "Tappe proposte" sulla mappa (spenta di default): mostra i pin piccoli a bordo viola.
+  const [showStopProps, setShowStopProps] = useState(false);
   const [logs, setLogs] = useState<DailyLog[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [overrides, setOverrides] = useState<CalendarOverride[]>([]);
@@ -362,26 +363,13 @@ export default function App({ profile }: { profile: Profile }) {
   // Solo l'associazione in uscita nel giorno di servizio può modificare lo stato
   const canResetServed = isActiveOrg;
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
-  const visibleProps = showProps
-    ? proposals.filter(
-        (p) => p.status === "pending" && !p.suspended && Date.now() < expTime(p)
-      )
-    : [];
-  const expiredProps = showProps
-    ? proposals.filter(
-        (p) => p.status === "pending" && !p.suspended && Date.now() >= expTime(p)
-      )
-    : [];
     // Tutte le proposte in attesa di validazione (anche scadute), escluse le eliminate
   const pendingProps = proposals.filter((p) => p.status === "pending" && !p.suspended);
+  // Tappe proposte dalle associazioni (stops con status "pending") da validare
+  const pendingStops = stops.filter((st) => st.status === "pending");
 
-    // Proposta evidenziata su mappa dal tab "Proposte da validare" (solo coordinamento)
+    // Proposta evidenziata su mappa dal tab "Tappe da validare" (solo coordinamento)
   const hlProposal = hlProp ? pendingProps.find((p) => p.id === hlProp) ?? null : null;
-  // Compare sulla mappa anche con il flag "Proposte" spento o se scaduta
-  const mapProps =
-    hlProposal && !visibleProps.some((p) => p.id === hlProposal.id)
-      ? [...visibleProps, hlProposal]
-      : visibleProps;
   // Se la proposta è dentro una tappa, si evidenzia il pin della tappa
   const mapSelected: Selection | null = hlProposal
     ? hlProposal.stop_id
@@ -403,14 +391,13 @@ export default function App({ profile }: { profile: Profile }) {
   };
 
   function counts() {
-    const c: Record<string, number> = { t: 0, d: 0, m: 0, tu: 0, tp: 0, du: 0, dp: 0, mu: 0, mp: 0, p: visibleProps.length };
+    const c: Record<string, number> = { t: 0, d: 0, m: 0, tu: 0, tp: 0, du: 0, dp: 0, mu: 0, mp: 0, p: 0 };
     const add = (st: Status, isP: boolean) => {
       const k = st === "todo" ? "t" : st === "done" ? "d" : "m";
       c[k] += 1;
       c[k + (isP ? "p" : "u")] += 1;
     };
     users.forEach((u) => add(statusOf(u), false));
-    visibleProps.forEach((p) => add(propTonight(p), true));
     return c;
   }
 
@@ -463,24 +450,23 @@ export default function App({ profile }: { profile: Profile }) {
             inactive: "del" as const,
           }))
       : []),
-    // Candidati fuori tappa (stop_id === null): pin viola sulla mappa.
-    ...mapProps
-      .filter((p) => !p.stop_id)
-      .map((p) => {
-        const st = propTonight(p),
-          v = propVer(p);
-        return {
-          kind: "prop" as const,
-          id: p.id,
-          lat: p.lat,
-          lng: p.lng,
-          st,
-          name: p.name,
-          ver: v,
-          tip: `proposta, ${ST_LABEL[st].toLowerCase()}, ${VER_TXT[v]}`,
-          stop_id: p.stop_id,
-        };
-      }),
+    // Tappe proposte in attesa di validazione: pin sulla mappa
+    // visibili solo con il flag "Tappe proposte" attivo.
+    ...(showStopProps
+      ? stops
+          .filter((s) => s.status === "pending")
+          .map((s) => ({
+            kind: "stop" as const,
+            id: s.id,
+            lat: s.lat,
+            lng: s.lng,
+            st: stopServed(s) ? ("done" as Status) : ("todo" as Status),
+            name: s.name,
+            tip: "tappa da validare",
+            isProposal: true,
+         }))
+      : []),
+
     // Proposte eliminate fuori tappa, visibili col flag "Eliminati".
     ...(showDeleted
       ? deletedProps.filter((p) => !p.stop_id).map((p) => ({
@@ -575,9 +561,8 @@ export default function App({ profile }: { profile: Profile }) {
       setStops((prev) => [data as Stop, ...prev]);
       cancelCreateStop();
       toast("Tappa creata");
-    } catch (err: any) {
-      const msg = err?.message || (err?.error?.message) || (err?.details) || JSON.stringify(err) || "riprova";
-      toast("Errore: " + msg);
+    } catch (err) {
+      toast("Errore: " + errMsg(err));
     }
   }
 
@@ -1290,6 +1275,49 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Validazione di una tappa proposta (solo coordinamento): diventa attiva e
+  // gli utenti già collegati restano nell'elenco regolare.
+  async function validateStop(st: Stop) {
+    try {
+      const { data, error } = await supabase()
+        .from("stops")
+        .update({ status: "active" })
+        .eq("id", st.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile validare la tappa: permessi insufficienti.");
+        return;
+      }
+      setStops((prev) => prev.map((x) => (x.id === st.id ? { ...x, status: "active" as const } : x)));
+      setSelected({ kind: "stop", id: st.id });
+      setFocus({ lat: st.lat, lng: st.lng, n: Date.now() });
+      toast("Tappa validata");
+    } catch (e) {
+      toast("Errore nella validazione: " + errMsg(e));
+    }
+  }
+
+  async function rejectStop(st: Stop) {
+    try {
+      const { data, error } = await supabase()
+        .from("stops")
+        .update({ status: "deleted" })
+        .eq("id", st.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile rifiutare la tappa: permessi insufficienti.");
+        return;
+      }
+      setStops((prev) => prev.map((x) => (x.id === st.id ? { ...x, status: "deleted" as const } : x)));
+      setSelected(null);
+      toast("Tappa proposta rifiutata");
+    } catch (e) {
+      toast("Errore: " + errMsg(e));
+    }
+  }
+
   // "Elimina" (solo coordinamento): soft-delete di una proposta da QUALUNQUE
   // stato (in attesa, validata, rifiutata, scaduta o già sospesa). La togliamo
   // da mappa ed elenchi marcandola suspended + status="rejected": così resta
@@ -1546,7 +1574,7 @@ export default function App({ profile }: { profile: Profile }) {
     return (
       <div className="tabs" role="tablist">
         {t("utenti", "Stasera")}
-        {isAdmin && t("validare", "Proposte da validare", pendingProps.length)}
+        {isAdmin && t("validare", "Tappe da validare", pendingStops.length)}
         {t("proposte", "Comunicazioni")}
         {isAdmin && t("associazioni", "Associazioni")}
         {t("calendario", "Calendario")}
@@ -1577,7 +1605,7 @@ export default function App({ profile }: { profile: Profile }) {
         a.name.localeCompare(b.name)
     );
 
-    const tint = (it: (typeof items)[number]): React.CSSProperties | undefined => {
+    const tint = (it: (typeof items)[number]): CSSProperties | undefined => {
       if (it.status !== "active") return undefined;
       return it.served
         ? { background: "#ecfdf5", borderColor: "#bbf7d0" }
@@ -1617,48 +1645,38 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   function validateTabHTML() {
-    const list = [...pendingProps].sort((a, b) => a.created_at.localeCompare(b.created_at));
-    if (!list.length) return <p className="notice">Nessuna proposta da validare.</p>;
-
-    // Apre la scheda e, insieme, evidenzia la proposta sulla mappa
-    function openAndHighlight(p: Proposal) {
-      select("prop", p.id, false);
-      setHlProp(p.id);
-      setFocus({ lat: p.lat, lng: p.lng, n: Date.now() });
-    }
-
+    if (!pendingStops.length) return <p className="notice">Nessuna tappa da validare.</p>;
     return (
       <ul className="list">
-        {list.map((p) => {
-          const expired = Date.now() >= expTime(p);
-          const l = daysLeft(p);
+        {pendingStops.map((st) => {
+          const nUsers = users.filter((u) => u.stop_id === st.id).length;
+          const orgId = (st as { organization_id?: string | null }).organization_id;
           return (
-            <li key={p.id}>
+            <li key={st.id}>
               <button
                 className="row"
                 type="button"
-                style={hlProp === p.id ? { background: "var(--surface2)" } : undefined}
-                onClick={() => openAndHighlight(p)}
+                style={selected?.id === st.id ? { background: "var(--surface2)" } : undefined}
+                onClick={() => {
+                  select("stop", st.id, false);
+                  setFocus({ lat: st.lat, lng: st.lng, n: Date.now() });
+                }}
               >
-                <span className={`dot pr st-${expired ? "missing" : propTonight(p)}`} />
+                <span className="dot pr st-todo" />
                 <span className="rowmain">
-                  <span className="rowname">{p.name}</span>
+                  <span className="rowname">{st.name}</span>
                   <span className="rowdesc">
-                    Proposto da {p.proposed_by ? orgName(p.proposed_by, orgs) : "Coordinamento"} ·{" "}
-                    {VER_TXT[propVer(p)]} ·{" "}
-                    {expired
-                      ? `scaduta il ${fmtDM(expTime(p))}`
-                      : `visibile ancora ${l} ${l === 1 ? "giorno" : "giorni"}`}
-                    {p.stop_id ? " · in una tappa" : ""}
+                    {orgId ? `Proposta da ${orgName(orgId, orgs)} · ` : ""}
+                    {nUsers} {nUsers === 1 ? "utente" : "utenti"}
                   </span>
                 </span>
               </button>
               <div className="actions">
-                <button className="btn btn-ok btn-sm" type="button" onClick={() => validate(p)}>
-                  {expired ? "Valida comunque" : "Valida"}
+                <button className="btn btn-ok btn-sm" type="button" onClick={() => validateStop(st)}>
+                  Valida
                 </button>
-                <button className="btn btn-sm" type="button" onClick={() => reject(p)}>
-                  {expired ? "Elimina" : "Rifiuta"}
+                <button className="btn btn-sm" type="button" onClick={() => rejectStop(st)}>
+                  Rifiuta
                 </button>
               </div>
             </li>
@@ -1846,16 +1864,57 @@ export default function App({ profile }: { profile: Profile }) {
         </div>
       );
     }
-    if (placing)
+    if (placing) {
+      if (isAdmin) {
+        // Coordinamento: invariato (può creare tappa o utente all'interno di una tappa)
+        return (
+          <ProposeForm
+            pos={draftPos}
+            isAdmin={isAdmin}
+            onCancel={cancelPropose}
+            onSubmit={doPropose}
+            onPlace={(lat, lng) => setDraftPos({ lat, lng })}
+          />
+        );
+      }
+      // Associazione: popup "Proponi utente" che crea tappa in stops (stato pending)
+      if (!draftPos) return null;
       return (
-        <ProposeForm
-          pos={draftPos}
-          isAdmin={isAdmin}
-          onCancel={cancelPropose}
-          onSubmit={doPropose}
-          onPlace={(lat, lng) => setDraftPos({ lat, lng })}
-        />
+        <ProposeStopForm
+            organization_id={myOrg ?? ""}
+            initialLat={draftPos.lat}
+            initialLng={draftPos.lng}
+            onSuccess={async (stopId, _stopName, _userName, lat, lng) => {
+              cancelPropose();
+              // La tappa (pending) e l'utente sono stati creati dal form direttamente
+              // su Supabase: li ricarichiamo nello stato, altrimenti la scheda
+              // tappa non troverebbe nulla da mostrare.
+              try {
+                const sb = supabase();
+                const [st, us] = await Promise.all([
+                  sb.from("stops").select("*").eq("id", stopId).maybeSingle(),
+                  sb.from("service_users").select("*").eq("stop_id", stopId),
+                ]);
+                if (st.error) throw st.error;
+                if (us.error) throw us.error;
+                if (st.data) {
+                  setStops((prev) => [...prev.filter((x) => x.id !== stopId), st.data as Stop]);
+                }
+                const rows = ((us.data || []) as ServiceUser[]).filter((r) => r.active !== false);
+                if (rows.length) {
+                  setUsers((prev) => [...prev.filter((x) => !rows.some((r) => r.id === x.id)), ...rows]);
+                }
+              } catch (e) {
+                toast("Tappa creata, ma non riesco a ricaricarla: " + errMsg(e));
+              }
+              // Apre la classica scheda tappa con l'utente appena creato
+              setSelected({ kind: "stop", id: stopId });
+              setFocus({ lat, lng, n: Date.now() });
+            }}
+            onClose={cancelPropose}
+          />
       );
+    }
     if (selected) {
       if (selected.kind === "user") {
         const u =
@@ -1918,7 +1977,7 @@ export default function App({ profile }: { profile: Profile }) {
             titleExtra={
               <>
                 <span className={`badge badge-${s.status}`}>
-                  {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : "Eliminata"}
+                  {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : s.status === "pending" ? "In attesa di validazione" : "Eliminata"}
                 </span>
                 {!isAdmin && s.status === "active" && (
                   <ServedBadge served={isServed} canReset={canResetServed} onReset={() => markStopAsServed(s.id)} />
@@ -1970,12 +2029,10 @@ export default function App({ profile }: { profile: Profile }) {
             />
           </Popup>
         );
-      }
-      } else {
-        // Ogni proposta cliccata su mappa apre la scheda: quelle eliminate
-        // (visibili col flag "Eliminati") hanno status="rejected" e vengono
-        // mostrate in sola lettura, perché le azioni di validazione non
-        // avrebbero più senso.
+        }
+      } else if (selected.kind === "prop") {
+        // Ogni proposta cliccata (su mappa o da elenco) apre la scheda.
+        // Vecchie proposte (Proposal): gestite da PropDetail.
         const p = proposals.find((x) => x.id === selected.id);
         if (p) {
           const propReadOnly = p.status !== "pending";
@@ -2009,7 +2066,7 @@ export default function App({ profile }: { profile: Profile }) {
             />
             </Popup>
           );
-        }
+        }        
       }
     }
     return (
@@ -2079,10 +2136,9 @@ export default function App({ profile }: { profile: Profile }) {
   const stopsServing = activeStops.length - stopsDone - stopsEmpty;
   const stopsSusp = showSuspended ? stops.filter((s) => s.status === "suspended").length : 0;
   const stopsDel = showDeleted ? stops.filter((s) => s.status === "deleted").length : 0;
-  const propsMap = showProps ? visibleProps.filter((p) => !p.stop_id) : [];
-  const propsTodo = propsMap.filter((p) => propTonight(p) === "todo").length;
-  const propsDone = propsMap.filter((p) => propTonight(p) === "done").length;
-  const propsMiss = propsMap.filter((p) => propTonight(p) === "missing").length;
+  const propsTodo = pendingStops.filter((s) => !stopServed(s)).length;
+  const propsDone = pendingStops.filter((s) => stopServed(s)).length;
+  const propsMiss = 0; // o una tua logica per i non trovati
 
   const legend =
     stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsTodo + propsDone + propsMiss > 0 ? (
@@ -2162,19 +2218,15 @@ export default function App({ profile }: { profile: Profile }) {
         overlays={
           <>
             {!placing && (
-              <div className="mapflags" role="group" aria-label="Mostra proposte">
+              <div className="mapflags mapflags-bottomright" role="group" aria-label="Mostra tappe non attive">
                 <label className="mapflag">
                   <input
                     type="checkbox"
-                    checked={showProps}
-                    onChange={(e) => setShowProps(e.target.checked)}
+                    checked={showStopProps}
+                    onChange={(e) => setShowStopProps(e.target.checked)}
                   />
-                  <span>Proposte</span>
+                  <span>Tappe proposte</span>
                 </label>
-              </div>
-            )}
-            {!placing && (
-              <div className="mapflags mapflags-bottomright" role="group" aria-label="Mostra tappe non attive">
                 <label className="mapflag">
                   <input
                     type="checkbox"
@@ -2259,7 +2311,8 @@ export default function App({ profile }: { profile: Profile }) {
                 {dutyYesterday
                   ? `Ieri era in uscita ${dutyYesterday.name}.`
                   : "Ieri non risultava un'uscita in calendario."}{" "}
-                Utenze sulla mappa: <b>{users.length + visibleProps.length}</b> · esiti registrati:{" "}
+                Tappe attive: <b>{stops.filter((s) => s.status === "active").length}</b> ·
+                Utenze sulla mappa: <b>{users.length}</b> · esiti registrati:{" "}
                 <b>{yLogs.length}</b> · trovati: <b>{yFound}</b> · non trovati:{" "}
                 <b>{yLogs.length - yFound}</b>
                 {yWithNotes ? ` · note per le prossime uscite: ${yWithNotes}` : ""}.
