@@ -40,6 +40,7 @@ export interface DailyLog {
   provided: string[];
   requested: string;
   note: string;
+  extra?: string; // "Note uscita": annotazione libera dell'uscita, distinta da note
   created_at?: string;
 }
 
@@ -52,6 +53,7 @@ export interface ProposalVerification {
   provided: string[];
   requested: string;
   note: string;
+  extra?: string; // "Note uscita": annotazione libera dell'uscita, distinta da note
   created_at?: string;
 }
 
