@@ -6,17 +6,17 @@
 import { useEffect, useRef, useState } from "react";
 import { EntryFields, entryFrom, type EntryValues } from "@/components/EntryFields";
 import type { DailyLog, Org, ServiceUser, Status } from "@/lib/types";
-import { ST_LABEL, fmtShort, fmtTime, orgName } from "@/lib/format";
+import { fmtShort, fmtTime, orgName } from "@/lib/format";
 
 const sameEntry = (a: EntryValues, b: EntryValues) =>
   a.found === b.found &&
   a.requested.trim() === b.requested.trim() &&
   a.note.trim() === b.note.trim() &&
+  a.extra.trim() === b.extra.trim() &&
   [...a.provided].sort().join("|") === [...b.provided].sort().join("|");
 
 export default function UserDetail({
   user,
-  status,
   tonight,
   yesterday,
   canEditYesterday,
@@ -26,7 +26,6 @@ export default function UserDetail({
   orgs,
   readOnlyMsg,
   onSave,
-  onBack,
   isAdmin,
   canEditData,
   myOrg,
@@ -133,8 +132,6 @@ export default function UserDetail({
       setActBusy(false);
     }
   }
-
-  const tagCls = status === "done" ? "tag tag-done" : status === "todo" ? "tag tag-todo" : "tag tag-muted";
 
   const form = canRecord ? (
     <form
@@ -276,6 +273,7 @@ export default function UserDetail({
                 {l.found ? "Fornito" : "Lasciato sul posto"}: {l.provided.join(", ").toLowerCase()}
               </p>
             ) : null}
+            {l.extra ? <p>Note uscita: {l.extra}</p> : null}
             {l.requested ? <p>Richiesto: {l.requested}</p> : null}
             {l.note ? <p className="h-note">{l.note}</p> : null}
           </li>
@@ -286,14 +284,9 @@ export default function UserDetail({
 
   return (
     <>
-      <button className="back" type="button" onClick={onBack}>
-        &larr; Torna all&apos;elenco
-      </button>
       <div className="detail stack">
-        <div>
-          <h2>{user.name}</h2>
+        {user.multiple || isDeleted || isSuspended ? (
           <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <span className={tagCls}>{ST_LABEL[status]}</span>
             {user.multiple ? <span className="tag tag-muted">Utenti multipli</span> : null}
             {isDeleted ? (
               <span className="tag tag-muted">Eliminato</span>
@@ -301,14 +294,11 @@ export default function UserDetail({
               <span className="tag tag-muted">Sospeso</span>
             ) : null}
           </div>
-        </div>
+        ) : null}
         {(isSuspended || isDeleted) && user.suspension_note ? (
           <p className="notice">Motivo: {user.suspension_note}</p>
         ) : null}
         <p className="desc">{user.description || "Nessuna descrizione."}</p>
-        <p className="pgtxt mono">
-          Destinazione inviata a Maps: {Number(user.lat).toFixed(5)}, {Number(user.lng).toFixed(5)}
-        </p>
         {form}
         {yForm}
         {hist}

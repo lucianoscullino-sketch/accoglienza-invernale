@@ -10,6 +10,8 @@ export interface EntryValues {
   provided: string[];
   requested: string;
   note: string;
+  // "Note uscita": annotazione libera, separata da "Note importanti" (note).
+  extra: string;
 }
 
 export const emptyEntry = (): EntryValues => ({
@@ -17,6 +19,7 @@ export const emptyEntry = (): EntryValues => ({
   provided: [],
   requested: "",
   note: "",
+  extra: "",
 });
 
 export const entryFrom = (e?: {
@@ -24,11 +27,13 @@ export const entryFrom = (e?: {
   provided?: string[];
   requested?: string;
   note?: string;
+  extra?: string;
 } | null): EntryValues => ({
   found: e ? !!e.found : true,
   provided: e?.provided ? [...e.provided] : [],
   requested: e?.requested ?? "",
   note: e?.note ?? "",
+  extra: e?.extra ?? "",
 });
 
 const isItem = (x: string) => (ITEMS as readonly string[]).includes(x);
@@ -50,6 +55,9 @@ export function EntryFields({
   const [found, setFound] = useState(initial.found);
   const [checked, setChecked] = useState<string[]>(initial.provided.filter(isItem));
   const [other, setOther] = useState(initial.provided.filter((p) => !isItem(p)).join(", "));
+  // Il tasto "Altro" apre il campo di testo; aperto in partenza se c'è già un valore.
+  const [otherOpen, setOtherOpen] = useState(initial.provided.some((p) => !isItem(p)));
+  const [extra, setExtra] = useState(initial.extra);
   const [requested, setRequested] = useState(initial.requested);
   const [note, setNote] = useState(initial.note);
   const cbRef = useRef(onValues);
@@ -57,17 +65,29 @@ export function EntryFields({
     cbRef.current = onValues;
   }, [onValues]);
 
-  const emit = (n: { found?: boolean; checked?: string[]; other?: string; requested?: string; note?: string }) => {
+  const emit = (n: {
+    found?: boolean;
+    checked?: string[];
+    other?: string;
+    otherOpen?: boolean;
+    requested?: string;
+    note?: string;
+    extra?: string;
+  }) => {
     const f = n.found ?? found;
     const c = n.checked ?? checked;
-    const o = n.other ?? other;
+    const open = n.otherOpen ?? otherOpen;
+    // Con "Altro" chiuso il testo resta in memoria ma non viene registrato.
+    const o = open ? (n.other ?? other) : "";
     const r = n.requested ?? requested;
     const nt = n.note ?? note;
+    const ex = n.extra ?? extra;
     cbRef.current?.({
       found: f,
       provided: [...c, ...o.split(",").map((s) => s.trim()).filter(Boolean)],
       requested: r,
       note: nt,
+      extra: ex,
     });
   };
 
@@ -84,11 +104,26 @@ export function EntryFields({
         />{" "}
         Utente trovato
       </label>
+      <div>
+        <label className="lb" htmlFor={`${idPrefix}-extra`}>
+          Note uscita
+        </label>
+        <input
+          id={`${idPrefix}-extra`}
+          type="text"
+          autoComplete="off"
+          value={extra}
+          onChange={(e) => {
+            setExtra(e.target.value);
+            emit({ extra: e.target.value });
+          }}
+        />
+      </div>
       <fieldset>
         <legend>{legend}</legend>
         <div className="chips">
           {ITEMS.map((it) => (
-            <label className="chip" key={it}>
+            <label className="chip" key={it} style={{ fontSize: "0.8rem" }}>
               <input
                 type="checkbox"
                 checked={checked.includes(it)}
@@ -101,22 +136,36 @@ export function EntryFields({
               <span>{it}</span>
             </label>
           ))}
-        </div>
-        <div>
-          <label className="lb" htmlFor={`${idPrefix}-other`}>
-            Altro
+          <label className="chip" style={{ fontSize: "0.8rem" }}>
+            <input
+              type="checkbox"
+              checked={otherOpen}
+              onChange={(e) => {
+                setOtherOpen(e.target.checked);
+                emit({ otherOpen: e.target.checked });
+              }}
+            />
+            <span>Altro</span>
           </label>
-          <input
-            id={`${idPrefix}-other`}
-            type="text"
-            autoComplete="off"
-            value={other}
-            onChange={(e) => {
-              setOther(e.target.value);
-              emit({ other: e.target.value });
-            }}
-          />
         </div>
+        {otherOpen && (
+          <div>
+            <label className="lb" htmlFor={`${idPrefix}-other`}>
+              Altro (separa più voci con la virgola)
+            </label>
+            <input
+              id={`${idPrefix}-other`}
+              type="text"
+              autoComplete="off"
+              autoFocus={!other}
+              value={other}
+              onChange={(e) => {
+                setOther(e.target.value);
+                emit({ other: e.target.value });
+              }}
+            />
+          </div>
+        )}
       </fieldset>
       <div>
         <label

@@ -176,6 +176,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [tab, setTab] = useState<Tab>("utenti");
   const [selected, setSelected] = useState<Selection | null>(null);
   const [hlProp, setHlProp] = useState<string | null>(null);
+  // Tappa da riaprire alla chiusura di una scheda utente/proposta aperta da dentro la scheda tappa.
+  const [returnStopId, setReturnStopId] = useState<string | null>(null);
   // Id della tappa attualmente in modifica: solo il suo pin è trascinabile sulla mappa.
   const [editingStopId, setEditingStopId] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -490,6 +492,7 @@ export default function App({ profile }: { profile: Profile }) {
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     userDirtyRef.current = false;
     setHlProp(null);
+    setReturnStopId(null);
     setSelected({ kind, id });
     setPlacing(false);
     if (fromMap) {
@@ -508,8 +511,19 @@ export default function App({ profile }: { profile: Profile }) {
   }
   function back() {
     userDirtyRef.current = false;
+    setReturnStopId(null);
     setSelected(null);
     setFocus(null);
+  }
+  // Chiude la scheda utente/proposta: se era stata aperta dalla scheda tappa, torna a quella.
+  function backToStopOrClose() {
+    userDirtyRef.current = false;
+    if (returnStopId && stops.some((x) => x.id === returnStopId)) {
+      setSelected({ kind: "stop", id: returnStopId });
+      setReturnStopId(null);
+    } else {
+      back();
+    }
   }
   function closeUserCard() {
     if (
@@ -518,7 +532,7 @@ export default function App({ profile }: { profile: Profile }) {
     ) {
       return;
     }
-    back();
+    backToStopOrClose();
   }
   function startPropose() {
     if (!canWrite) return;
@@ -851,6 +865,7 @@ export default function App({ profile }: { profile: Profile }) {
         provided: v.provided,
         requested: v.requested,
         note: v.note,
+        extra: v.extra,
         created_by: profile.id,
       };
       const { data, error } = await supabase()
@@ -917,6 +932,7 @@ export default function App({ profile }: { profile: Profile }) {
         provided: v.provided,
         requested: v.requested,
         note: v.note,
+        extra: v.extra,
         created_by: profile.id,
       };
       const { data, error } = await supabase()
@@ -1088,6 +1104,7 @@ export default function App({ profile }: { profile: Profile }) {
         provided: vals.provided,
         requested: vals.requested,
         note: vals.note,
+        extra: vals.extra,
       };
       const { data, error } = await supabase()
         .from("proposal_verifications")
@@ -1144,6 +1161,7 @@ export default function App({ profile }: { profile: Profile }) {
             provided: v.entry.provided,
             requested: v.entry.requested,
             note: v.entry.note,
+            extra: v.entry.extra,
             created_by: profile.id,
           })
           .select()
@@ -1218,6 +1236,7 @@ export default function App({ profile }: { profile: Profile }) {
             provided: v.provided,
             requested: v.requested,
             note: v.note,
+            extra: v.extra,
           })),
           { onConflict: "user_id,date" }
         );
@@ -1234,6 +1253,7 @@ export default function App({ profile }: { profile: Profile }) {
               provided: v.provided,
               requested: v.requested,
               note: v.note,
+              extra: v.extra,
             })),
         ]);
       }
@@ -1923,7 +1943,15 @@ export default function App({ profile }: { profile: Profile }) {
           deletedUsers.find((x) => x.id === selected.id);
         if (u) {
           return (
-            <Popup title={u.name} onClose={closeUserCard}>
+            <Popup
+              title={u.name}
+              titleExtra={
+                <span className={`tag ${tonightLog(u.id) ? "tag-done" : "tag-todo"}`}>
+                  {ST_LABEL[tonightLog(u.id) ? "done" : "todo"]}
+                </span>
+              }
+              onClose={closeUserCard}
+            >
               <UserDetail
                 key={u.id}
                 user={u}
@@ -2002,8 +2030,8 @@ export default function App({ profile }: { profile: Profile }) {
               onSuspend={() => suspendStop(s.id)}
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
-              onOpenUser={(uid) => { back(); select("user", uid, false); }}
-              onOpenProp={(pid) => { back(); select("prop", pid, false); }}
+              onOpenUser={(uid) => { select("user", uid, false); setReturnStopId(s.id); }}
+              onOpenProp={(pid) => { select("prop", pid, false); setReturnStopId(s.id); }}
               onEditChange={onStopEditChange}
               onAddUser={async (v) => {
                 if (!isAdmin && !isActiveOrg) {
@@ -2037,7 +2065,7 @@ export default function App({ profile }: { profile: Profile }) {
         if (p) {
           const propReadOnly = p.status !== "pending";
           return (
-            <Popup title={p.name} onClose={back}>
+            <Popup title={p.name} onClose={backToStopOrClose}>
             <PropDetail
               p={p}
               orgs={orgs}
