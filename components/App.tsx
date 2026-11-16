@@ -31,6 +31,7 @@ import type {
   Settings,
   Status,
   Stop,
+  StopLog,
 } from "@/lib/types";
 import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
@@ -38,6 +39,10 @@ import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
 
+
+// Limite massimo (ora) entro cui il report della serata va inviato; oltre, il
+// sistema lo invia in automatico (anche parziale). Mostrato nel popup di uscita.
+const AUTO_REPORT_HOUR = 15;
 
 type Tab =
   | "utenti"
@@ -143,6 +148,7 @@ export default function App({ profile }: { profile: Profile }) {
   const [showSuspended, setShowSuspended] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
   const [stops, setStops] = useState<Stop[]>([]);
+  const [stopLogs, setStopLogs] = useState<StopLog[]>([]);
   // Bandierina "Tappe proposte" sulla mappa (spenta di default): mostra i pin piccoli a bordo viola.
   const [showStopProps, setShowStopProps] = useState(false);
   const [logs, setLogs] = useState<DailyLog[]>([]);
@@ -184,6 +190,13 @@ export default function App({ profile }: { profile: Profile }) {
   const [draftPos, setDraftPos] = useState<{ lat: number; lng: number } | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; n: number } | null>(null);
   const [creatingStop, setCreatingStop] = useState(false);
+  // Uscita dell'associazione in turno: popup con tre scelte (genera il report ed
+  // esci / esci senza generare / resta).
+  const [exitOpen, setExitOpen] = useState(false);
+  const [exitBusy, setExitBusy] = useState(false);
+  const [exitError, setExitError] = useState(false);
+  // Esiti registrati nella serata corrente (calcolati all'apertura del popup di uscita).
+  const [exitCount, setExitCount] = useState(0);
   const [stopName, setStopName] = useState("");
   const [calAll, setCalAll] = useState(false);
   const [calMsg, setCalMsg] = useState("");
@@ -219,7 +232,7 @@ export default function App({ profile }: { profile: Profile }) {
           }
           return ordered;
         })();
-        const [o, pr, u, l, p, c, s, su, st, nt] = await Promise.all([
+        const [o, pr, u, l, p, c, s, su, st, nt, sl] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
@@ -237,6 +250,8 @@ export default function App({ profile }: { profile: Profile }) {
           // Avvisi del coordinamento (tabella della migrazione 0013): se manca,
           // l'errore è gestito sotto in modo NON bloccante.
           sb.from("notices").select("*").order("created_at", { ascending: false }),
+          // Log su base tappa (beni forniti, esito tappa): non bloccante come gli avvisi.
+          sb.from("stop_logs").select("*").order("date", { ascending: false }).limit(3000),
         ]);
         // Carichiamo ogni tabella in modo indipendente: un errore su una query
         // non deve più impedire il caricamento di tutte le altre (prima bastava
@@ -281,6 +296,8 @@ export default function App({ profile }: { profile: Profile }) {
         // e l'errore viene mostrato al solo coordinamento nel tab Comunicazioni.
         if (nt.error) setNoticesErr(msg(nt.error));
         else setNotices((nt.data || []) as Notice[]);
+        if (sl.error) console.error("stop_logs", sl.error);
+        else setStopLogs((sl.data || []) as StopLog[]);
       } catch (e) {
         // Errore di rete/client (env mancanti, fetch fallito, ecc.)
         problems.push(e instanceof Error ? e.message : String(e));
@@ -645,6 +662,50 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Log su base tappa del giorno di servizio corrente: aggiorna solo i campi
+  // passati (l'upsert non tocca gli altri), quindi esito e beni non si sovrascrivono.
+  async function upsertStopLog(
+    sid: string,
+    patch: Partial<Pick<StopLog, "served" | "note" | "sacchi_a_pelo" | "coperte">>
+  ): Promise<boolean> {
+    try {
+      const row = {
+        stop_id: sid,
+        date: serviceKey,
+        org_id: myOrgId() || "admin",
+        created_by: profile.id,
+        updated_at: new Date().toISOString(),
+        ...patch,
+      };
+      const { data, error } = await supabase()
+        .from("stop_logs")
+        .upsert(row, { onConflict: "stop_id,date" })
+        .select()
+        .single();
+      if (error) throw error;
+      const rec = data as StopLog;
+      setStopLogs((prev) => [
+        ...prev.filter((x) => !(x.stop_id === sid && x.date === serviceKey)),
+        rec,
+      ]);
+      return true;
+    } catch (e) {
+      console.error("stop_logs", e);
+      toast("Errore stop_logs: " + ((e as { message?: string })?.message || JSON.stringify(e)));
+      return false;
+    }
+  }
+
+  // Beni forniti alla tappa (da consuntivare): salvati nel log tappa del giorno.
+  async function saveStopGoods(sid: string, v: { sacchi_a_pelo: number; coperte: number }) {
+    if (!isAdmin && !isActiveOrg) {
+      toast("Non hai diritti di scrittura in questo momento.");
+      return;
+    }
+    const ok = await upsertStopLog(sid, v);
+    toast(ok ? "Beni della tappa registrati" : "Errore nel salvataggio dei beni della tappa");
+  }
+
   // Tappa riportata da "Servito" a "Da servire" dall'associazione in uscita
   async function markStopAsServed(sid: string) {
     if (!canResetServed) {
@@ -654,6 +715,7 @@ export default function App({ profile }: { profile: Profile }) {
     try {
       const { error } = await supabase().rpc("reset_stop_served", { p_stop: sid });
       if (error) throw error;
+      await upsertStopLog(sid, { served: false });
       setStops((prev) =>
         prev.map((s) =>
           s.id === sid ? { ...s, served_at: null, reset_at: new Date().toISOString() } : s
@@ -905,7 +967,10 @@ export default function App({ profile }: { profile: Profile }) {
         rows,
         orgs,
         `Report ${fmtDay(yKey)}`,
-        reportFileName("report_accoglienza", yKey)
+        reportFileName("report_accoglienza", yKey),
+        stops,
+        stopLogs.filter((g) => g.date === yKey),
+        { extras: true }
       );
     } finally {
       setBusyBriefXlsx(false);
@@ -933,6 +998,8 @@ export default function App({ profile }: { profile: Profile }) {
         requested: v.requested,
         note: v.note,
         extra: v.extra,
+        // Tappa dell'utente in questo momento: resta fissata nello storico.
+        stop_id: users.find((x) => x.id === uid)?.stop_id ?? null,
         created_by: profile.id,
       };
       const { data, error } = await supabase()
@@ -960,6 +1027,8 @@ export default function App({ profile }: { profile: Profile }) {
         } else {
           console.error("mark_stop_served", e2);
         }
+        // Lo stesso esito tappa va anche nel log su base tappa (storico).
+        await upsertStopLog(u.stop_id, { served: true });
       }
 
       toast("Esito registrato, firmato " + (row.org_id ? orgName(row.org_id, orgs) : "-"));
@@ -985,6 +1054,7 @@ export default function App({ profile }: { profile: Profile }) {
         provided: [] as string[],
         requested: "",
         note: "Segnalazione associazione: utenza non attiva ritrovata in strada. Valutare la riattivazione col coordinamento.",
+        stop_id: [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === uid)?.stop_id ?? null,
         created_by: profile.id,
       };
       const { data, error } = await supabase()
@@ -1237,6 +1307,7 @@ export default function App({ profile }: { profile: Profile }) {
             requested: v.requested,
             note: v.note,
             extra: v.extra,
+            stop_id: newUser.stop_id ?? null,
           })),
           { onConflict: "user_id,date" }
         );
@@ -1482,6 +1553,40 @@ export default function App({ profile }: { profile: Profile }) {
           : "")
     );
     toast(r.ok.length ? "Calendario aggiornato" : "Calendario non modificato");
+  }
+
+  // Uscita dell'associazione in turno: apre il popup con le tre scelte.
+  function openExit() {
+    const n = allRecs(users, logs, proposals).filter((r) => r.date === serviceKey).length;
+    setExitCount(n);
+    setExitError(false);
+    setExitOpen(true);
+  }
+
+  // "Genera report ed esci": scarica l'Excel della serata ed esce. Quando sarà
+  // attivo l'invio alla distribution list, qui si aggiunge l'invio.
+  async function generateReportAndExit() {
+    setExitBusy(true);
+    setExitError(false);
+    try {
+      const rows = allRecs(users, logs, proposals).filter((r) => r.date === serviceKey);
+      await downloadExcel(
+        rows,
+        orgs,
+        `Report ${fmtDay(serviceKey)}`,
+        reportFileName("report_accoglienza", serviceKey),
+        stops,
+        stopLogs.filter((g) => g.date === serviceKey),
+        { extras: true }
+      );
+      setExitOpen(false);
+      await signOut();
+    } catch (e) {
+      console.error("report uscita", e);
+      setExitError(true);
+    } finally {
+      setExitBusy(false);
+    }
   }
 
   async function signOut() {
@@ -2007,7 +2112,7 @@ export default function App({ profile }: { profile: Profile }) {
                 <span className={`badge badge-${s.status}`}>
                   {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : s.status === "pending" ? "In attesa di validazione" : "Eliminata"}
                 </span>
-                {!isAdmin && s.status === "active" && (
+                {!isAdmin && (s.status === "active" || s.status === "pending") && (
                   <ServedBadge served={isServed} canReset={canResetServed} onReset={() => markStopAsServed(s.id)} />
                 )}
               </>
@@ -2027,6 +2132,9 @@ export default function App({ profile }: { profile: Profile }) {
               inactiveUsers={isAdmin ? stopInactive : []}
               onOpenMap={(lat, lng, label) => openGoogleMaps(lat, lng, label)}
               onSaveStop={(patch) => saveStop(s.id, patch)}
+              goods={stopLogs.find((x) => x.stop_id === s.id && x.date === serviceKey) ?? null}
+              canEditGoods={isAdmin || isActiveOrg}
+              onSaveGoods={(v) => saveStopGoods(s.id, v)}
               onSuspend={() => suspendStop(s.id)}
               onRestore={() => restoreStop(s.id)}
               onDelete={() => deleteStop(s.id)}
@@ -2121,6 +2229,8 @@ export default function App({ profile }: { profile: Profile }) {
             users={[...users, ...suspendedUsers, ...deletedUsers]}
             logs={logs}
             proposals={proposals}
+            stops={stops}
+            stopLogs={stopLogs}
             rep={rep}
             setRep={setRep}
           />
@@ -2164,8 +2274,9 @@ export default function App({ profile }: { profile: Profile }) {
   const stopsServing = activeStops.length - stopsDone - stopsEmpty;
   const stopsSusp = showSuspended ? stops.filter((s) => s.status === "suspended").length : 0;
   const stopsDel = showDeleted ? stops.filter((s) => s.status === "deleted").length : 0;
-  const propsTodo = pendingStops.filter((s) => !stopServed(s)).length;
-  const propsDone = pendingStops.filter((s) => stopServed(s)).length;
+  // Tappe proposte in legenda solo se hanno il pin sulla mappa (flag "Tappe proposte" attivo).
+  const propsTodo = showStopProps ? pendingStops.filter((s) => !stopServed(s)).length : 0;
+  const propsDone = showStopProps ? pendingStops.filter((s) => stopServed(s)).length : 0;
   const propsMiss = 0; // o una tua logica per i non trovati
 
   const legend =
@@ -2227,12 +2338,53 @@ export default function App({ profile }: { profile: Profile }) {
             <span className="dutyname" style={{ fontSize: "15px" }}>
               {profile.display_name || (myOrgId() ? orgName(myOrgId() ?? "", orgs) : "-")}
             </span>
-            <button className="linkbtn" type="button" onClick={signOut}>
+            <button className="linkbtn" type="button" onClick={isActiveOrg ? openExit : signOut}>
               Esci
             </button>
           </div>
         </div>
       </header>
+
+      {exitOpen ? (
+        <Popup title="" onClose={() => (exitBusy ? undefined : setExitOpen(false))}>
+          <div className="stack">
+            {exitCount > 0 ? (
+              <div className="stack" style={{ gap: 6 }}>
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  Vuoi generare il report dell&apos;uscita del {fmtDay(serviceKey)} prima di uscire?
+                </p>
+                <p style={{ margin: 0, fontSize: "0.85em" }}>
+                  Il report va inviato entro le ore {AUTO_REPORT_HOUR}:00. Se non lo invii tu, il sistema
+                  provvederà all&apos;invio autonomo, anche se parziale.
+                </p>
+              </div>
+            ) : (
+              <p className="notice">
+                Per l&apos;uscita del {fmtDay(serviceKey)} non risulta nessun esito registrato, quindi non
+                c&apos;è un report da generare.
+              </p>
+            )}
+            {exitError ? (
+              <p className="notice" style={{ color: "var(--danger)" }}>
+                Non sono riuscito a generare il report. Puoi riprovare oppure uscire senza report.
+              </p>
+            ) : null}
+            <div className="stack" style={{ gap: 8 }}>
+              {exitCount > 0 ? (
+                <button className="btn btn-primary" type="button" onClick={generateReportAndExit} disabled={exitBusy}>
+                  {exitBusy ? "Genero il report…" : "Genera report ed esci"}
+                </button>
+              ) : null}
+              <button className="btn" type="button" onClick={signOut} disabled={exitBusy}>
+                Esci senza generare
+              </button>
+              <button className="btn" type="button" onClick={() => setExitOpen(false)} disabled={exitBusy}>
+                Resta nell&apos;app
+              </button>
+            </div>
+          </div>
+        </Popup>
+      ) : null}
 
       <MapView
         items={mapItems}

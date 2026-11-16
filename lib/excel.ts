@@ -2,9 +2,8 @@
 // generati interamente nel browser (libreria "xlsx"). Il file viene
 // scaricato dal browser: su telefono finisce in Download/File.
 
-import type { Org } from "@/lib/types";
-import { orgName } from "@/lib/format";
-import type { Rec } from "@/lib/report";
+import type { Org, Stop, StopLog } from "@/lib/types";
+import { REPORT_HEAD, reportTable, type Rec } from "@/lib/report";
 
 export type ExcelRow = Rec;
 
@@ -23,22 +22,29 @@ export async function downloadExcel(
   rows: Rec[],
   orgs: Org[],
   sheetName: string,
-  fileName: string
+  fileName: string,
+  stops: Stop[] = [],
+  stopLogs: StopLog[] = [],
+  opts: { extras?: boolean } = {}
 ): Promise<void> {
   const XLSX = await import("xlsx");
-  const head = ["Data", "Associazione", "Nickname", "Trovato", "Fornito", "Richiesto", "Note", "Proposta"];
-  const data = rows.map((r) => [
-    cell(r.date),
-    cell(orgName(r.org, orgs)),
-    cell(r.name),
-    cell(r.found),
-    cell(r.provided.join(" + ")),
-    cell(r.requested),
-    cell(r.note),
-    cell(r.prop),
-  ]);
-  const ws = XLSX.utils.aoa_to_sheet([head, ...data]);
-  ws["!cols"] = [{ wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 9 }, { wch: 36 }, { wch: 30 }, { wch: 36 }, { wch: 9 }];
+  const data = reportTable(rows, orgs, stops, stopLogs, opts).map((r) => r.map((v) => cell(v)));
+  const ws = XLSX.utils.aoa_to_sheet([REPORT_HEAD, ...data]);
+  ws["!cols"] = [
+    { wch: 12 }, // Data
+    { wch: 20 }, // Associazione
+    { wch: 24 }, // Tappa
+    { wch: 12 }, // Esito tappa
+    { wch: 13 }, // Sacchi a pelo
+    { wch: 9 }, // Coperte
+    { wch: 20 }, // Nickname
+    { wch: 9 }, // Trovato
+    { wch: 36 }, // Fornito
+    { wch: 30 }, // Richiesto
+    { wch: 36 }, // Note importanti
+    { wch: 30 }, // Note uscita
+    { wch: 9 }, // Proposta
+  ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Report");
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;

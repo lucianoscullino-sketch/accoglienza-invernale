@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Org, Proposal, ServiceUser, Stop } from "@/lib/types";
+import type { Org, Proposal, ServiceUser, Stop, StopLog } from "@/lib/types";
 import { orgName } from "@/lib/format";
 
 interface StopDetailProps {
@@ -15,6 +15,10 @@ interface StopDetailProps {
   inactiveUsers?: ServiceUser[];
   onOpenMap: (lat: number, lng: number, label: string) => void;
   onSaveStop: (patch: { name: string; lat: number; lng: number; note: string }) => Promise<void>;
+  // Beni forniti alla tappa nel giorno di servizio corrente (log su base tappa).
+  goods?: StopLog | null;
+  canEditGoods?: boolean;
+  onSaveGoods?: (v: { sacchi_a_pelo: number; coperte: number }) => Promise<void>;
   onSuspend: (note: string) => Promise<void>;
   onRestore: () => Promise<void>;
   onDelete: (note: string) => Promise<void>;
@@ -27,6 +31,7 @@ interface StopDetailProps {
 export default function StopDetail({
   stop, users, proposals, orgs, isAdmin, canAddUser, myOrg, onOpenMap,
   onOpenProp,
+  goods = null, canEditGoods = false, onSaveGoods,
   onSaveStop, onSuspend, onRestore, onDelete, onAddUser, onOpenUser, onEditChange, inactiveUsers = [],
 }: StopDetailProps) {
   const [busy, setBusy] = useState<"" | "susp" | "rest" | "del" | "save" | "add">("");
@@ -38,10 +43,38 @@ export default function StopDetail({
   const [edNote, setEdNote] = useState(stop.note || "");
   const [editErr, setEditErr] = useState("");
   const [addUserMulti, setAddUserMulti] = useState(false);
-  const [saccoChecked, setSaccoChecked] = useState(false);
-  const [copertaChecked, setCopertaChecked] = useState(false);
-  const [saccoQty, setSaccoQty] = useState("");
-  const [copertaQty, setCopertaQty] = useState("");
+  const [saccoChecked, setSaccoChecked] = useState((goods?.sacchi_a_pelo ?? 0) > 0);
+  const [copertaChecked, setCopertaChecked] = useState((goods?.coperte ?? 0) > 0);
+  const [saccoQty, setSaccoQty] = useState(goods?.sacchi_a_pelo ? String(goods.sacchi_a_pelo) : "");
+  const [copertaQty, setCopertaQty] = useState(goods?.coperte ? String(goods.coperte) : "");
+  const [savingGoods, setSavingGoods] = useState(false);
+
+  // Riallinea i campi al log del giorno (cambio turno = riga nuova = campi vuoti).
+  const gSacchi = goods?.sacchi_a_pelo ?? 0;
+  const gCoperte = goods?.coperte ?? 0;
+  useEffect(() => {
+    setSaccoChecked(gSacchi > 0);
+    setSaccoQty(gSacchi ? String(gSacchi) : "");
+    setCopertaChecked(gCoperte > 0);
+    setCopertaQty(gCoperte ? String(gCoperte) : "");
+  }, [gSacchi, gCoperte, stop.id]);
+
+  async function saveStopSection() {
+    setSavingGoods(true);
+    try {
+      if (edNote !== (stop.note || "")) {
+        await onSaveStop({ name: stop.name, lat: stop.lat, lng: stop.lng, note: edNote });
+      }
+      if (canEditGoods && onSaveGoods) {
+        await onSaveGoods({
+          sacchi_a_pelo: saccoChecked ? Math.max(0, Math.floor(Number(saccoQty) || 0)) : 0,
+          coperte: copertaChecked ? Math.max(0, Math.floor(Number(copertaQty) || 0)) : 0,
+        });
+      }
+    } finally {
+      setSavingGoods(false);
+    }
+  }
 
 
   // Sincronizza le coordinate quando la tappa viene spostata dal pin sulla mappa principale
@@ -222,7 +255,18 @@ export default function StopDetail({
         )}
 
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Candidati di questa tappa ({proposals.length})</h4>
-        {proposals.length === 0 ? (
+        {proposals.length > 0 ? (
+          <ul className="list" style={{ gap: 0 }}>
+            {proposals.map((p) => (
+              <li key={p.id} className="calrow" style={{ cursor: "pointer" }} onClick={() => onOpenProp?.(p.id)}>
+                <span className="caldate" style={{ fontSize: 16, fontWeight: 600, textDecoration: "underline", cursor: "pointer" }}>
+                  {p.name}
+                </span>
+                <span className="pgtxt">{p.description}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <div style={{ width: "100%" }}>
           
           {/* === CAMPO NOTE (in alto, larghezza piena) === */}
@@ -321,6 +365,7 @@ export default function StopDetail({
                       <input
                         type="checkbox"
                         checked={saccoChecked}
+                        disabled={!canEditGoods}
                         onChange={() => setSaccoChecked(!saccoChecked)}
                         style={{ width: 16, height: 16, cursor: "pointer" }}
                       />
@@ -329,6 +374,7 @@ export default function StopDetail({
                       <input
                         type="checkbox"
                         checked={copertaChecked}
+                        disabled={!canEditGoods}
                         onChange={() => setCopertaChecked(!copertaChecked)}
                         style={{ width: 16, height: 16, cursor: "pointer" }}
                       />
@@ -393,33 +439,16 @@ export default function StopDetail({
             <div style={{ marginTop: "auto", marginLeft: "auto" }}>
               <button
                 type="button"
-                onClick={() => {
-                  onSaveStop({
-                    name: stop.name,
-                    lat: stop.lat,
-                    lng: stop.lng,
-                    note: edNote,
-                  });
-                }}
+                onClick={saveStopSection}
+                disabled={savingGoods}
                 className="btn btn-primary btn-sm"
               >
-                Salva
+                {savingGoods ? "Salvo…" : "Salva"}
               </button>
             </div>
 
           </div>
         </div>
-
-
-        ) : (
-          <ul className="list" style={{ gap: 0 }}>
-            {proposals.map((p) => (
-              <li key={p.id} className="calrow">
-                ...
-              </li>
-            ))}
-          </ul>
-        )}
 
 
         {canManage && edit ? (

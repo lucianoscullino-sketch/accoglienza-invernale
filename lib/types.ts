@@ -41,7 +41,23 @@ export interface DailyLog {
   requested: string;
   note: string;
   extra?: string; // "Note uscita": annotazione libera dell'uscita, distinta da note
+  stop_id?: string | null; // tappa dell'utente al momento dell'esito (fissata per lo storico)
   created_at?: string;
+}
+
+// Log su base tappa: una riga per tappa e giorno di servizio (tabella stop_logs).
+export interface StopLog {
+  id?: string;
+  stop_id: string;
+  date: string; // YYYY-MM-DD, giorno di servizio
+  org_id: string;
+  served: boolean; // esito tappa
+  note: string; // note della tappa per quell'uscita
+  sacchi_a_pelo: number;
+  coperte: number;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProposalVerification {

@@ -1,17 +1,17 @@
 "use client";
 
-// Tab "Report" (solo coordinamento): KPI, breakdown per associazione e utente
-// (attivi sempre; sospesi ed eliminati solo se accesi i relativi flag nel
-// filtro Utente, con stato tra parentesi; visite su proposte solo se acceso
-// il flag dedicato, spento di default; singola proposta selezionabile dal
-// filtro anche se non valutata), beni forniti, richieste emerse ed
-// esportazione CSV.
+// Tab "Report" (solo coordinamento): filtri e generazione del report (CSV o
+// Excel). Gli esiti non si mostrano a video: i filtri servono solo a scegliere
+// cosa includere nel report generato. Utenti attivi sempre; sospesi ed eliminati
+// solo se accesi i relativi flag; visite su proposte solo se acceso il flag
+// dedicato (spento di default); una singola proposta è selezionabile dal filtro
+// Utente anche se non valutata.
 
 import { useMemo, useRef, useState } from "react";
-import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
-import { allRecs, csvOf, filterRange } from "@/lib/report";
+import type { DailyLog, Org, Proposal, ServiceUser, Stop, StopLog } from "@/lib/types";
+import { allRecs, csvOf, filterRange, reportTable } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
-import { addDaysKey, fmtShort, orgName, today } from "@/lib/format";
+import { addDaysKey, today } from "@/lib/format";
 import PanelHeader from "@/components/PanelHeader";
 
 export default function ReportView({
@@ -19,6 +19,8 @@ export default function ReportView({
   users,
   logs,
   proposals,
+  stops,
+  stopLogs,
   rep,
   setRep,
 }: {
@@ -26,6 +28,8 @@ export default function ReportView({
   users: ServiceUser[];
   logs: DailyLog[];
   proposals: Proposal[];
+  stops: Stop[];
+  stopLogs: StopLog[];
   rep: { from: string; to: string };
   setRep: React.Dispatch<React.SetStateAction<{ from: string; to: string }>>;
 }) {
@@ -36,6 +40,7 @@ export default function ReportView({
   // Filtri aggiuntivi sul periodo: giorno singolo, associazione, utente.
   const [fDay, setFDay] = useState("");
   const [fOrg, setFOrg] = useState("");
+  const [fStop, setFStop] = useState("");
   const [fUser, setFUser] = useState("");
   // Due flag distinti per includere nel report gli utenti non attivi,
   // più quello per le visite sulle proposte (spento di default).
@@ -66,6 +71,22 @@ export default function ReportView({
   );
   const visibleUid = useMemo(() => new Set(visibleUsers.map((u) => u.id)), [visibleUsers]);
 
+  // Filtro Tappe: gli esiti si legano alla tappa tramite l'utente (o la proposta)
+  // a cui appartengono. Con una tappa scelta, Utente e Proposte mostrano solo
+  // quelli di quella tappa.
+  const stopsSorted = useMemo(
+    () => [...stops].sort((a, b) => a.name.localeCompare(b.name)),
+    [stops]
+  );
+  const stopLabel = (s: Stop) =>
+    s.name + (s.status === "active" ? "" : s.status === "pending" ? " (in attesa)" : s.status === "suspended" ? " (sospesa)" : " (eliminata)");
+  const userStop = useMemo(() => new Map(users.map((u) => [u.id, u.stop_id])), [users]);
+  const propStop = useMemo(() => new Map(proposals.map((p) => [p.id, p.stop_id])), [proposals]);
+  const selectableUsers = useMemo(
+    () => visibleUsers.filter((u) => !fStop || u.stop_id === fStop),
+    [visibleUsers, fStop]
+  );
+
   const recs = useMemo(() => allRecs(users, logs, proposals), [users, logs, proposals]);
   const ranged = useMemo(() => filterRange(recs, rep.from, rep.to), [recs, rep.from, rep.to]);
 
@@ -80,9 +101,13 @@ export default function ReportView({
     () => [...proposals].sort((a, b) => a.name.localeCompare(b.name)),
     [proposals]
   );
+  const propsInStop = useMemo(
+    () => propsAll.filter((p) => !fStop || p.stop_id === fStop),
+    [propsAll, fStop]
+  );
   const propsAllOthers = useMemo(
-    () => propsAll.filter((p) => !propVisits.has(p.id)),
-    [propsAll, propVisits]
+    () => propsInStop.filter((p) => !propVisits.has(p.id)),
+    [propsInStop, propVisits]
   );
 
   // Tipo di selezione corrente del filtro Utente: utenti regolari (plain uid),
@@ -102,76 +127,39 @@ export default function ReportView({
       (r) =>
         (!fDay || r.date === fDay) &&
         (!fOrg || r.org === fOrg) &&
+        (!fStop || r.stop === fStop) &&
         (!fUser || (fProp ? r.pid === fProp : r.uid === fUser)) &&
         (!r.uid || visibleUid.has(r.uid)) &&
         (!r.prop || repIncProp || !!fProp)
     );
-  }, [ranged, fDay, fOrg, fUser, visibleUid, repIncProp]);
-  const filtersOn = !!(fDay || fOrg || fUser || repIncSusp || repIncDel || repIncProp);
+  }, [ranged, fDay, fOrg, fStop, fUser, visibleUid, repIncProp]);
+  const filtersOn = !!(fDay || fOrg || fStop || fUser || repIncSusp || repIncDel || repIncProp);
 
-  const nights = new Set(rows.map((r) => r.date)).size;
-  const found = rows.filter((r) => r.found).length;
-  const rate = rows.length ? Math.round((found / rows.length) * 100) : 0;
-
-  const prov: [string, number][] = [];
-  const provMap: Record<string, number> = {};
-  rows.forEach((r) =>
-    r.provided.forEach((p) => {
-      if (!provMap[p]) prov.push([p, 0]);
-      provMap[p] = (provMap[p] || 0) + 1;
-    })
+  // Beni forniti alle tappe (log su base tappa), con gli stessi filtri di periodo,
+  // giorno, associazione e tappa. Non dipendono dagli utenti: si sommano a parte.
+  const stopLogsF = useMemo(
+    () =>
+      stopLogs.filter(
+        (g) =>
+          g.date >= rep.from &&
+          g.date <= rep.to &&
+          (!fDay || g.date === fDay) &&
+          (!fOrg || g.org_id === fOrg) &&
+          (!fStop || g.stop_id === fStop)
+      ),
+    [stopLogs, rep.from, rep.to, fDay, fOrg, fStop]
   );
-  prov.forEach((p) => (p[1] = provMap[p[0]]));
-  prov.sort((a, b) => b[1] - a[1]);
-  const max = prov.length ? prov[0][1] : 1;
 
-  const byOrg: Record<string, { d: Set<string>; n: number; f: number }> = {};
-  rows.forEach((r) => {
-    const o = byOrg[r.org] || (byOrg[r.org] = { d: new Set(), n: 0, f: 0 });
-    o.d.add(r.date);
-    o.n += 1;
-    if (r.found) o.f += 1;
-  });
-
-  const byUser = visibleUsers
-    .map((u) => {
-      const ul = rows.filter((r) => r.uid === u.id);
-      return {
-        name: uidOf.get(u.id) || u.name,
-        n: ul.length,
-        f: ul.filter((r) => r.found).length,
-        last: ul.length ? ul[ul.length - 1].date : "",
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const reqs = rows.filter((r) => r.requested).slice().reverse();
-
-  const kpi = (v: string | number, l: string) => (
-    <div className="kpi">
-      <b>{v}</b>
-      <span>{l}</span>
-    </div>
+  // Righe che conterrà il report generato con i filtri attuali (il report non si
+  // mostra a video: qui serve solo per capire se i filtri danno qualcosa).
+  const exportCount = useMemo(
+    () => reportTable(rows, orgs, stops, stopLogsF, { extras: !fUser }).length,
+    [rows, orgs, stops, stopLogsF, fUser]
   );
-  const tbl = (head: string[], trs: React.ReactNode[]) => (
-    <div className="tblwrap">
-      <table>
-        <thead>
-          <tr>
-            {head.map((h, i) => (
-              <th key={h} className={i ? "num" : ""}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{trs}</tbody>
-      </table>
-    </div>
-  );
+
 
   async function copyCsv() {
-    const csv = csvOf(rows, orgs);
+    const csv = csvOf(rows, orgs, stops, stopLogsF, { extras: !fUser });
     try {
       await navigator.clipboard.writeText(csv);
       setCopied(true);
@@ -185,7 +173,9 @@ export default function ReportView({
   async function downloadXlsx() {
     setBusyXlsx(true);
     try {
-      await downloadExcel(rows, orgs, "Report", reportFileName("report_accoglienza", rep.to));
+      await downloadExcel(rows, orgs, "Report", reportFileName("report_accoglienza", rep.to), stops, stopLogsF, {
+        extras: !fUser,
+      });
     } finally {
       setBusyXlsx(false);
     }
@@ -261,23 +251,50 @@ export default function ReportView({
           </select>
         </div>
         <div>
+          <label className="lb" htmlFor="f-stop">
+            Tappa
+          </label>
+          <select
+            id="f-stop"
+            value={fStop}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFStop(v);
+              // Se l'utente o la proposta scelti non sono in questa tappa, si annulla la selezione.
+              if (v && fUser) {
+                const ok = fUser.startsWith("p:")
+                  ? propStop.get(fUser.slice(2)) === v
+                  : userStop.get(fUser) === v;
+                if (!ok) setFUser("");
+              }
+            }}
+          >
+            <option value="">Tutte le tappe</option>
+            {stopsSorted.map((s) => (
+              <option key={s.id} value={s.id}>
+                {stopLabel(s)}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="lb" htmlFor="f-user">
             Utente
           </label>
           <select id="f-user" value={fUser} onChange={(e) => setFUser(e.target.value)}>
             <option value="">Tutti gli utenti</option>
             <optgroup label="Utenti">
-              {visibleUsers.map((u) => (
+              {selectableUsers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {uidOf.get(u.id) || u.name}
                 </option>
               ))}
             </optgroup>
-            {!!propVisits.size && (
+            {!!propVisits.size && (!fStop || propsInStop.some((p) => propVisits.has(p.id))) && (
               <optgroup label="Proposte con visite nel periodo">
                 {[...propVisits]
                   .map((id) => propsAll.find((p) => p.id === id))
-                  .filter((p): p is Proposal => !!p)
+                  .filter((p): p is Proposal => !!p && (!fStop || p.stop_id === fStop))
                   .map((p) => (
                     <option key={`p:${p.id}`} value={`p:${p.id}`}>
                       {p.name} (proposta)
@@ -345,6 +362,7 @@ export default function ReportView({
             onClick={() => {
               setFDay("");
               setFOrg("");
+              setFStop("");
               setFUser("");
               setRepIncSusp(false);
               setRepIncDel(false);
@@ -356,111 +374,30 @@ export default function ReportView({
         ) : null}
       </div>
 
-      {!rows.length ? (
-        <p className="notice">Nessuna uscita registrata nel periodo scelto.</p>
-      ) : (
-        <>
-          <div className="kpis">
-            {kpi(nights, "serate di servizio")}
-            {kpi(rows.length, "utenti visitati (contatti)")}
-            {kpi(`${found} (${rate}%)`, "trovati")}
-            {kpi(rows.length - found, "non trovati")}
+      <div className="stack" ref={boxRef}>
+        <h3>Genera report</h3>
+        <p className="notice">
+          {exportCount
+            ? `Il report contiene ${exportCount} ${exportCount === 1 ? "riga" : "righe"}.`
+            : "Nessuna uscita registrata con i filtri scelti."}{" "}
+          Il testo CSV si incolla in Excel o Fogli Google;
+          il file Excel si scarica direttamente nel browser.
+        </p>
+        <button className="btn btn-primary" type="button" onClick={copyCsv} disabled={!exportCount}>
+          {copied ? "Copiato!" : "Copia report in CSV"}
+        </button>
+        <button className="btn" type="button" onClick={downloadXlsx} disabled={busyXlsx || !exportCount}>
+          {busyXlsx ? "Genero…" : "Scarica report in Excel (.xlsx)"}
+        </button>
+        {fallback ? (
+          <div>
+            <label className="lb" htmlFor="csvta">
+              Copia il testo e incollalo in un foglio di calcolo
+            </label>
+            <textarea id="csvta" rows={6} readOnly value={fallback} />
           </div>
-
-          <div className="stack">
-            <h3>Per associazione</h3>
-            {tbl(
-              ["Associazione", "Serate", "Trovati"],
-              Object.keys(byOrg).map((id) => (
-                <tr key={id}>
-                  <td>{orgName(id, orgs)}</td>
-                  <td className="num">{byOrg[id].d.size}</td>
-                  <td className="num">
-                    {byOrg[id].f} / {byOrg[id].n}
-                  </td>
-                </tr>
-              ))
-            )}
-          </div>
-
-          <div className="stack">
-            <h3>Cosa è stato fornito</h3>
-            {prov.length ? (
-              <ul className="bars">
-                {prov.map(([p, n]) => (
-                  <li className="bar" key={p}>
-                    <span>{p}</span>
-                    <span className="barfill">
-                      <i style={{ width: Math.round((n / max) * 100) + "%" }} />
-                    </span>
-                    <b>{n}</b>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="notice">Nulla nel periodo.</p>
-            )}
-          </div>
-
-          <div className="stack">
-            <h3>Richieste emerse</h3>
-            {reqs.length ? (
-              <ul className="hist">
-                {reqs.map((r, i) => (
-                  <li key={i}>
-                    <div className="h-top">
-                      <span className="mono">{fmtShort(r.date)}</span>
-                      <span className="h-org">{r.name}</span>
-                    </div>
-                    <p>{r.requested}</p>
-                    <p className="h-note">{orgName(r.org, orgs)}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="notice">Nessuna richiesta nel periodo.</p>
-            )}
-          </div>
-
-          <div className="stack">
-            <h3>Per utente</h3>
-            {tbl(
-              ["Nickname", "Uscite", "Trovato", "Ultima"],
-              byUser.map((u) => (
-                <tr key={u.name}>
-                  <td>{u.name}</td>
-                  <td className="num">{u.n}</td>
-                  <td className="num">{u.f}</td>
-                  <td className="num">{u.last ? fmtShort(u.last) : "-"}</td>
-                </tr>
-              ))
-            )}
-          </div>
-
-          <div className="stack" ref={boxRef}>
-            <h3>Esporta</h3>
-            <p className="notice">
-              Il testo copiato contiene una riga per ogni uscita (data, associazione, nickname,
-              trovato, fornito, richiesto, note, se è una proposta) e si incolla in Excel o Fogli
-              Google. Il file Excel usa le stesse righe e si scarica direttamente nel browser.
-            </p>
-            <button className="btn btn-primary" type="button" onClick={copyCsv}>
-              {copied ? "Copiato!" : "Copia report in CSV"}
-            </button>
-            <button className="btn" type="button" onClick={downloadXlsx} disabled={busyXlsx}>
-              {busyXlsx ? "Genero…" : "Scarica report in Excel (.xlsx)"}
-            </button>
-            {fallback ? (
-              <div>
-                <label className="lb" htmlFor="csvta">
-                  Copia il testo e incollalo in un foglio di calcolo
-                </label>
-                <textarea id="csvta" rows={6} readOnly value={fallback} />
-              </div>
-            ) : null}
-          </div>
-        </>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }
