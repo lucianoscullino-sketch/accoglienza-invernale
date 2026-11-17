@@ -652,15 +652,19 @@ export default function App({ profile }: { profile: Profile }) {
 
   async function deleteStop(sid: string) {
     try {
-      const { error } = await supabase().from("stops").delete().eq("id", sid);
+      const { error } = await supabase()
+        .from("stops")
+        .update({ status: "deleted" })   // <-- aggiorna lo status invece di cancellare
+        .eq("id", sid);
       if (error) throw error;
-      setStops((prev) => prev.filter((s) => s.id !== sid));
+      setStops((prev) => prev.map((s) => (s.id === sid ? { ...s, status: "deleted" as const } : s)));
       setSelected(null);
       toast("Tappa eliminata");
     } catch (err) {
       toast("Errore: " + (err instanceof Error ? err.message : String(err)));
     }
   }
+
 
   // Log su base tappa del giorno di servizio corrente: aggiorna solo i campi
   // passati (l'upsert non tocca gli altri), quindi esito e beni non si sovrascrivono.

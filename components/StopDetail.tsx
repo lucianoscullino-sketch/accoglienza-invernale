@@ -145,21 +145,8 @@ export default function StopDetail({
           <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); onEditChange?.(true); setManageOpen(false); }}>
            Modifica tappa
           </button>
-          <button
-            className="btn btn-sm btn-warning"
-            type="button"
-            disabled={busy === "susp"}
-            onClick={() => setConfirm(true)}
-          >
-            {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
-          </button>
-          <button
-            className="btn btn-sm btn-danger"
-            type="button"
-            disabled={busy === "del"}
-            onClick={() => setConfirm(true)}
-          >
-            {busy === "del" ? "Elimino…" : "Elimina tappa"}
+          <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp" || busy === "del"} onClick={() => setConfirm(true)}>
+           Sospendi/Elimina tappa
           </button>
         </div>
         ) : null}
@@ -202,10 +189,10 @@ export default function StopDetail({
           <p className="notice">Confermi di sospendere o eliminare questa tappa?</p>
           <div className="actions" style={{ padding: 0 }}>
             <button className="btn btn-danger btn-sm" type="button" disabled={busy === "susp" || busy === "del"} onClick={() => { setBusy("susp"); onSuspend("Sospesa dal coordinamento").finally(() => { setBusy(""); setConfirm(false); }); }}>
-              {busy === "susp" ? "Sospendo…" : "Sì, sospendi"}
+              {busy === "susp" ? "Sospendo…" : "Sospendi"}
             </button>
             <button className="btn btn-danger btn-sm" type="button" disabled={busy === "susp" || busy === "del"} onClick={() => { setBusy("del"); onDelete("Eliminata dal coordinamento").finally(() => { setBusy(""); setConfirm(false); }); }}>
-              {busy === "del" ? "Elimino…" : "Sì, elimina"}
+              {busy === "del" ? "Elimino…" : "Elimina"}
             </button>
             <button className="btn btn-sm" type="button" onClick={() => setConfirm(false)}>Annulla</button>
           </div>
