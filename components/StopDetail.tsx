@@ -140,21 +140,30 @@ export default function StopDetail({
             ) : null}
           </div>
 
-      {canManage && !confirm && !edit && manageOpen ? (
-        <div className="stack" style={{ gap: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, marginTop: 4 }}>
-          <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); onEditChange?.(true); setManageOpen(false); }}>Modifica tappa</button>
-          {empty ? (
-            <>
-              <button className="btn btn-sm btn-warning" type="button" disabled={busy === "susp"} onClick={() => setConfirm(true)}>
-                {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
-              </button>
-              <button className="btn btn-sm btn-danger" type="button" disabled={busy === "del"} onClick={() => setConfirm(true)}>
-                {busy === "del" ? "Elimino…" : "Elimina tappa"}
-              </button>
-            </>
-          ) : null}
+        {canManage && !confirm && !edit && manageOpen ? (
+         <div className="stack" style={{ gap: 6, padding: 8, border: "1px solid var(--line)", borderRadius: 8, marginTop: 4 }}>
+          <button className="btn btn-sm" type="button" onClick={() => { setEdit(true); onEditChange?.(true); setManageOpen(false); }}>
+           Modifica tappa
+          </button>
+          <button
+            className="btn btn-sm btn-warning"
+            type="button"
+            disabled={busy === "susp"}
+            onClick={() => setConfirm(true)}
+          >
+            {busy === "susp" ? "Sospendo…" : "Sospendi tappa"}
+          </button>
+          <button
+            className="btn btn-sm btn-danger"
+            type="button"
+            disabled={busy === "del"}
+            onClick={() => setConfirm(true)}
+          >
+            {busy === "del" ? "Elimino…" : "Elimina tappa"}
+          </button>
         </div>
-      ) : null}
+        ) : null}
+
 
       {addingUser && canAddUser && onAddUser ? (
         <div className="stack" style={{ gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
@@ -188,9 +197,9 @@ export default function StopDetail({
         </div>
       ) : null}
 
-      {confirm && empty && canManage ? (
+      {confirm && canManage ? (
         <div className="stack" style={{ gap: 6 }}>
-          <p className="notice">L&rsquo;operazione è consentita solo perché la tappa è vuota (nessun utente assegnato e nessun candidato). I candidati eventualmente presenti verranno sganciati e restano fuori tappa.</p>
+          <p className="notice">Confermi di sospendere o eliminare questa tappa?</p>
           <div className="actions" style={{ padding: 0 }}>
             <button className="btn btn-danger btn-sm" type="button" disabled={busy === "susp" || busy === "del"} onClick={() => { setBusy("susp"); onSuspend("Sospesa dal coordinamento").finally(() => { setBusy(""); setConfirm(false); }); }}>
               {busy === "susp" ? "Sospendo…" : "Sì, sospendi"}
