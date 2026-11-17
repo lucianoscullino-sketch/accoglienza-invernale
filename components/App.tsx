@@ -2145,6 +2145,7 @@ export default function App({ profile }: { profile: Profile }) {
               onOpenUser={(uid) => { select("user", uid, false); setReturnStopId(s.id); }}
               onOpenProp={(pid) => { select("prop", pid, false); setReturnStopId(s.id); }}
               onEditChange={onStopEditChange}
+              onValidate={() => validateStop(s)}
               onAddUser={async (v) => {
                 if (!isAdmin && !isActiveOrg) {
                   throw new Error("Non hai diritti di scrittura in questo momento.");
