@@ -51,7 +51,10 @@ export default function OrgReport({
   const rows = mine
     .filter((r) => r.date === night)
     .sort((a, b) => a.at.localeCompare(b.at));
-  const found = rows.filter((r) => r.found).length;
+  const found = rows
+    .filter((r) => r.found)
+    .reduce((acc, r) => acc + (r.users_found ?? (r.found ? 1 : 0)), 0);
+
 
   const kpi = (v: string | number, l: string) => (
     <div className="kpi">

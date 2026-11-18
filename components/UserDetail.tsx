@@ -158,67 +158,45 @@ export default function UserDetail({
           .finally(() => setBusy(false));
       }}
     >
-      <h3>{outingTitle}</h3>
-      {tonight && (
-        <p className="signed">
-          Firmato da <strong>{orgName(tonight.org_id, orgs)}</strong>
-          {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}. Puoi modificarlo.
-        </p>
-      )}
-      {user.multiple && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-          <label className="lb" style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-            Utenti trovati (N)
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={usersFoundCount ?? ""}
-            onChange={(e) => {
-              const v = e.target.value === "" ? null : Number(e.target.value);
-              setUsersFoundCount(v);
-            }}
-            placeholder="0"
-            style={{
-              width: "70px",
-              padding: "2px 4px",
-              border: "1px solid var(--line)",
-              borderRadius: 4,
-              fontSize: 13,
-            }}
-          />
-        </div>
-      )}
-      <EntryFields
-        initial={entryFrom(tonight)}
-        idPrefix="f"
-        onValues={(v) => {
-          vref.current = v;
-          setEntryDirty(!sameEntry(v, baseRef.current));
-        }}
-      />
-      {(() => {
-        const unchanged = !!tonight && !entryDirty;
-        return (
-          <button
-            className="btn btn-primary"
-            type="submit"
-            disabled={busy || unchanged}
-            style={
-              unchanged
-                ? {
-                    background: "#fff",
-                    color: "#94a3b8",
-                    border: "1px solid #cbd5e1",
-                    cursor: "default",
-                  }
-                : undefined
-            }
-          >
-            {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
-          </button>
-        );
-      })()}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <h3>{outingTitle}</h3>
+        {tonight && (
+          <p className="signed">
+            Firmato da <strong>{orgName(tonight.org_id, orgs)}</strong>
+            {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}. Puoi modificarlo.
+          </p>
+        )}
+        <EntryFields
+          initial={entryFrom(tonight)}
+          idPrefix="f"
+          onValues={(v) => {
+            vref.current = v;
+            setEntryDirty(!sameEntry(v, baseRef.current));
+          }}
+        />
+        {(() => {
+          const unchanged = !!tonight && !entryDirty;
+          return (
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={busy || unchanged}
+              style={
+                unchanged
+                  ? {
+                      background: "#fff",
+                      color: "#94a3b8",
+                      border: "1px solid #cbd5e1",
+                      cursor: "default",
+                    }
+                  : undefined
+                }
+              >
+                {busy ? "Salvo…" : tonight ? "Aggiorna esito" : "Registra esito"}
+              </button>
+            );
+          })()}
+      </div>
     </form>
   ) : (
     <div className="stack">
@@ -328,8 +306,32 @@ export default function UserDetail({
     <>
       <div className="detail stack">
         {user.multiple || isDeleted || isSuspended ? (
-          <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div className="meta" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             {user.multiple ? <span className="tag tag-muted">Utenti multipli</span> : null}
+            {user.multiple && (
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                <label className="lb" style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+                  Utenti trovati (N)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={usersFoundCount ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value === "" ? null : Number(e.target.value);
+                    setUsersFoundCount(v);
+                  }}
+                  placeholder="0"
+                  style={{
+                    width: "70px",
+                    padding: "2px 4px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 4,
+                    fontSize: 13,
+                  }}
+                />
+              </div>
+            )}
             {isDeleted ? (
               <span className="tag tag-muted">Eliminato</span>
             ) : isSuspended ? (

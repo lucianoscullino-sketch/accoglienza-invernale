@@ -413,14 +413,21 @@ export default function App({ profile }: { profile: Profile }) {
 
   function counts() {
     const c: Record<string, number> = { t: 0, d: 0, m: 0, tu: 0, tp: 0, du: 0, dp: 0, mu: 0, mp: 0, p: 0 };
-    const add = (st: Status, isP: boolean) => {
-      const k = st === "todo" ? "t" : st === "done" ? "d" : "m";
-      c[k] += 1;
-      c[k + (isP ? "p" : "u")] += 1;
-    };
-    users.forEach((u) => add(statusOf(u), false));
+    users.forEach((u) => {
+      const log = tonightLog(u.id);
+      if (!log) return;
+      if (log.found) {
+        const n = log.users_found ?? 1;
+        c["d"] += n;
+        c["u"] += n;
+      } else {
+        c["m"] += 1;
+        c["mu"] += 1;
+      }
+    });
     return c;
   }
+
 
     const mapItems: MapItem[] = [
     // Le tappe sono sempre mostrate (anche se vuote); sospese/eliminate solo
