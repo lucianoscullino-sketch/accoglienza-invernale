@@ -336,7 +336,9 @@ export default function App({ profile }: { profile: Profile }) {
   const yKey = addDaysKey(-1);
   const dutyYesterday = dutyOrg(yKey);
   const yLogs = logs.filter((l) => l.date === yKey);
-  const yFound = yLogs.filter((l) => l.found).length;
+  const yFound = yLogs
+  .filter((l) => l.found)
+  .reduce((acc, l) => acc + (l.users_found ?? (l.found ? 1 : 0)), 0);
   const yWithNotes = yLogs.filter((l) => (l.note || "").trim()).length;
   const myTurnToday = !!duty && duty.id === myOrg;
   
@@ -1048,13 +1050,14 @@ export default function App({ profile }: { profile: Profile }) {
   // riattivare l'utenza (la decisione spetta al coordinamento). Nessuna
   // migrazione: riusiamo daily_logs come traccia (policy "logs insert" consente
   // org_id proprio), così il coordinamento la vede in scheda e nei report.
-  async function reportUserFound(uid: string) {
+  async function reportUserFound(uid: string, v: EntryValues) {
     try {
       const row = {
         user_id: uid,
         date: serviceKey,
         org_id: myOrgId() || "",
-        found: true,
+        found: v.users_found ? true : v.found,
+        users_found: v.users_found ?? (v.found ? 1 : 0),
         provided: [] as string[],
         requested: "",
         note: "Segnalazione associazione: utenza non attiva ritrovata in strada. Valutare la riattivazione col coordinamento.",
@@ -1329,6 +1332,7 @@ export default function App({ profile }: { profile: Profile }) {
               requested: v.requested,
               note: v.note,
               extra: v.extra,
+              users_found: null,
             })),
         ]);
       }
@@ -2145,7 +2149,6 @@ export default function App({ profile }: { profile: Profile }) {
               onOpenUser={(uid) => { select("user", uid, false); setReturnStopId(s.id); }}
               onOpenProp={(pid) => { select("prop", pid, false); setReturnStopId(s.id); }}
               onEditChange={onStopEditChange}
-              onValidate={() => validateStop(s)}
               onAddUser={async (v) => {
                 if (!isAdmin && !isActiveOrg) {
                   throw new Error("Non hai diritti di scrittura in questo momento.");
@@ -2167,6 +2170,7 @@ export default function App({ profile }: { profile: Profile }) {
                 setUsers((prev) => [...prev, data as ServiceUser]);
                 toast("Utente aggiunto alla tappa");
               }}
+              onValidate={() => validateStop(s)}
             />
           </Popup>
         );

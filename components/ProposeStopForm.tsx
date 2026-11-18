@@ -36,7 +36,8 @@ export default function ProposeStopForm({
       setGeocoding(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${initialLat}&lon=${initialLng}&zoom=18&accept-language=it`
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${initialLat.toFixed(4)}&lon=${initialLng.toFixed(4)}&zoom=18&accept-language=it`,
+          { referrerPolicy: "no-referrer" }
         );
         if (!res.ok) throw new Error("Geocodifica fallita");
         const data = await res.json();

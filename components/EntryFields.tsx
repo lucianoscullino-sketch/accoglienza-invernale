@@ -12,6 +12,7 @@ export interface EntryValues {
   note: string;
   // "Note uscita": annotazione libera, separata da "Note importanti" (note).
   extra: string;
+  users_found?: number;
 }
 
 export const emptyEntry = (): EntryValues => ({

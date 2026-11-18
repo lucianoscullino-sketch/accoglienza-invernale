@@ -37,6 +37,7 @@ export interface DailyLog {
   date: string; // YYYY-MM-DD
   org_id: string; // id organizzazione oppure "admin"
   found: boolean;
+  users_found: number | null;
   provided: string[];
   requested: string;
   note: string;

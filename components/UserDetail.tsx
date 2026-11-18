@@ -72,6 +72,9 @@ export default function UserDetail({
   const vref = useRef<EntryValues>(entryFrom(tonight));
   const baseRef = useRef<EntryValues>(entryFrom(tonight));
   const [entryDirty, setEntryDirty] = useState(false);
+  const [usersFoundCount, setUsersFoundCount] = useState<number | null>(
+    tonight?.users_found ?? null
+  );
 
   // Esito di ieri
   const yvref = useRef<EntryValues>(entryFrom(yesterday));
@@ -110,7 +113,7 @@ export default function UserDetail({
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
-  
+
   async function runAct(fn?: () => Promise<void>) {
     if (!fn) return;
     setActBusy(true);
@@ -140,7 +143,12 @@ export default function UserDetail({
         e.preventDefault();
         setBusy(true);
         const values = vref.current;
-        onSave(values)
+        const payload = {
+          ...values,
+          users_found:
+            user.multiple ? (usersFoundCount ?? 0) : values.found ? 1 : 0,
+        } as EntryValues;
+        onSave(payload)
           .then((ok) => {
             if (ok !== false) {
               baseRef.current = values;
@@ -156,6 +164,30 @@ export default function UserDetail({
           Firmato da <strong>{orgName(tonight.org_id, orgs)}</strong>
           {tonight.created_at ? ` alle ${fmtTime(tonight.created_at)}` : ""}. Puoi modificarlo.
         </p>
+      )}
+      {user.multiple && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <label className="lb" style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+            Utenti trovati (N)
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={usersFoundCount ?? ""}
+            onChange={(e) => {
+              const v = e.target.value === "" ? null : Number(e.target.value);
+              setUsersFoundCount(v);
+            }}
+            placeholder="0"
+            style={{
+              width: "70px",
+              padding: "2px 4px",
+              border: "1px solid var(--line)",
+              borderRadius: 4,
+              fontSize: 13,
+            }}
+          />
+        </div>
       )}
       <EntryFields
         initial={entryFrom(tonight)}
@@ -174,7 +206,12 @@ export default function UserDetail({
             disabled={busy || unchanged}
             style={
               unchanged
-                ? { background: "#fff", color: "#94a3b8", border: "1px solid #cbd5e1", cursor: "default" }
+                ? {
+                    background: "#fff",
+                    color: "#94a3b8",
+                    border: "1px solid #cbd5e1",
+                    cursor: "default",
+                  }
                 : undefined
             }
           >
@@ -244,7 +281,12 @@ export default function UserDetail({
               disabled={yBusy || unchanged}
               style={
                 unchanged
-                  ? { background: "#fff", color: "#94a3b8", border: "1px solid #cbd5e1", cursor: "default" }
+                  ? {
+                      background: "#fff",
+                      color: "#94a3b8",
+                      border: "1px solid #cbd5e1",
+                      cursor: "default",
+                    }
                   : undefined
               }
             >
@@ -433,12 +475,7 @@ export default function UserDetail({
                 </div>
                 <div>
                   <label className="lb">Descrizione e punto in cui dorme</label>
-                  <textarea
-                    className="input"
-                    rows={3}
-                    value={edDesc}
-                    onChange={(e) => setEdDesc(e.target.value)}
-                  />
+                  <textarea className="input" rows={3} value={edDesc} onChange={(e) => setEdDesc(e.target.value)} />
                 </div>
                 <label className="check">
                   <input type="checkbox" checked={edMulti} onChange={(e) => setEdMulti(e.target.checked)} />{" "}
@@ -469,12 +506,7 @@ export default function UserDetail({
                 {isAdmin && (
                   <div>
                     <label className="lb">Nota del coordinamento</label>
-                    <textarea
-                      className="input"
-                      rows={2}
-                      value={edNote}
-                      onChange={(e) => setEdNote(e.target.value)}
-                    />
+                    <textarea className="input" rows={2} value={edNote} onChange={(e) => setEdNote(e.target.value)} />
                   </div>
                 )}
                 {editErr && <p className="err">{editErr}</p>}

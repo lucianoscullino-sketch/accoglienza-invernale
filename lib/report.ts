@@ -10,6 +10,7 @@ export interface Rec {
   pid?: string; // id della proposta, solo per le visite sulle proposte (non validate)
   name: string;
   found: boolean;
+  users_found?: number; // numero effettivo di utenti trovati (per utenti multipli)
   provided: string[];
   requested: string;
   note: string;
@@ -27,6 +28,7 @@ export function allRecs(users: ServiceUser[], logs: DailyLog[], proposals: Propo
     uid: l.user_id,
     name: uname(l.user_id),
     found: l.found,
+    users_found: l.users_found ?? (l.found ? 1 : 0),
     provided: l.provided,
     requested: l.requested,
     note: l.note,
@@ -114,13 +116,20 @@ export function reportTable(
     const key = r.date + "|" + (r.stop || "");
     const first = !seen.has(key);
     seen.add(key);
+    // Colonna "Trovato": mostra il numero effettivo se disponibile, altrimenti sì/no
+    const trovatoCell =
+      r.users_found != null && r.users_found > 0
+        ? String(r.users_found)
+        : r.found
+          ? "sì"
+          : "no";
     out.push([
       r.date,
       orgName(r.org, orgs),
       sname(r.stop),
       ...stopCols(r.stop, r.date, first),
       r.name,
-      r.found ? "sì" : "no",
+      trovatoCell,
       r.provided.join(" + "),
       r.requested,
       r.note,
