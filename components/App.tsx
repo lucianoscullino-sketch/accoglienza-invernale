@@ -1599,7 +1599,7 @@ export default function App({ profile }: { profile: Profile }) {
       const { data: sess } = await supabase().auth.getSession();
       const jwt = sess.session?.access_token;
       if (!jwt) throw new Error("Sessione scaduta: rientra nell'app.");
-      const res = await fetch("/api/admin/account/send%20report", {
+      const res = await fetch("/api/admin/account/send_report", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({
