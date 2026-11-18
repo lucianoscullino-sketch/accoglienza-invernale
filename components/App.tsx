@@ -37,7 +37,7 @@ import { effDutyId } from "@/lib/duty";
 import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
 import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
-import { downloadExcel, reportFileName } from "@/lib/excel";
+import { blobToBase64, buildExcelBlob, downloadExcel, reportFileName } from "@/lib/excel";
 
 
 // Limite massimo (ora) entro cui il report della serata va inviato; oltre, il
@@ -194,7 +194,7 @@ export default function App({ profile }: { profile: Profile }) {
   // esci / esci senza generare / resta).
   const [exitOpen, setExitOpen] = useState(false);
   const [exitBusy, setExitBusy] = useState(false);
-  const [exitError, setExitError] = useState(false);
+  const [exitError, setExitError] = useState("");
   // Esiti registrati nella serata corrente (calcolati all'apertura del popup di uscita).
   const [exitCount, setExitCount] = useState(0);
   const [stopName, setStopName] = useState("");
@@ -1574,33 +1574,70 @@ export default function App({ profile }: { profile: Profile }) {
   function openExit() {
     const n = allRecs(users, logs, proposals).filter((r) => r.date === serviceKey).length;
     setExitCount(n);
-    setExitError(false);
+    setExitError("");
     setExitOpen(true);
   }
 
-  // "Genera report ed esci": scarica l'Excel della serata ed esce. Quando sarà
-  // attivo l'invio alla distribution list, qui si aggiunge l'invio.
-  async function generateReportAndExit() {
+  // Righe del report della serata corrente (esiti utenti + log di tappa).
+  function outingReportInput() {
+    return {
+      rows: allRecs(users, logs, proposals).filter((r) => r.date === serviceKey),
+      stopLogsDay: stopLogs.filter((g) => g.date === serviceKey),
+    };
+  }
+
+  // "Genera e invia report ed esci": costruisce l'Excel, lo manda alla API
+  // /api/send-report (che lo spedisce via Google Apps Script) ed esce.
+  async function sendReportAndExit() {
     setExitBusy(true);
-    setExitError(false);
+    setExitError("");
     try {
-      const rows = allRecs(users, logs, proposals).filter((r) => r.date === serviceKey);
+      const { rows, stopLogsDay } = outingReportInput();
+      const blob = await buildExcelBlob(rows, orgs, `Report ${fmtDay(serviceKey)}`, stops, stopLogsDay, {
+        extras: true,
+      });
+      const { data: sess } = await supabase().auth.getSession();
+      const jwt = sess.session?.access_token;
+      if (!jwt) throw new Error("Sessione scaduta: rientra nell'app.");
+      const res = await fetch("/api/send-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({
+          outingDate: serviceKey,
+          filename: reportFileName("report_accoglienza", serviceKey),
+          xlsxBase64: await blobToBase64(blob),
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error || "Invio non riuscito.");
+      }
+      setExitOpen(false);
+      await signOut();
+    } catch (e) {
+      console.error("invio report", e);
+      setExitError(e instanceof Error ? e.message : "Invio non riuscito.");
+    } finally {
+      setExitBusy(false);
+    }
+  }
+
+  // Scarica il report della serata sul dispositivo (alternativa all'invio).
+  async function downloadOutingReport() {
+    try {
+      const { rows, stopLogsDay } = outingReportInput();
       await downloadExcel(
         rows,
         orgs,
         `Report ${fmtDay(serviceKey)}`,
         reportFileName("report_accoglienza", serviceKey),
         stops,
-        stopLogs.filter((g) => g.date === serviceKey),
+        stopLogsDay,
         { extras: true }
       );
-      setExitOpen(false);
-      await signOut();
     } catch (e) {
-      console.error("report uscita", e);
-      setExitError(true);
-    } finally {
-      setExitBusy(false);
+      console.error("download report", e);
+      setExitError("Non sono riuscito a generare il file.");
     }
   }
 
@@ -2382,14 +2419,21 @@ export default function App({ profile }: { profile: Profile }) {
             )}
             {exitError ? (
               <p className="notice" style={{ color: "var(--danger)" }}>
-                Non sono riuscito a generare il report. Puoi riprovare oppure uscire senza report.
+                {exitError} Puoi riprovare, scaricare il file oppure uscire senza inviare.
               </p>
             ) : null}
             <div className="stack" style={{ gap: 8 }}>
               {exitCount > 0 ? (
-                <button className="btn btn-primary" type="button" onClick={generateReportAndExit} disabled={exitBusy}>
-                  {exitBusy ? "Genero il report…" : "Genera report ed esci"}
-                </button>
+                <>
+                  <button className="btn btn-primary" type="button" onClick={sendReportAndExit} disabled={exitBusy}>
+                    {exitBusy ? "Invio il report…" : "Genera e invia report ed esci"}
+                  </button>
+                  {exitError ? (
+                    <button className="btn" type="button" onClick={downloadOutingReport} disabled={exitBusy}>
+                      Scarica il file
+                    </button>
+                  ) : null}
+                </>
               ) : null}
               <button className="btn" type="button" onClick={signOut} disabled={exitBusy}>
                 Esci senza generare
@@ -2510,7 +2554,7 @@ export default function App({ profile }: { profile: Profile }) {
                 Tappe attive: <b>{stops.filter((s) => s.status === "active").length}</b> ·
                 Utenze sulla mappa: <b>{users.length}</b> · esiti registrati:{" "}
                 <b>{yLogs.length}</b> · trovati: <b>{yFound}</b> · non trovati:{" "}
-                <b>{yLogs.length - yFound}</b>
+                <b>{yLogs.filter((l) => !l.found).length}</b>
                 {yWithNotes ? ` · note per le prossime uscite: ${yWithNotes}` : ""}.
               </p>
               {!yLogs.length && <p className="notice">Ieri non è stato registrato alcun esito.</p>}

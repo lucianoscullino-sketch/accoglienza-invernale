@@ -17,16 +17,15 @@ function cell(v: string | number | boolean): string | number {
   return v;
 }
 
-/** Costruisce il workbook e lo scarica nel browser. */
-export async function downloadExcel(
+/** Costruisce il file Excel (.xlsx) e lo restituisce come Blob. */
+export async function buildExcelBlob(
   rows: Rec[],
   orgs: Org[],
   sheetName: string,
-  fileName: string,
   stops: Stop[] = [],
   stopLogs: StopLog[] = [],
   opts: { extras?: boolean } = {}
-): Promise<void> {
+): Promise<Blob> {
   const XLSX = await import("xlsx");
   const data = reportTable(rows, orgs, stops, stopLogs, opts).map((r) => r.map((v) => cell(v)));
   const ws = XLSX.utils.aoa_to_sheet([REPORT_HEAD, ...data]);
@@ -48,9 +47,32 @@ export async function downloadExcel(
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Report");
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
-  const blob = new Blob([buf], {
+  return new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+}
+
+/** Contenuto di un Blob in base64 (per inviarlo a un'API in JSON). */
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+
+/** Costruisce il workbook e lo scarica nel browser. */
+export async function downloadExcel(
+  rows: Rec[],
+  orgs: Org[],
+  sheetName: string,
+  fileName: string,
+  stops: Stop[] = [],
+  stopLogs: StopLog[] = [],
+  opts: { extras?: boolean } = {}
+): Promise<void> {
+  const blob = await buildExcelBlob(rows, orgs, sheetName, stops, stopLogs, opts);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
