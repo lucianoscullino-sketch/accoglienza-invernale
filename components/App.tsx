@@ -93,6 +93,60 @@ const seenNoticeIds = (): string[] => {
   }
 };
 
+// Testo di un avviso: le righe con tabulazioni (incollate da Excel) diventano
+// una tabella, il resto resta testo. Nessun HTML salvato: niente rischi di sicurezza.
+function NoticeText({ text }: { text: string }) {
+  const lines = text.split(/\r?\n/);
+  const blocks: ({ t: "p"; s: string } | { t: "tb"; rows: string[][] })[] = [];
+  for (const ln of lines) {
+    if (ln.includes("\t")) {
+      const row = ln.split("\t").map((c) => c.trim());
+      const last = blocks[blocks.length - 1];
+      if (last && last.t === "tb") last.rows.push(row);
+      else blocks.push({ t: "tb", rows: [row] });
+    } else if (ln.trim()) blocks.push({ t: "p", s: ln });
+  }
+  return (
+    <div>
+      {blocks.map((b, i) =>
+        b.t === "p" ? (
+          <p key={i} style={{ margin: "0 0 4px" }}>
+            {b.s}
+          </p>
+        ) : (
+          <div key={i} style={{ overflowX: "auto", margin: "4px 0" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: "0.85em" }}>
+              <tbody>
+                {b.rows.map((r, ri) => (
+                  <tr key={ri}>
+                    {r.map((c, ci) => {
+                      const Cell = ri === 0 ? "th" : "td";
+                      return (
+                        <Cell
+                          key={ci}
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            padding: "2px 6px",
+                            textAlign: "left",
+                            whiteSpace: "nowrap",
+                            fontWeight: ri === 0 ? 700 : 400,
+                          }}
+                        >
+                          {c}
+                        </Cell>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 // Mini segnaposto per la legenda: stessa forma e stessi colori dei pin sulla mappa
 function LegendPin({
   color,
@@ -2075,13 +2129,19 @@ export default function App({ profile }: { profile: Profile }) {
                 </label>
                 <textarea
                   id="notice-msg"
-                  rows={3}
-                  maxLength={600}
+                  rows={6}
+                  maxLength={3000}
                   autoFocus
                   value={noticeDraft}
                   placeholder="Es.: sabato uscita straordinaria alle 21: portare coperte e tè caldo."
                   onChange={(e) => setNoticeDraft(e.target.value)}
                 />
+                {noticeDraft.trim() ? (
+                  <div className="notice">
+                    <b>Anteprima</b>
+                    <NoticeText text={noticeDraft} />
+                  </div>
+                ) : null}
                 <div className="actions" style={{ padding: 0 }}>
                   <button
                     className="btn btn-primary btn-sm"
@@ -2685,7 +2745,7 @@ export default function App({ profile }: { profile: Profile }) {
               {notices.map((n) => (
                 <div className="broadcast-item" key={n.id}>
                   <span className="broadcast-tag">Avviso</span>
-                  <p>{n.message}</p>
+                  <NoticeText text={n.message} />
                   {isAdmin && (
                     <button
                       className="linkbtn"
@@ -2718,9 +2778,9 @@ export default function App({ profile }: { profile: Profile }) {
             <section className="brief-sec">
               <p className="subhead">Avvisi del coordinamento</p>
               {briefUnseen.map((n) => (
-                <p key={n.id} className="brief-avviso">
-                  {n.message}
-                </p>
+                <div key={n.id} className="brief-avviso">
+                  <NoticeText text={n.message} />
+                </div>
               ))}
             </section>
           )}
