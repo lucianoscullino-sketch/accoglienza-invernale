@@ -42,7 +42,7 @@ import { blobToBase64, buildExcelBlob, downloadExcel, reportFileName } from "@/l
 
 // Limite massimo (ora) entro cui il report della serata va inviato; oltre, il
 // sistema lo invia in automatico (anche parziale). Mostrato nel popup di uscita.
-const AUTO_REPORT_HOUR = 15;
+const AUTO_REPORT_HOUR = 16;
 
 type Tab =
   | "utenti"
@@ -1586,7 +1586,7 @@ export default function App({ profile }: { profile: Profile }) {
     };
   }
 
-  // "Genera e invia report ed esci": costruisce l'Excel, lo manda alla API
+  // "Invia report ed esci": costruisce l'Excel, lo manda alla API
   // /api/send-report (che lo spedisce via Google Apps Script) ed esce.
   async function sendReportAndExit() {
     setExitBusy(true);
