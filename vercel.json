@@ -3,7 +3,6 @@
     {
       "path": "/api/admin/report/auto-send",
       "schedule": "0 16 * * *",
-      "timezone": "Europe/Rome",
       "config": {
         "maxDuration": 30
       }
