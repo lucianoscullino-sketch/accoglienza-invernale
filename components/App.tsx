@@ -231,10 +231,20 @@ export default function App({ profile }: { profile: Profile }) {
       }
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasSession]);
+    // Popstate: annulla il tasto indietro nella SPA Next.js
+    const handlePopState = () => {
+      if (hasSession) {
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
 
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [hasSession]);
 
   const isAdmin = profile.role === "admin";
   const myOrg = profile.org_id;
