@@ -39,11 +39,6 @@ import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { blobToBase64, buildExcelBlob, downloadExcel, reportFileName } from "@/lib/excel";
 
-
-// Limite massimo (ora) entro cui il report della serata va inviato; oltre, il
-// sistema lo invia in automatico (anche parziale). Mostrato nel popup di uscita.
-const AUTO_REPORT_HOUR = 16;
-
 type Tab =
   | "utenti"
   | "validare"
@@ -177,6 +172,13 @@ export default function App({ profile }: { profile: Profile }) {
   const [busyBriefXlsx, setBusyBriefXlsx] = useState(false);
   // Chiusura temporanea del popup per questa sessione (si resetta al refresh).
   const [briefClosed, setBriefClosed] = useState(false);
+  // Per evitare uscita indesiderata da app
+  const [blockExit, setBlockExit] = useState(true);
+
+
+  // Limite massimo (ora definita da coordinamento) entro cui il report della serata va inviato; oltre, il
+  // sistema lo invia in automatico (anche parziale). Mostrato nel popup di uscita.
+  const autoReportHour = settings?.autoReportHour ?? 16;
 
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
@@ -210,6 +212,29 @@ export default function App({ profile }: { profile: Profile }) {
     const t = setInterval(() => setTick((n) => n + 1), 60_000);
     return () => clearInterval(t);
   }, []);
+
+  // Blocca l'uscita accidentale da mobile (tasto indietro / chiusura scheda)
+  // se l'utente ha una sessione attiva.
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase().auth.getSession();
+      setHasSession(!!data?.session);
+    };
+    checkSession();
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasSession) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasSession]);
+
 
   const isAdmin = profile.role === "admin";
   const myOrg = profile.org_id;
@@ -1526,7 +1551,7 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  async function saveSettings(patch: Partial<Pick<Settings, "weekly" | "sat">>) {
+  async function saveSettings(patch: Partial<Pick<Settings, "weekly" | "sat" | "autoReportHour">>) {
     if (!settings) return;
     try {
       const { error } = await supabase().from("settings").update(patch).eq("id", "main");
@@ -1651,7 +1676,6 @@ export default function App({ profile }: { profile: Profile }) {
     router.refresh();
   }
 
-
   // --- render: pannello ---
     function headHTML() {
     const beforeSwitch = new Date().getHours() < SHIFT_SWITCH_HOUR;
@@ -1682,7 +1706,34 @@ export default function App({ profile }: { profile: Profile }) {
             ) : null}
           </div>
           {tag}
-          <div className="duty-actions" style={{ marginLeft: "auto", display: "flex", gap: 8, flexShrink: 0 }}>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexShrink: 0, width: "100%" }}>
+          {/* === SINISTRA: select solo per admin === */}
+          {isAdmin && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <label style={{ fontSize: 12, color: "#666", whiteSpace: "nowrap" }}>
+                Invio auto-report:
+              </label>
+              <select
+                value={settings?.autoReportHour ?? 16}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  saveSettings({ autoReportHour: v });
+                }}
+                style={{ fontSize: 12, padding: "4px 8px", height: 32 }}
+              >
+                {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((h) => (
+                  <option key={h} value={h}>
+                    {h}:00
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* === DESTRA: bottoni esistenti allineati a destra === */}
+          <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
             {isAdmin && (
               <button
                 className="btn"
@@ -1728,7 +1779,7 @@ export default function App({ profile }: { profile: Profile }) {
       </>
     );
   }
-
+  
   function tabsHTML() {
     const t = (id: Tab, label: string, badge?: number) => (
       <button
@@ -2407,7 +2458,7 @@ export default function App({ profile }: { profile: Profile }) {
                   Vuoi generare il report dell&apos;uscita del {fmtDay(serviceKey)} prima di uscire?
                 </p>
                 <p style={{ margin: 0, fontSize: "0.85em" }}>
-                  Il report va inviato entro le ore {AUTO_REPORT_HOUR}:00. Se non lo invii tu, il sistema
+                  Il report va inviato entro le ore {autoReportHour}:00. Se non lo invii tu, il sistema
                   provvederà all&apos;invio autonomo, anche se parziale.
                 </p>
               </div>

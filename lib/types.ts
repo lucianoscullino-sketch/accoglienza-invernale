@@ -119,6 +119,13 @@ export interface Settings {
   sat: SatConfig;
 }
 
+export interface Settings {
+  id: string;
+  weekly: Record<string, string>;
+  sat: SatConfig;
+  autoReportHour?: number; // ora (0-23) di invio automatico report, fuso Italia
+}
+
 export type Status = "todo" | "done" | "missing";
 
 export type StopStatus = "active" | "suspended" | "deleted" | "pending";
