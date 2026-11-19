@@ -213,38 +213,61 @@ export default function App({ profile }: { profile: Profile }) {
     return () => clearInterval(t);
   }, []);
 
-  // Blocca l'uscita accidentale da mobile (tasto indietro / chiusura scheda)
-  // se l'utente ha una sessione attiva.
-  const [hasSession, setHasSession] = useState(false);
+  // Tasto Indietro (mobile): non si esce dall'app senza una conferma.
+  // Al primo tocco si aggiunge alla cronologia una voce "sentinella": Indietro
+  // la consuma e resta sulla pagina, aprendo il popup di conferma. (Chrome salta
+  // le voci aggiunte prima di una interazione dell'utente, per questo non la
+  // aggiungiamo all'avvio.) "Esci" nel popup torna indietro di due voci.
+  const [backOpen, setBackOpen] = useState(false);
+  const leavingRef = useRef(false);
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data } = await supabase().auth.getSession();
-      setHasSession(!!data?.session);
-    };
-    checkSession();
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasSession) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
+    let guarded = false;
+    const pushGuard = () => window.history.pushState(window.history.state, "", window.location.href);
+    const armGuard = () => {
+      if (guarded) return;
+      guarded = true;
+      pushGuard();
     };
 
-    // Popstate: annulla il tasto indietro nella SPA Next.js
+    const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+    if (ua?.hasBeenActive) armGuard();
+    else {
+      window.addEventListener("pointerdown", armGuard, { once: true, capture: true });
+      window.addEventListener("keydown", armGuard, { once: true, capture: true });
+    }
+
     const handlePopState = () => {
-      if (hasSession) {
-        window.history.pushState(null, "", window.location.href);
-      }
+      if (leavingRef.current || !guarded) return;
+      pushGuard(); // rimette la sentinella: si resta nell'app
+      setBackOpen(true);
+    };
+    // Chiusura/ricarica della scheda (soprattutto desktop): richiesta nativa del browser.
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (leavingRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
     };
 
-    window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("popstate", handlePopState);
+    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pointerdown", armGuard, { capture: true });
+      window.removeEventListener("keydown", armGuard, { capture: true });
       window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [hasSession]);
+  }, []);
+
+  function confirmBackLeave() {
+    leavingRef.current = true;
+    setBackOpen(false);
+    window.history.go(-2);
+    // Se non c'era una pagina precedente la pagina resta: si riarma il controllo.
+    setTimeout(() => {
+      leavingRef.current = false;
+    }, 600);
+  }
 
   const isAdmin = profile.role === "admin";
   const myOrg = profile.org_id;
@@ -2483,6 +2506,25 @@ export default function App({ profile }: { profile: Profile }) {
                 {exitError} Puoi riprovare, scaricare il file oppure uscire senza inviare.
               </p>
             ) : null}
+
+      {backOpen ? (
+        <Popup title="" onClose={() => setBackOpen(false)}>
+          <div className="stack">
+            <p style={{ margin: 0, fontWeight: 700 }}>Vuoi uscire dall&apos;app?</p>
+            <p style={{ margin: 0, fontSize: "0.85em" }}>
+              Hai premuto il tasto Indietro. Se resti, continui da dove eri.
+            </p>
+            <div className="stack" style={{ gap: 8 }}>
+              <button className="btn btn-primary" type="button" onClick={() => setBackOpen(false)}>
+                Resta nell&apos;app
+              </button>
+              <button className="btn" type="button" onClick={confirmBackLeave}>
+                Esci
+              </button>
+            </div>
+          </div>
+        </Popup>
+      ) : null}
             <div className="stack" style={{ gap: 8 }}>
               {exitCount > 0 ? (
                 <>
