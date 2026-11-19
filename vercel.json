@@ -2,10 +2,7 @@
   "crons": [
     {
       "path": "/api/admin/report/auto-send",
-      "schedule": "0 16 * * *",
-      "config": {
-        "maxDuration": 30
-      }
+      "schedule": "0 16 * * *"
     }
   ]
 }
