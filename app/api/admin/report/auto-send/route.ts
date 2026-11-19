@@ -1,4 +1,4 @@
-// Invio automatico del report a fine turno (es. alle 16:00 tramite Vercel Cron).
+// Invio automatico del report a fine turno (ad orario stabilito dal Coordinamento tramite Vercel Cron).
 // Protetto da CRON_SECRET: solo chi conosce il segreto può attivarlo.
 
 import { NextResponse } from "next/server";

@@ -28,7 +28,7 @@ export function allRecs(users: ServiceUser[], logs: DailyLog[], proposals: Propo
     uid: l.user_id,
     name: uname(l.user_id),
     found: l.found,
-    users_found: l.users_found ?? (l.found ? 1 : 0),
+    users_found: l.found ? (l.users_found ?? 1) : 0,
     provided: l.provided,
     requested: l.requested,
     note: l.note,
@@ -77,6 +77,7 @@ export const REPORT_HEAD = [
   "Coperte",
   "Nickname",
   "Trovato",
+  "Utenti trovati",
   "Fornito",
   "Richiesto",
   "Note importanti",
@@ -116,20 +117,14 @@ export function reportTable(
     const key = r.date + "|" + (r.stop || "");
     const first = !seen.has(key);
     seen.add(key);
-    // Colonna "Trovato": mostra il numero effettivo se disponibile, altrimenti sì/no
-    const trovatoCell =
-      r.users_found != null && r.users_found > 0
-        ? String(r.users_found)
-        : r.found
-          ? "sì"
-          : "no";
     out.push([
       r.date,
       orgName(r.org, orgs),
       sname(r.stop),
       ...stopCols(r.stop, r.date, first),
       r.name,
-      trovatoCell,
+      r.found ? "sì" : "no",
+      r.found ? (r.users_found ?? 1) : 0,
       r.provided.join(" + "),
       r.requested,
       r.note,
@@ -149,6 +144,7 @@ export function reportTable(
           g.served ? "servita" : "da servire",
           g.sacchi_a_pelo,
           g.coperte,
+          "",
           "",
           "",
           "",

@@ -38,6 +38,7 @@ export async function buildExcelBlob(
     { wch: 9 }, // Coperte
     { wch: 20 }, // Nickname
     { wch: 9 }, // Trovato
+    { wch: 9 }, // Utenti trovati
     { wch: 36 }, // Fornito
     { wch: 30 }, // Richiesto
     { wch: 36 }, // Note importanti

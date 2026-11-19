@@ -39,6 +39,23 @@ import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { blobToBase64, buildExcelBlob, downloadExcel, reportFileName } from "@/lib/excel";
 
+// Fine stagione: cancellazione dei dati personali degli utenti (solo coordinamento).
+// Le uscite terminano il 30 marzo 2027: da quel giorno compare il popup per il
+// coordinamento e si può eseguire la cancellazione (purge_season_data lo ricontrolla).
+const SEASON = "2026-27";
+const SEASON_END = "2027-03-30";
+const PURGE_NOTICE_FROM = "2027-03-30";
+const PURGE_AUTO_DATE = "2027-04-30"; // cancellazione automatica (pg_cron su Supabase)
+
+interface PurgeLog {
+  season: string;
+  executed_at: string;
+  deleted_users: number;
+  deleted_logs: number;
+  deleted_proposals: number;
+  deleted_verifications: number;
+}
+
 type Tab =
   | "utenti"
   | "validare"
@@ -196,6 +213,13 @@ export default function App({ profile }: { profile: Profile }) {
   // esci / esci senza generare / resta).
   const [exitOpen, setExitOpen] = useState(false);
   const [exitBusy, setExitBusy] = useState(false);
+  // Avviso e cancellazione di fine stagione (solo coordinamento).
+  const [purgeLogs, setPurgeLogs] = useState<PurgeLog[]>([]);
+  const [purgeClosed, setPurgeClosed] = useState(false);
+  const [purgeStep, setPurgeStep] = useState<"info" | "confirm">("info");
+  const [purgeText, setPurgeText] = useState("");
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [purgeErr, setPurgeErr] = useState("");
   const [exitError, setExitError] = useState("");
   // Esiti registrati nella serata corrente (calcolati all'apertura del popup di uscita).
   const [exitCount, setExitCount] = useState(0);
@@ -290,7 +314,7 @@ export default function App({ profile }: { profile: Profile }) {
           }
           return ordered;
         })();
-        const [o, pr, u, l, p, c, s, su, st, nt, sl] = await Promise.all([
+        const [o, pr, u, l, p, c, s, su, st, nt, sl, pl] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
@@ -310,6 +334,8 @@ export default function App({ profile }: { profile: Profile }) {
           sb.from("notices").select("*").order("created_at", { ascending: false }),
           // Log su base tappa (beni forniti, esito tappa): non bloccante come gli avvisi.
           sb.from("stop_logs").select("*").order("date", { ascending: false }).limit(3000),
+          // Registro cancellazioni di fine stagione (solo il coordinamento lo legge): non bloccante.
+          sb.from("purge_log").select("*"),
         ]);
         // Carichiamo ogni tabella in modo indipendente: un errore su una query
         // non deve più impedire il caricamento di tutte le altre (prima bastava
@@ -356,6 +382,8 @@ export default function App({ profile }: { profile: Profile }) {
         else setNotices((nt.data || []) as Notice[]);
         if (sl.error) console.error("stop_logs", sl.error);
         else setStopLogs((sl.data || []) as StopLog[]);
+        if (pl.error) console.error("purge_log", pl.error);
+        else setPurgeLogs((pl.data || []) as PurgeLog[]);
       } catch (e) {
         // Errore di rete/client (env mancanti, fetch fallito, ecc.)
         problems.push(e instanceof Error ? e.message : String(e));
@@ -419,6 +447,16 @@ export default function App({ profile }: { profile: Profile }) {
   // coordinamento non ancora letti (una volta per dispositivo, per avviso).
   const briefUnseen = isAdmin || !myOrg ? [] : notices.filter((n) => !seenIds.includes(n.id));
   const briefOpen = !briefClosed && (briefUnseen.length > 0 || myTurnToday);
+
+  // Avviso di fine stagione: solo coordinamento, da PURGE_NOTICE_FROM finché la
+  // cancellazione non risulta eseguita. Il pulsante di cancellazione c'è da SEASON_END.
+  const purgeDone = purgeLogs.some((p) => p.season === SEASON);
+  const purgeNoticeOpen = isAdmin && !purgeClosed && !purgeDone && today() >= PURGE_NOTICE_FROM;
+  const purgeAllowed = today() >= SEASON_END;
+  const purgeDaysLeft = Math.max(
+    0,
+    Math.ceil((new Date(SEASON_END).getTime() - new Date(today()).getTime()) / 86400000)
+  );
 
   const tonightLog = (uid: string) => logs.find((l) => l.user_id === uid && l.date === serviceKey);
   const statusOf = (u: ServiceUser): Status => {
@@ -1699,6 +1737,45 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
+  // Cancellazione definitiva dei dati personali della stagione (funzione SQL
+  // purge_season_data, riservata al coordinamento).
+  async function runPurge() {
+    setPurgeBusy(true);
+    setPurgeErr("");
+    try {
+      const { error } = await supabase().rpc("purge_season_data", {
+        p_season: SEASON,
+        p_confirm: purgeText.trim(),
+        p_not_before: SEASON_END,
+      });
+      if (error) throw error;
+      setUsers([]);
+      setSuspendedUsers([]);
+      setDeletedUsers([]);
+      setLogs([]);
+      setProposals([]);
+      setPurgeLogs((prev) => [
+        ...prev,
+        {
+          season: SEASON,
+          executed_at: new Date().toISOString(),
+          deleted_users: 0,
+          deleted_logs: 0,
+          deleted_proposals: 0,
+          deleted_verifications: 0,
+        },
+      ]);
+      setSelected(null);
+      toast("Dati della stagione cancellati.");
+    } catch (e) {
+      setPurgeErr(
+        (e as { message?: string })?.message || "Cancellazione non riuscita."
+      );
+    } finally {
+      setPurgeBusy(false);
+    }
+  }
+
   async function signOut() {
     try {
       await supabase().auth.signOut();
@@ -2722,6 +2799,93 @@ export default function App({ profile }: { profile: Profile }) {
           </div>
         </Popup>
       )}
+
+      {purgeNoticeOpen ? (
+        <Popup title="Fine stagione: cancellazione dei dati" onClose={() => setPurgeClosed(true)}>
+          <div className="stack">
+            <p style={{ margin: 0, fontWeight: 700 }}>
+              {purgeAllowed
+                ? `Le uscite sono terminate il ${fmtDay(SEASON_END)}: vuoi cancellare ora i dati degli utenti?`
+                : `Il servizio termina il ${fmtDay(SEASON_END)}: tra ${purgeDaysLeft} ${purgeDaysLeft === 1 ? "giorno" : "giorni"} i dati degli utenti vanno cancellati.`}
+            </p>
+            <p style={{ margin: 0, fontSize: "0.9em" }}>
+              Se non cancelli tu, la cancellazione avverrà in automatico il{" "}
+              <b>{fmtDay(PURGE_AUTO_DATE)}</b>.
+            </p>
+            <div className="stack" style={{ gap: 6, fontSize: "0.9em" }}>
+              <p style={{ margin: 0 }}>
+                <b>Verranno cancellati</b>: utenti (nickname, descrizione, posizione, note), esiti
+                serali, candidati e relative verifiche.
+              </p>
+              <p style={{ margin: 0 }}>
+                <b>Resteranno</b>: le tappe, i beni forniti per tappa e uno storico statistico
+                anonimo (utenti trovati per tappa e serata, cosa è stato fornito).
+              </p>
+              <p style={{ margin: 0 }}>
+                Prima di procedere scarica dal tab Report i file che ti servono e avvisa le
+                associazioni. La cancellazione è definitiva e non si può annullare.
+              </p>
+            </div>
+            {purgeAllowed && purgeStep === "info" ? (
+              <div className="actions" style={{ padding: 0, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={() => {
+                    setPurgeStep("confirm");
+                    setPurgeText("");
+                    setPurgeErr("");
+                  }}
+                >
+                  Cancella i dati della stagione…
+                </button>
+                <button className="btn" type="button" onClick={() => setPurgeClosed(true)}>
+                  Più tardi
+                </button>
+              </div>
+            ) : null}
+            {purgeAllowed && purgeStep === "confirm" ? (
+              <div className="stack" style={{ gap: 8 }}>
+                <label className="lb" htmlFor="purge-confirm">
+                  Per confermare scrivi <b>CANCELLA</b>
+                </label>
+                <input
+                  id="purge-confirm"
+                  type="text"
+                  autoComplete="off"
+                  value={purgeText}
+                  onChange={(e) => setPurgeText(e.target.value)}
+                />
+                {purgeErr ? (
+                  <p className="notice" style={{ color: "var(--danger)" }}>
+                    {purgeErr}
+                  </p>
+                ) : null}
+                <div className="actions" style={{ padding: 0, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    className="btn btn-danger"
+                    type="button"
+                    onClick={runPurge}
+                    disabled={purgeBusy || purgeText.trim() !== "CANCELLA"}
+                  >
+                    {purgeBusy ? "Cancello…" : "Cancella definitivamente"}
+                  </button>
+                  <button className="btn" type="button" onClick={() => setPurgeStep("info")} disabled={purgeBusy}>
+                    Annulla
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {!purgeAllowed ? (
+              <div className="actions" style={{ padding: 0 }}>
+                <button className="btn" type="button" onClick={() => setPurgeClosed(true)}>
+                  Ho capito
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </Popup>
+      ) : null}
 
       {toastMsg && (
         <div className="toast" role="status">

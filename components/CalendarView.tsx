@@ -93,7 +93,7 @@ export default function CalendarView({
           } as Settings);
         }}
       >
-        <option value="">Nessuna uscita</option>
+        <option value="">Uscita a rotazione</option>
         {orgs.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name}
@@ -103,7 +103,7 @@ export default function CalendarView({
     ) : id ? (
       <span className={id === myOrg ? "calme" : ""}>{orgName(id, orgs)}</span>
     ) : (
-      <span className="calnone">Nessuna uscita</span>
+      <span className="calnone">Uscita a rotazione</span>
     );
     return (
       <li className="calrow" key={w}>
@@ -164,7 +164,7 @@ export default function CalendarView({
       ? ""
       : bn
         ? `come da calendario fisso: ${orgName(bn, orgs)}`
-        : "come da calendario fisso: nessuna uscita";
+        : "come da calendario fisso: Uscita a rotazione";
     const cell = adm ? (
       <select
         aria-label={`Associazione del ${fmtShort(k)}`}
@@ -175,7 +175,7 @@ export default function CalendarView({
         }}
       >
         <option value="">{cap(bl)}</option>
-        <option value="-">Nessuna uscita</option>
+        <option value="-">Uscita a rotazione</option>
         {orgs.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name}
@@ -190,7 +190,7 @@ export default function CalendarView({
             {mineN ? " · tocca a voi" : ""}
           </>
         ) : (
-          <span className="calnone">Nessuna uscita</span>
+          <span className="calnone">Uscita a rotazione</span>
         )}
       </span>
     );

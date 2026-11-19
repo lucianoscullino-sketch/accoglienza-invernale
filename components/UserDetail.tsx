@@ -145,8 +145,7 @@ export default function UserDetail({
         const values = vref.current;
         const payload = {
           ...values,
-          users_found:
-            user.multiple ? (usersFoundCount ?? 0) : values.found ? 1 : 0,
+          users_found: !values.found ? 0 : user.multiple ? (usersFoundCount ?? 0) : 1,
         } as EntryValues;
         onSave(payload)
           .then((ok) => {
