@@ -8,6 +8,7 @@ export default function Popup({
   onClose,
   children,
   noBackdrop,
+  wide,
 }: {
   title: string;
   titleExtra?: ReactNode;
@@ -16,6 +17,8 @@ export default function Popup({
   // Quando true non renderizza lo sfondo scuro coprente: l'app sotto resta
   // interattiva (es. mappa principale accessibile durante la modifica tappa).
   noBackdrop?: boolean;
+  // Quando true il pannello è più largo (fino a 720px, 94% su mobile).
+  wide?: boolean;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -36,6 +39,7 @@ export default function Popup({
         aria-modal={noBackdrop ? undefined : true}
         aria-label={title}
         tabIndex={-1}
+        style={wide ? { width: "min(94vw, 720px)", maxWidth: "94vw" } : undefined}
       >
         <div className="popup-toolbar">
           <h2 className="popup-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>

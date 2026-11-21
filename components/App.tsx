@@ -120,20 +120,19 @@ function NoticeText({ text }: { text: string }) {
                 {b.rows.map((r, ri) => (
                   <tr key={ri}>
                     {r.map((c, ci) => {
-                      const Cell = ri === 0 ? "th" : "td";
                       return (
-                        <Cell
+                        <td
                           key={ci}
                           style={{
                             border: "1px solid #cbd5e1",
                             padding: "2px 6px",
                             textAlign: "left",
                             whiteSpace: "nowrap",
-                            fontWeight: ri === 0 ? 700 : 400,
+                            fontWeight: 400,
                           }}
                         >
                           {c}
-                        </Cell>
+                        </td>
                       );
                     })}
                   </tr>
@@ -232,6 +231,9 @@ export default function App({ profile }: { profile: Profile }) {
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeDraft, setNoticeDraft] = useState("");
   const [noticeBusy, setNoticeBusy] = useState(false);
+  // Modifica di un avviso già pubblicato (solo coordinamento), direttamente nel banner.
+  const [editNoticeId, setEditNoticeId] = useState<string | null>(null);
+  const [editNoticeText, setEditNoticeText] = useState("");
   // Popup di "briefing" all'accesso (solo associazioni): avvisi non ancora letti
   // e, il giorno della propria uscita, sommario dell'uscita della sera prima.
   // Visto/letto è derivato da questi stati (localStorage in lazy-init, null con
@@ -262,6 +264,8 @@ export default function App({ profile }: { profile: Profile }) {
   const [placing, setPlacing] = useState(false);
   const [draftPos, setDraftPos] = useState<{ lat: number; lng: number } | null>(null);
   const [focus, setFocus] = useState<{ lat: number; lng: number; n: number } | null>(null);
+  // Tappa scelta dall'elenco: resta evidenziata sulla mappa anche a popup chiuso.
+  const [hlStop, setHlStop] = useState<string | null>(null);
   const [creatingStop, setCreatingStop] = useState(false);
   // Uscita dell'associazione in turno: popup con tre scelte (genera il report ed
   // esci / esci senza generare / resta).
@@ -546,7 +550,7 @@ export default function App({ profile }: { profile: Profile }) {
     ? hlProposal.stop_id
       ? { kind: "stop", id: hlProposal.stop_id }
       : { kind: "prop", id: hlProposal.id }
-    : selected;
+    : selected ?? (hlStop ? { kind: "stop", id: hlStop } : null);
 
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
@@ -667,6 +671,7 @@ export default function App({ profile }: { profile: Profile }) {
   // --- selezione e proposta ---
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     userDirtyRef.current = false;
+    if (fromMap) setHlStop(null);
     setHlProp(null);
     setReturnStopId(null);
     setSelected({ kind, id });
@@ -1277,6 +1282,24 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   // Rimozione dell'avviso (solo coordinamento): sparisce dal banner di tutti.
+  async function saveNoticeEdit() {
+    const message = editNoticeText.trim();
+    if (!editNoticeId || !message || noticeBusy) return;
+    setNoticeBusy(true);
+    try {
+      const { error } = await supabase().from("notices").update({ message }).eq("id", editNoticeId);
+      if (error) throw error;
+      setNotices((prev) => prev.map((n) => (n.id === editNoticeId ? { ...n, message } : n)));
+      setEditNoticeId(null);
+      setEditNoticeText("");
+      toast("Avviso aggiornato.");
+    } catch (e) {
+      toast("Errore nella modifica dell'avviso: " + errMsg(e));
+    } finally {
+      setNoticeBusy(false);
+    }
+  }
+
   async function removeNotice(id: string) {
     try {
       const { error } = await supabase().from("notices").delete().eq("id", id);
@@ -1982,6 +2005,8 @@ export default function App({ profile }: { profile: Profile }) {
       kind: "stop" as const,
       id: s.id,
       name: s.name,
+      lat: s.lat,
+      lng: s.lng,
       desc: s.note || "",
       status: s.status,
       usersCount: users.filter((u) => u.stop_id === s.id).length,
@@ -2013,7 +2038,11 @@ export default function App({ profile }: { profile: Profile }) {
                 className="row"
                 type="button"
                 style={tint(it)}
-                onClick={() => select("stop", it.id, false)}
+                onClick={() => {
+                  select("stop", it.id, false);
+                  setHlStop(it.id);
+                  setFocus({ lat: it.lat, lng: it.lng, n: Date.now() });
+                }}
               >
                 <span className="rowmain">
                   <span className="rowname">{it.name}</span>
@@ -2740,26 +2769,73 @@ export default function App({ profile }: { profile: Profile }) {
             permane visibile a schermo in ogni account fino alla rimozione. */}
         <div className="navsticky">
           {tabsHTML()}
-          {!!notices.length && (
-            <div className="broadcast" role="status" aria-label="Avvisi del coordinamento">
-              {notices.map((n) => (
-                <div className="broadcast-item" key={n.id}>
-                  <span className="broadcast-tag">Avviso</span>
-                  <NoticeText text={n.message} />
-                  {isAdmin && (
-                    <button
-                      className="linkbtn"
-                      type="button"
-                      onClick={() => void removeNotice(n.id)}
-                    >
-                      Rimuovi
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+        {!!notices.length && tab === "proposte" && (
+          <div className="broadcast" role="status" aria-label="Avvisi del coordinamento">
+            {notices.map((n) => (
+              <div className="broadcast-item" key={n.id}>
+                <span className="broadcast-tag">Avviso</span>
+                {isAdmin && editNoticeId === n.id ? (
+                  <div className="stack" style={{ gap: 6, flex: 1 }}>
+                    <textarea
+                      rows={6}
+                      maxLength={3000}
+                      autoFocus
+                      value={editNoticeText}
+                      onChange={(e) => setEditNoticeText(e.target.value)}
+                    />
+                    <div className="actions" style={{ padding: 0, display: "flex", gap: 8 }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        type="button"
+                        disabled={noticeBusy || !editNoticeText.trim()}
+                        onClick={() => void saveNoticeEdit()}
+                      >
+                        {noticeBusy ? "Salvo…" : "Salva"}
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        type="button"
+                        disabled={noticeBusy}
+                        onClick={() => {
+                          setEditNoticeId(null);
+                          setEditNoticeText("");
+                        }}
+                      >
+                        Annulla
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <NoticeText text={n.message} />
+                    {isAdmin && (
+                      <div style={{ display: "flex", gap: 14, marginTop: 6 }}>
+                        <button
+                          className="linkbtn"
+                          type="button"
+                          onClick={() => void removeNotice(n.id)}
+                        >
+                          Rimuovi
+                        </button>
+                        <button
+                          className="linkbtn"
+                          type="button"
+                          onClick={() => {
+                            setEditNoticeId(n.id);
+                            setEditNoticeText(n.message);
+                          }}
+                        >
+                          Modifica
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         {panelBody()}
         <div className="foot">
           <p>Dati salvati su Supabase · mappa © OpenStreetMap contributors</p>
@@ -2771,8 +2847,9 @@ export default function App({ profile }: { profile: Profile }) {
           evidenziate. Una volta al giorno per dispositivo. */}
       {briefOpen && (
         <Popup
-          title={myTurnToday ? "La tua uscita di stasera" : "Avvisi del coordinamento"}
+          title="Aggiornamenti"
           onClose={closeBrief}
+          wide
         >
           {briefUnseen.length > 0 && (
             <section className="brief-sec">

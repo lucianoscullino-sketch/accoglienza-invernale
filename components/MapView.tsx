@@ -265,6 +265,11 @@ export default function MapView({
         : ""
     }">
     <svg width="${w}" height="${h}" viewBox="0 0 30 42" style="overflow:visible" xmlns="http://www.w3.org/2000/svg">
+      ${
+        sel
+          ? '<circle cx="15" cy="41" r="8" fill="none" stroke="#2563eb" stroke-width="3"><animate attributeName="r" values="8;24;8" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0;1" dur="1.4s" repeatCount="indefinite"/></circle>'
+          : ""
+      }
       <path d="M15 41C15 41 1 24 1 14.5C1 6.5 7.3 1 15 1s14 5.5 14 13.5C29 24 15 41 15 41z"
             fill="${hollow ? "#fff" : colore}"
             stroke="${sel ? "#2563eb" : hollow ? "#7c3aed" : "#fff"}"
@@ -337,4 +342,5 @@ export default function MapView({
     </section>
   );
 }
+
 
