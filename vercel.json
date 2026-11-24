@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/admin/report/auto-send",
-      "schedule": "0 15 * * *"
-    }
-  ]
-}
+{}

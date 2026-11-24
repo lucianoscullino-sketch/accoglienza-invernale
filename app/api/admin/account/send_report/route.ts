@@ -4,6 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -80,6 +81,22 @@ export async function POST(req: Request) {
   if (!r.ok || !out.ok) {
     console.error("send-report", r.status, out.error || text.slice(0, 200));
     return NextResponse.json({ error: "Invio non riuscito." }, { status: 502 });
+  }
+  // Segna la serata come già inviata: il job automatico la salta.
+  // Un errore qui non deve far fallire la risposta (la mail è già partita
+  // e un nuovo tentativo manderebbe il report due volte): si registra e basta.
+  const admin = createAdminClient();
+  if (admin) {
+    const { error: rsErr } = await admin.from("report_sends").upsert(
+      {
+        outing_date: outingDate,
+        sent_by: prof.id,
+        org_id: prof.org_id ?? null,
+        sent_at: new Date().toISOString(),
+      },
+      { onConflict: "outing_date" }
+    );
+    if (rsErr) console.error("report_sends", rsErr);
   }
   return NextResponse.json({ ok: true });
 }

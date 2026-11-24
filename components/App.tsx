@@ -226,7 +226,7 @@ export default function App({ profile }: { profile: Profile }) {
   const [noticesErr, setNoticesErr] = useState("");
   // Tappe marcate come servite dal coordinamento (anche se non hanno utenti)
   // Stato servita/da servire delle tappe: letto da served_at (Supabase),
-  // non più in client-side state. Reset automatico dopo 2 ore (alle 2:00 del giorno successivo).
+  // non più in client-side state. Reset automatico alle 20:00 del giorno successivo.
   // Composizione dell'avviso (solo coordinamento), aperta dal tab Comunicazioni.
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [noticeDraft, setNoticeDraft] = useState("");
@@ -671,7 +671,7 @@ export default function App({ profile }: { profile: Profile }) {
   // --- selezione e proposta ---
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     userDirtyRef.current = false;
-    if (fromMap) setHlStop(null);
+    if (fromMap) setHlStop(kind === "stop" ? id : null);
     setHlProp(null);
     setReturnStopId(null);
     setSelected({ kind, id });
@@ -1910,7 +1910,7 @@ export default function App({ profile }: { profile: Profile }) {
                 }}
                 style={{ fontSize: 12, padding: "4px 8px", height: 32 }}
               >
-                {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23].map((h) => (
+                {[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19].map((h) => (
                   <option key={h} value={h}>
                     {h}:00
                   </option>
@@ -2673,24 +2673,6 @@ export default function App({ profile }: { profile: Profile }) {
               </p>
             ) : null}
 
-      {backOpen ? (
-        <Popup title="" onClose={() => setBackOpen(false)}>
-          <div className="stack">
-            <p style={{ margin: 0, fontWeight: 700 }}>Vuoi uscire dall&apos;app?</p>
-            <p style={{ margin: 0, fontSize: "0.85em" }}>
-              Hai premuto il tasto Indietro. Se resti, continui da dove eri.
-            </p>
-            <div className="stack" style={{ gap: 8 }}>
-              <button className="btn btn-primary" type="button" onClick={() => setBackOpen(false)}>
-                Resta nell&apos;app
-              </button>
-              <button className="btn" type="button" onClick={confirmBackLeave}>
-                Esci
-              </button>
-            </div>
-          </div>
-        </Popup>
-      ) : null}
             <div className="stack" style={{ gap: 8 }}>
               {exitCount > 0 ? (
                 <>
@@ -2709,6 +2691,33 @@ export default function App({ profile }: { profile: Profile }) {
               </button>
               <button className="btn" type="button" onClick={() => setExitOpen(false)} disabled={exitBusy}>
                 Resta nell&apos;app
+              </button>
+            </div>
+          </div>
+        </Popup>
+      ) : null}
+
+      {backOpen ? (
+        <Popup title="" onClose={() => setBackOpen(false)}>
+          <div className="stack">
+            <p style={{ margin: 0, fontWeight: 700 }}>Vuoi uscire dall&apos;app?</p>
+            <p style={{ margin: 0, fontSize: "0.85em" }}>
+              Hai premuto il tasto Indietro. Se resti, continui da dove eri.
+            </p>
+            <div className="stack" style={{ gap: 8 }}>
+              <button className="btn btn-primary" type="button" onClick={() => setBackOpen(false)}>
+                Resta nell&apos;app
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setBackOpen(false);
+                  if (isActiveOrg) openExit();
+                  else confirmBackLeave();
+                }}
+              >
+                Esci
               </button>
             </div>
           </div>
