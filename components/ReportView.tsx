@@ -235,7 +235,16 @@ export default function ReportView({
           <label className="lb" htmlFor="f-day">
             Giorno singolo
           </label>
-          <input id="f-day" type="date" value={fDay} onChange={(e) => setFDay(e.target.value)} />
+          <input
+            id="f-day"
+            type="date"
+            value={fDay}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFDay(v);
+              if (v && (v < rep.from || v > rep.to)) setRep({ from: v <= rep.from ? v : rep.from, to: v >= rep.to ? v : rep.to });
+            }}
+          />
         </div>
         <div>
           <label className="lb" htmlFor="f-org">
@@ -366,7 +375,7 @@ export default function ReportView({
               setFUser("");
               setRepIncSusp(false);
               setRepIncDel(false);
-              setRepIncProp(true);
+              setRepIncProp(false);
             }}
           >
             Azzera filtri

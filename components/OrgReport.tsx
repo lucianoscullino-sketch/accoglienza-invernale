@@ -2,10 +2,11 @@
 
 // Tab "Il tuo report": ogni associazione vede le attività svolte in un suo turno.
 // Di default viene mostrata l'ultima uscita (inclusa quella di stasera, se c'è già
-// qualcosa registrato), con possibilità di scegliere un'altra sera ed esportare in CSV.
+// qualcosa registrato), con possibilità di scegliere un'altra sera ed esportare in Excel.
+// Include il riepilogo per tappa (esito tappa e beni forniti).
 
 import { useMemo, useState } from "react";
-import type { DailyLog, Org, Proposal, ServiceUser } from "@/lib/types";
+import type { DailyLog, Org, Proposal, ServiceUser, Stop, StopLog } from "@/lib/types";
 import { allRecs } from "@/lib/report";
 import { downloadExcel, reportFileName } from "@/lib/excel";
 import { fmtShort, orgName, today } from "@/lib/format";
@@ -16,12 +17,16 @@ export default function OrgReport({
   users,
   logs,
   proposals,
+  stops,
+  stopLogs,
   myOrg,
 }: {
   orgs: Org[];
   users: ServiceUser[];
   logs: DailyLog[];
   proposals: Proposal[];
+  stops: Stop[];
+  stopLogs: StopLog[];
   myOrg: string;
 }) {
   const [nightSel, setNightSel] = useState("");
@@ -34,7 +39,16 @@ export default function OrgReport({
         .sort((a, b) => b.date.localeCompare(a.date) || b.at.localeCompare(a.at)),
     [users, logs, proposals, myOrg]
   );
-  const nights = useMemo(() => [...new Set(mine.map((r) => r.date))], [mine]);
+
+  // Sere con esiti utente oppure con dati di tappa (esito o beni) firmati dall'associazione.
+  const nights = useMemo(() => {
+    const set = new Set<string>(mine.map((r) => r.date));
+    stopLogs
+      .filter((g) => g.org_id === myOrg && (g.served || g.sacchi_a_pelo > 0 || g.coperte > 0))
+      .forEach((g) => set.add(g.date));
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [mine, stopLogs, myOrg]);
+
   // Ultima uscita di default (inclusa quella di stasera), senza effetti collaterali
   const night = nights.includes(nightSel) ? nightSel : nights[0] || "";
 
@@ -42,19 +56,45 @@ export default function OrgReport({
     return (
       <div className="detail stack">
         <PanelHeader title="Il tuo report" />
-        <p className="notice">
-          La tua associazione non ha ancora registrato uscite.
-        </p>
+        <p className="notice">La tua associazione non ha ancora registrato uscite.</p>
       </div>
     );
 
-  const rows = mine
-    .filter((r) => r.date === night)
-    .sort((a, b) => a.at.localeCompare(b.at));
+  const rows = mine.filter((r) => r.date === night).sort((a, b) => a.at.localeCompare(b.at));
+  // Log di tappa della sera: quelli dell'associazione e quelli inseriti dal coordinamento (org_id vuoto).
+  const stopLogsNight = stopLogs.filter(
+    (g) => g.date === night && (g.org_id === myOrg || !g.org_id)
+  );
+
   const found = rows
     .filter((r) => r.found)
     .reduce((acc, r) => acc + (r.users_found ?? (r.found ? 1 : 0)), 0);
+  const notFound = rows.filter((r) => !r.found).length;
 
+  const sname = (id?: string) =>
+    id ? stops.find((s) => s.id === id)?.name || "Tappa eliminata" : "Senza tappa";
+
+  // Riepilogo per tappa: contatti, persone trovate, esito tappa e beni.
+  const stopIds = [
+    ...new Set([...rows.map((r) => r.stop || ""), ...stopLogsNight.map((g) => g.stop_id)]),
+  ];
+  const perStop = stopIds
+    .map((sid) => {
+      const rs = rows.filter((r) => (r.stop || "") === sid);
+      const g = stopLogsNight.find((x) => x.stop_id === sid);
+      return {
+        sid,
+        name: sname(sid),
+        contacts: rs.length,
+        people: rs.filter((r) => r.found).reduce((a, r) => a + (r.users_found ?? 1), 0),
+        served: g ? (g.served ? "servita" : "da servire") : "-",
+        sacchi: g?.sacchi_a_pelo ?? 0,
+        coperte: g?.coperte ?? 0,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const totSacchi = perStop.reduce((a, s) => a + s.sacchi, 0);
+  const totCoperte = perStop.reduce((a, s) => a + s.coperte, 0);
 
   const kpi = (v: string | number, l: string) => (
     <div className="kpi">
@@ -66,7 +106,15 @@ export default function OrgReport({
   async function downloadXlsx() {
     setBusyXlsx(true);
     try {
-      await downloadExcel(rows, orgs, fmtShort(night), reportFileName(`report_${myOrg}`, night));
+      await downloadExcel(
+        rows,
+        orgs,
+        fmtShort(night),
+        reportFileName(`report_${myOrg}`, night),
+        stops,
+        stopLogsNight,
+        { extras: true }
+      );
     } finally {
       setBusyXlsx(false);
     }
@@ -79,7 +127,7 @@ export default function OrgReport({
         subtitle={
           <>
             Tutte le attività svolte da <strong>{orgName(myOrg, orgs)}</strong> in una sera di
-            uscita, utenti regolari e proposte verificate.
+            uscita: utenti regolari, proposte verificate e tappe.
           </>
         }
       />
@@ -98,48 +146,96 @@ export default function OrgReport({
       </div>
 
       <div className="kpis">
-        {kpi(rows.length, "utenti visitati (contatti)")}
-        {kpi(found, "trovati")}
-        {kpi(rows.length - found, "non trovati")}
+        {kpi(rows.length, "contatti (utenti visitati)")}
+        {kpi(found, "persone trovate")}
+        {kpi(notFound, "non trovati")}
+        {kpi(perStop.length, "tappe")}
+        {kpi(totSacchi, "sacchi a pelo")}
+        {kpi(totCoperte, "coperte")}
+      </div>
+
+      <div className="stack">
+        <h3>Tappe della sera</h3>
+        {perStop.length ? (
+          <div className="tblwrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tappa</th>
+                  <th>Esito tappa</th>
+                  <th className="num">Contatti</th>
+                  <th className="num">Trovati</th>
+                  <th className="num">Sacchi a pelo</th>
+                  <th className="num">Coperte</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perStop.map((s) => (
+                  <tr key={s.sid || "none"}>
+                    <td>{s.name}</td>
+                    <td>{s.served}</td>
+                    <td className="num">{s.contacts}</td>
+                    <td className="num">{s.people}</td>
+                    <td className="num">{s.sacchi}</td>
+                    <td className="num">{s.coperte}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="notice">Nessun dato di tappa per questa sera.</p>
+        )}
       </div>
 
       <div className="stack">
         <h3>Attività della sera</h3>
-        <div className="tblwrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nickname</th>
-                <th className="num">Trovato</th>
-                <th>Fornito</th>
-                <th>Richiesto</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td>
-                    {r.name}
-                    {r.prop ? " (proposta)" : null}
-                  </td>
-                  <td className="num">{r.found ? "sì" : "no"}</td>
-                  <td>{r.provided.join(", ").toLowerCase() || "-"}</td>
-                  <td>{r.requested || "-"}</td>
-                  <td>{r.note || "-"}</td>
+        {rows.length ? (
+          <div className="tblwrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tappa</th>
+                  <th>Nickname</th>
+                  <th className="num">Trovato</th>
+                  <th className="num">Persone</th>
+                  <th>Fornito</th>
+                  <th>Richiesto</th>
+                  <th>Note importanti</th>
+                  <th>Note uscita</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td>{sname(r.stop)}</td>
+                    <td>
+                      {r.name}
+                      {r.prop ? " (proposta)" : null}
+                    </td>
+                    <td className="num">{r.found ? "sì" : "no"}</td>
+                    <td className="num">{r.found ? (r.users_found ?? 1) : 0}</td>
+                    <td>{r.provided.join(", ").toLowerCase() || "-"}</td>
+                    <td>{r.requested || "-"}</td>
+                    <td>{r.note || "-"}</td>
+                    <td>{r.extra || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="notice">Nessun esito utente registrato in questa sera.</p>
+        )}
       </div>
 
       <div className="stack">
         <h3>Esporta</h3>
         <p className="notice">
-          Il file Excel contiene una riga per ogni uscita della sera (data, associazione,
-          nickname, trovato, fornito, richiesto, note, se è una proposta) e si scarica
-          direttamente nel browser: su telefono finisce in Download/File.
+          Il file Excel contiene una riga per ogni esito della sera, con tappa, esito tappa e beni
+          forniti (sacchi a pelo e coperte compaiono solo sulla prima riga di ogni tappa, così le
+          somme in Excel non sono doppie). Si scarica direttamente nel browser: su telefono finisce
+          in Download/File.
         </p>
         <button className="btn btn-primary" type="button" onClick={downloadXlsx} disabled={busyXlsx}>
           {busyXlsx ? "Genero…" : "Scarica report della sera in Excel (.xlsx)"}

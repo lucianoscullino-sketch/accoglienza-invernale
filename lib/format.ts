@@ -75,8 +75,8 @@ export const fmtTime = (iso: string) =>
 export const fmtDM = (ms: number | string) =>
   new Date(ms).toLocaleDateString("it-IT", { day: "numeric", month: "long" });
 
-export const orgName = (id: string, orgs: { id: string; name: string }[]) =>
-  id === "admin" ? "Coordinamento" : (orgs.find((o) => o.id === id) || {}).name || id;
+export const orgName = (id: string | null | undefined, orgs: { id: string; name: string }[]) =>
+  !id || id === "admin" ? "Coordinamento" : (orgs.find((o) => o.id === id) || {}).name || id;
 
 // Parsing delle righe di un file/eccezioni calendario: "2026-11-03;Croce Rossa".
 // Ritorna [data, idOrg] oppure [data, null] = torna alla regola fissa.

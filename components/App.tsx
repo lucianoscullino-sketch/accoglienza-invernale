@@ -1148,7 +1148,7 @@ export default function App({ profile }: { profile: Profile }) {
     }
     setBusyBriefXlsx(true);
     try {
-      const rows = allRecs(users, logs, proposals).filter((r) => r.date === yKey);
+      const rows = allRecs([...users, ...suspendedUsers, ...deletedUsers], logs, proposals).filter((r) => r.date === yKey);
       await downloadExcel(
         rows,
         orgs,
@@ -1773,7 +1773,7 @@ export default function App({ profile }: { profile: Profile }) {
   // Righe del report della serata corrente (esiti utenti + log di tappa).
   function outingReportInput() {
     return {
-      rows: allRecs(users, logs, proposals).filter((r) => r.date === serviceKey),
+      rows: allRecs([...users, ...suspendedUsers, ...deletedUsers], logs, proposals).filter((r) => r.date === serviceKey),
       stopLogsDay: stopLogs.filter((g) => g.date === serviceKey),
     };
   }
@@ -2559,9 +2559,11 @@ export default function App({ profile }: { profile: Profile }) {
         ) : tab === "mine" && !isAdmin && myOrg ? (
           <OrgReport
             orgs={orgs}
-            users={users}
+            users={[...users, ...suspendedUsers, ...deletedUsers]}
             logs={logs}
             proposals={proposals}
+            stops={stops}
+            stopLogs={stopLogs}
             myOrg={myOrg}
           />
         ) : tab === "associazioni" && isAdmin ? (
