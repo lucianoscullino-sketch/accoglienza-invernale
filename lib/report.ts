@@ -139,7 +139,7 @@ export function reportTable(
       .forEach((g) =>
         out.push([
           g.date,
-          orgName(g.org_id, orgs),
+          g.org_id ? orgName(g.org_id, orgs) : "Coordinamento",
           sname(g.stop_id),
           g.served ? "servita" : "da servire",
           g.sacchi_a_pelo,
