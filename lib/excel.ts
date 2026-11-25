@@ -45,6 +45,21 @@ export async function buildExcelBlob(
     { wch: 30 }, // Note uscita
     { wch: 9 }, // Proposta
   ];
+  // Celle unite per evitare ripetizioni: Data, Associazione, Tappa e beni (colonne C-F).
+  const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
+  const runs = (c0: number, c1: number, key: (r: (string | number)[]) => string) => {
+    let start = 0;
+    for (let i = 1; i <= data.length; i++) {
+      if (i === data.length || key(data[i]) !== key(data[start])) {
+        if (i - start > 1) merges.push({ s: { r: start + 1, c: c0 }, e: { r: i, c: c1 } });
+        start = i;
+      }
+    }
+  };
+  runs(0, 0, (r) => String(r[0]));
+  runs(1, 1, (r) => `${r[0]}|${r[1]}`);
+  runs(2, 5, (r) => `${r[0]}|${r[1]}|${r[2]}`);
+  ws["!merges"] = merges;  
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Report");
   const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
