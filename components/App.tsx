@@ -840,7 +840,7 @@ export default function App({ profile }: { profile: Profile }) {
       const row = {
         stop_id: sid,
         date: serviceKey,
-        org_id: myOrgId() || "admin",
+        org_id: myOrgId() ?? null,
         created_by: profile.id,
         updated_at: new Date().toISOString(),
         ...patch,
@@ -1162,6 +1162,7 @@ export default function App({ profile }: { profile: Profile }) {
         date: serviceKey,
         org_id: myOrgId() || "",
         found: v.found,
+        users_found: v.found ? (v.users_found ?? 1) : 0,
         provided: v.provided,
         requested: v.requested,
         note: v.note,

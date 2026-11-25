@@ -72,8 +72,8 @@ export default function UserDetail({
   const vref = useRef<EntryValues>(entryFrom(tonight));
   const baseRef = useRef<EntryValues>(entryFrom(tonight));
   const [entryDirty, setEntryDirty] = useState(false);
-  const [usersFoundCount, setUsersFoundCount] = useState<number | null>(
-    tonight?.users_found ?? null
+    const [usersFoundCount, setUsersFoundCount] = useState<number | null>(
+    tonight?.users_found || 1
   );
 
   // Esito di ieri
@@ -108,7 +108,9 @@ export default function UserDetail({
       edLng !== String(user.lng) ||
       edMulti !== !!user.multiple ||
       (isAdmin && edNote !== (user.note || "")));
-  const dirty = entryDirty || yDirty || dataDirty;
+  // N cambiato rispetto a quanto già registrato (solo utenti multipli)
+  const countDirty = !!user.multiple && (usersFoundCount ?? 1) !== (tonight?.users_found || 1);
+  const dirty = entryDirty || countDirty || yDirty || dataDirty;
 
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -145,7 +147,7 @@ export default function UserDetail({
         const values = vref.current;
         const payload = {
           ...values,
-          users_found: !values.found ? 0 : user.multiple ? (usersFoundCount ?? 0) : 1,
+          users_found: !values.found ? 0 : user.multiple ? Math.max(1, usersFoundCount ?? 1) : 1,
         } as EntryValues;
         onSave(payload)
           .then((ok) => {
@@ -174,7 +176,7 @@ export default function UserDetail({
           }}
         />
         {(() => {
-          const unchanged = !!tonight && !entryDirty;
+          const unchanged = !!tonight && !entryDirty && !countDirty;
           return (
             <button
               className="btn btn-primary"
@@ -314,13 +316,14 @@ export default function UserDetail({
                 </label>
                 <input
                   type="number"
-                  min="0"
+                  min="1"
+                  inputMode="numeric"
                   value={usersFoundCount ?? ""}
                   onChange={(e) => {
-                    const v = e.target.value === "" ? null : Number(e.target.value);
+                    const v = e.target.value === "" ? null : Math.max(1, Math.floor(Number(e.target.value)));
                     setUsersFoundCount(v);
                   }}
-                  placeholder="0"
+                  placeholder="1"
                   style={{
                     width: "70px",
                     padding: "2px 4px",

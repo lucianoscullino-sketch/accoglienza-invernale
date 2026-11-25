@@ -51,7 +51,7 @@ export interface StopLog {
   id?: string;
   stop_id: string;
   date: string; // YYYY-MM-DD, giorno di servizio
-  org_id: string;
+  org_id: string | null; // null = inserito dal coordinamento
   served: boolean; // esito tappa
   note: string; // note della tappa per quell'uscita
   sacchi_a_pelo: number;
