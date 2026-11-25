@@ -201,6 +201,20 @@ function LegendPin({
   );
 }
 
+// Legge tutte le righe a blocchi da 1000 (Supabase ne restituisce al massimo 1000 per richiesta).
+async function fetchAll<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const all: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await build(from, from + 999);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return { data: all, error: null };
+}
+
 export default function App({ profile }: { profile: Profile }) {
   const router = useRouter();
 
@@ -376,7 +390,9 @@ export default function App({ profile }: { profile: Profile }) {
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
           sb.from("service_users").select("*").eq("active", true),
-          sb.from("daily_logs").select("*").order("date", { ascending: false }).limit(3000),
+          fetchAll<DailyLog>((a, b) =>
+            sb.from("daily_logs").select("*").order("date", { ascending: false }).order("id").range(a, b)
+          ),
           sb.from("proposals")
             .select("*, verifications:proposal_verifications(*)")
             .order("created_at", { ascending: false }),
@@ -391,7 +407,9 @@ export default function App({ profile }: { profile: Profile }) {
           // l'errore è gestito sotto in modo NON bloccante.
           sb.from("notices").select("*").order("created_at", { ascending: false }),
           // Log su base tappa (beni forniti, esito tappa): non bloccante come gli avvisi.
-          sb.from("stop_logs").select("*").order("date", { ascending: false }).limit(3000),
+          fetchAll<StopLog>((a, b) =>
+            sb.from("stop_logs").select("*").order("date", { ascending: false }).order("id").range(a, b)
+          ),
           // Registro cancellazioni di fine stagione (solo il coordinamento lo legge): non bloccante.
           sb.from("purge_log").select("*"),
         ]);
