@@ -34,7 +34,7 @@ import type {
   StopLog,
 } from "@/lib/types";
 import { effDutyId } from "@/lib/duty";
-import { DAY, ST_LABEL, VER_TXT, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
+import { DAY, ST_LABEL, addDaysKey, fmtDay, fmtDM, orgName, parseCal, today } from "@/lib/format";
 import { openGoogleMaps } from "@/lib/maps";
 import { allRecs } from "@/lib/report";
 import { blobToBase64, buildExcelBlob, downloadExcel, reportFileName } from "@/lib/excel";
@@ -67,10 +67,9 @@ type Tab =
 
 // --- stato "letto" del popup di briefing, in localStorage (nessuna migrazione) ---
 // LS_AVVISI: ids degli avvisi già letti su questo dispositivo (il popup torna
-// solo per i nuovi). LS_BRIEF: data (YYYY-MM-DD) dell'ultimo riepilogo di
-// uscita mostrato, per non ripresentarlo più volte nello stesso giorno.
+// solo per i nuovi). Il riepilogo di uscita invece si ripresenta a ogni refresh
+// finché è il turno dell'associazione.
 const LS_AVVISI = "accoglienza:avvisi-letti";
-const LS_BRIEF = "accoglienza:brief-uscita";
 const lsGet = (k: string): string | null => {
   try {
     return localStorage.getItem(k);
@@ -259,8 +258,6 @@ export default function App({ profile }: { profile: Profile }) {
   const [busyBriefXlsx, setBusyBriefXlsx] = useState(false);
   // Chiusura temporanea del popup per questa sessione (si resetta al refresh).
   const [briefClosed, setBriefClosed] = useState(false);
-  // Per evitare uscita indesiderata da app
-  const [blockExit, setBlockExit] = useState(true);
 
 
   // Limite massimo (ora definita da coordinamento) entro cui il report della serata va inviato; oltre, il
@@ -270,7 +267,6 @@ export default function App({ profile }: { profile: Profile }) {
   // --- stato interfaccia ---
   const [tab, setTab] = useState<Tab>("utenti");
   const [selected, setSelected] = useState<Selection | null>(null);
-  const [hlProp, setHlProp] = useState<string | null>(null);
   // Tappa da riaprire alla chiusura di una scheda utente/proposta aperta da dentro la scheda tappa.
   const [returnStopId, setReturnStopId] = useState<string | null>(null);
   // Id della tappa attualmente in modifica: solo il suo pin è trascinabile sulla mappa.
@@ -490,8 +486,6 @@ export default function App({ profile }: { profile: Profile }) {
   };
   const duty = dutyOrg(today());
   const dutyName = duty ? duty.name : "Nessuna uscita in calendario";
-  const dutyMsg = (suffix: string) =>
-    duty ? `Stasera è in uscita ${duty.name}${suffix}` : "Stasera non c'è un'uscita in calendario.";
 
   // --- briefing all'accesso (solo associazioni) ---
   // Dati del riepilogo: ieri (la sera prima) e i suoi esiti registrati.
@@ -556,52 +550,18 @@ export default function App({ profile }: { profile: Profile }) {
   // Solo l'associazione in uscita nel giorno di servizio può modificare lo stato
   const canResetServed = isActiveOrg;
   const expTime = (p: Proposal) => new Date(p.created_at).getTime() + 7 * DAY;
-    // Tutte le proposte in attesa di validazione (anche scadute), escluse le eliminate
-  const pendingProps = proposals.filter((p) => p.status === "pending" && !p.suspended);
   // Tappe proposte dalle associazioni (stops con status "pending") da validare
   const pendingStops = stops.filter((st) => st.status === "pending");
 
-    // Proposta evidenziata su mappa dal tab "Tappe da validare" (solo coordinamento)
-  const hlProposal = hlProp ? pendingProps.find((p) => p.id === hlProp) ?? null : null;
-  // Se la proposta è dentro una tappa, si evidenzia il pin della tappa
-  const mapSelected: Selection | null = hlProposal
-    ? hlProposal.stop_id
-      ? { kind: "stop", id: hlProposal.stop_id }
-      : { kind: "prop", id: hlProposal.id }
-    : selected ?? (hlStop ? { kind: "stop", id: hlStop } : null);
+  // Selezione evidenziata sulla mappa: la scheda aperta oppure la tappa evidenziata.
+  const mapSelected: Selection | null = selected ?? (hlStop ? { kind: "stop", id: hlStop } : null);
 
   const daysLeft = (p: Proposal) => Math.ceil((expTime(p) - Date.now()) / DAY);
   // Proposte eliminate dal coordinamento (soft-delete): fuori da mappa ed
   // elenchi di default, ma rivisibili con il flag "Eliminati" come le utenze.
   const deletedProps = proposals.filter((p) => p.suspended && p.status === "rejected");
-  const propVer = (p: Proposal): "ok" | "no" | "none" => {
-    const vs = p.verifications || [];
-    return vs.length ? (vs[vs.length - 1].found ? "ok" : "no") : "none";
-  };
-  const propTonight = (p: Proposal): Status => {
-    const v = (p.verifications || []).find((x) => x.date === serviceKey);
-    return !v ? "todo" : v.found ? "done" : "missing";
-  };
 
-  function counts() {
-    const c: Record<string, number> = { t: 0, d: 0, m: 0, tu: 0, tp: 0, du: 0, dp: 0, mu: 0, mp: 0, p: 0 };
-    users.forEach((u) => {
-      const log = tonightLog(u.id);
-      if (!log) return;
-      if (log.found) {
-        const n = log.users_found ?? 1;
-        c["d"] += n;
-        c["u"] += n;
-      } else {
-        c["m"] += 1;
-        c["mu"] += 1;
-      }
-    });
-    return c;
-  }
-
-
-    const mapItems: MapItem[] = [
+  const mapItems: MapItem[] = [
     // Le tappe sono sempre mostrate (anche se vuote); sospese/eliminate solo
     // con i relativi flag attivi.
     ...stops.filter((s) => s.status === "active").map((s) => {
@@ -690,7 +650,6 @@ export default function App({ profile }: { profile: Profile }) {
   function select(kind: "user" | "prop" | "stop", id: string, fromMap: boolean) {
     userDirtyRef.current = false;
     if (fromMap) setHlStop(kind === "stop" ? id : null);
-    setHlProp(null);
     setReturnStopId(null);
     setSelected({ kind, id });
     setPlacing(false);
@@ -893,7 +852,7 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   // Tappa riportata da "Servito" a "Da servire" dall'associazione in uscita
-  async function markStopAsServed(sid: string) {
+  async function resetStopServed(sid: string) {
     if (!canResetServed) {
       toast("Solo l'associazione in uscita può modificare lo stato della tappa.");
       return;
@@ -915,18 +874,6 @@ export default function App({ profile }: { profile: Profile }) {
 
   // --- azioni: scritture su Supabase ---
   const myOrgId = () => myOrg;
-
-  // Nota stabile del coordinamento su un utente (solo admin può modificarla).
-  async function saveUserNote(uid: string, note: string) {
-    try {
-      const { error } = await supabase().from("service_users").update({ note }).eq("id", uid);
-      if (error) throw error;
-      setUsers((prev) => prev.map((x) => (x.id === uid ? { ...x, note } : x)));
-      toast("Nota salvata");
-    } catch (e) {
-      toast("Errore nel salvataggio della nota: " + (e instanceof Error ? e.message : "riprova"));
-    }
-  }
 
   // Modifica dei dati anagrafici di un utente (nome, descrizione, posizione e
   // nota stabile). Consentita al coordinamento su tutte le utenze e alle
@@ -1226,42 +1173,6 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Segnalazione al coordinamento per un'utenza sospesa/eliminata ritrovata in
-  // strada: registriamo un log "trovato" di oggi firmato dall'associazione, senza
-  // riattivare l'utenza (la decisione spetta al coordinamento). Nessuna
-  // migrazione: riusiamo daily_logs come traccia (policy "logs insert" consente
-  // org_id proprio), così il coordinamento la vede in scheda e nei report.
-  async function reportUserFound(uid: string, v: EntryValues) {
-    try {
-      const row = {
-        user_id: uid,
-        date: serviceKey,
-        org_id: myOrgId() || "",
-        found: v.users_found ? true : v.found,
-        users_found: v.users_found ?? (v.found ? 1 : 0),
-        provided: [] as string[],
-        requested: "",
-        note: "Segnalazione associazione: utenza non attiva ritrovata in strada. Valutare la riattivazione col coordinamento.",
-        stop_id: [...users, ...suspendedUsers, ...deletedUsers].find((x) => x.id === uid)?.stop_id ?? null,
-        created_by: profile.id,
-      };
-      const { data, error } = await supabase()
-        .from("daily_logs")
-        .upsert(row, { onConflict: "user_id,date" })
-        .select()
-        .single();
-      if (error) throw error;
-      const rec = data as DailyLog;
-      setLogs((prev) => [
-        ...prev.filter((l) => !(l.user_id === uid && l.date === row.date)),
-        rec,
-      ]);
-      toast("Segnalazione inviata al coordinamento: grazie.");
-    } catch (e) {
-      toast("Errore nella segnalazione: " + (e instanceof Error ? e.message : "riprova"));
-    }
-  }
-
   // Estrae il messaggio da un errore Supabase (postgrestError non è sempre
   // un'istanza di Error): serve per i toast senza perdere il testo reale.
   const errMsg = (e: unknown): string => {
@@ -1300,7 +1211,7 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Rimozione dell'avviso (solo coordinamento): sparisce dal banner di tutti.
+  // Modifica del testo di un avviso (solo coordinamento): si aggiorna nel banner di tutti.
   async function saveNoticeEdit() {
     const message = editNoticeText.trim();
     if (!editNoticeId || !message || noticeBusy) return;
@@ -1338,9 +1249,6 @@ export default function App({ profile }: { profile: Profile }) {
       const merged = Array.from(new Set([...seenIds, ...briefUnseen.map((n) => n.id)]));
       lsSet(LS_AVVISI, JSON.stringify(merged.slice(-100)));
       setSeenIds(merged);
-    }
-    if (myTurnToday) {
-      lsSet(LS_BRIEF, today());
     }
   }
 
@@ -1779,7 +1687,7 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   // "Invia report ed esci": costruisce l'Excel, lo manda alla API
-  // /api/send-report (che lo spedisce via Google Apps Script) ed esce.
+  // /api/admin/account/send_report (che lo spedisce via Google Apps Script) ed esce.
   async function sendReportAndExit() {
     setExitBusy(true);
     setExitError("");
@@ -1996,7 +1904,6 @@ export default function App({ profile }: { profile: Profile }) {
         aria-selected={tab === id}
         onClick={() => {
           setSelected(null);
-          setHlProp(null);
           cancelPropose();
           setTab(id);
         }}
@@ -2434,7 +2341,7 @@ export default function App({ profile }: { profile: Profile }) {
                   {s.status === "active" ? "Attiva" : s.status === "suspended" ? "Sospesa" : s.status === "pending" ? "In attesa di validazione" : "Eliminata"}
                 </span>
                 {!isAdmin && (s.status === "active" || s.status === "pending") && (
-                  <ServedBadge served={isServed} canReset={canResetServed} onReset={() => markStopAsServed(s.id)} />
+                  <ServedBadge served={isServed} canReset={canResetServed} onReset={() => resetStopServed(s.id)} />
                 )}
               </>
             }
@@ -2587,7 +2494,6 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   // --- legenda e layout ---
-  const c = counts();
   const menuWide = isAdmin;
   // Conteggi allineati ai segnaposto sulla mappa (stessa regola di mapItems)
   const activeStops = stops.filter((s) => s.status === "active");
@@ -2601,10 +2507,9 @@ export default function App({ profile }: { profile: Profile }) {
   // Tappe proposte in legenda solo se hanno il pin sulla mappa (flag "Tappe proposte" attivo).
   const propsTodo = showStopProps ? pendingStops.filter((s) => !stopServed(s)).length : 0;
   const propsDone = showStopProps ? pendingStops.filter((s) => stopServed(s)).length : 0;
-  const propsMiss = 0; // o una tua logica per i non trovati
 
   const legend =
-    stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsTodo + propsDone + propsMiss > 0 ? (
+    stopsServing + stopsDone + stopsEmpty + stopsSusp + stopsDel + propsTodo + propsDone > 0 ? (
       <ul className="legend">
         {stopsServing > 0 && (
           <li>
@@ -2639,11 +2544,6 @@ export default function App({ profile }: { profile: Profile }) {
         {propsDone > 0 && (
           <li>
             <LegendPin color="#7c3aed" glyph="prop" badge="done" /> Proposte servite <b>{propsDone}</b>
-          </li>
-        )}
-        {propsMiss > 0 && (
-          <li>
-            <LegendPin color="#7c3aed" glyph="prop" badge="missing" /> Proposte non trovate <b>{propsMiss}</b>
           </li>
         )}
       </ul>
@@ -2874,7 +2774,8 @@ export default function App({ profile }: { profile: Profile }) {
 
       {/* Briefing d'accesso (solo associazioni): avvisi non ancora letti e,
           il giorno della propria uscita, sommario della sera prima con note
-          evidenziate. Una volta al giorno per dispositivo. */}
+          evidenziate. Si ripresenta a ogni refresh finché è il turno dell'associazione;
+          gli avvisi già letti non tornano. */}
       {briefOpen && (
         <Popup
           title="Aggiornamenti"
