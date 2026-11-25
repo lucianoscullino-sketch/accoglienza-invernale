@@ -29,22 +29,11 @@ export async function buildExcelBlob(
   const XLSX = await import("xlsx");
   const data = reportTable(rows, orgs, stops, stopLogs, opts).map((r) => r.map((v) => cell(v)));
   const ws = XLSX.utils.aoa_to_sheet([REPORT_HEAD, ...data]);
-  ws["!cols"] = [
-    { wch: 12 }, // Data
-    { wch: 20 }, // Associazione
-    { wch: 24 }, // Tappa
-    { wch: 12 }, // Esito tappa
-    { wch: 13 }, // Sacchi a pelo
-    { wch: 9 }, // Coperte
-    { wch: 20 }, // Nickname
-    { wch: 9 }, // Trovato
-    { wch: 9 }, // Utenti trovati
-    { wch: 36 }, // Fornito
-    { wch: 30 }, // Richiesto
-    { wch: 36 }, // Note importanti
-    { wch: 30 }, // Note uscita
-    { wch: 9 }, // Proposta
-  ];
+  // Larghezza automatica: la cella più lunga di ogni colonna (min 8, max 60 caratteri).
+  const all = [REPORT_HEAD as (string | number)[], ...data];
+  ws["!cols"] = REPORT_HEAD.map((_, c) => ({
+    wch: Math.min(60, Math.max(8, ...all.map((r) => String(r[c] ?? "").length + 2))),
+  }));
   // Celle unite per evitare ripetizioni: Data, Associazione, Tappa e beni (colonne C-F).
   const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
   const runs = (c0: number, c1: number, key: (r: (string | number)[]) => string) => {
@@ -58,7 +47,7 @@ export async function buildExcelBlob(
   };
   runs(0, 0, (r) => String(r[0]));
   runs(1, 1, (r) => `${r[0]}|${r[1]}`);
-  runs(2, 5, (r) => `${r[0]}|${r[1]}|${r[2]}`);
+  for (let c = 2; c <= 5; c++) runs(c, c, (r) => `${r[0]}|${r[1]}|${r[2]}`);
   ws["!merges"] = merges;  
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Report");

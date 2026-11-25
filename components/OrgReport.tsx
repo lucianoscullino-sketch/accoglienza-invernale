@@ -126,8 +126,8 @@ export default function OrgReport({
         title="Il tuo report"
         subtitle={
           <>
-            Tutte le attività svolte da <strong>{orgName(myOrg, orgs)}</strong> in una sera di
-            uscita: utenti regolari, proposte verificate e tappe.
+            Riepilogo delle attività svolte da <strong>{orgName(myOrg, orgs)}</strong> in una sera
+            di uscita. Il dettaglio per tappa e utente è nel file Excel.
           </>
         }
       />
@@ -156,12 +156,6 @@ export default function OrgReport({
 
       <div className="stack">
         <h3>Esporta</h3>
-        <p className="notice">
-          Il file Excel contiene una riga per ogni esito della sera, con tappa, esito tappa e beni
-          forniti (sacchi a pelo e coperte compaiono solo sulla prima riga di ogni tappa, così le
-          somme in Excel non sono doppie). Si scarica direttamente nel browser: su telefono finisce
-          in Download/File.
-        </p>
         <button className="btn btn-primary" type="button" onClick={downloadXlsx} disabled={busyXlsx}>
           {busyXlsx ? "Genero…" : "Scarica report della sera in Excel (.xlsx)"}
         </button>
