@@ -37,7 +37,7 @@ export const WK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export const keyOf = (d: Date) =>
+const keyOf = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export const today = () => keyOf(new Date());
@@ -117,9 +117,3 @@ export function parseCal(
   });
   return { ok, bad };
 }
-
-export const VER_TXT = {
-  none: "mai verificata",
-  ok: "ultima verifica: trovato",
-  no: "ultima verifica: non trovato",
-} as const;

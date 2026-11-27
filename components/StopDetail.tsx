@@ -274,8 +274,6 @@ export default function StopDetail({
       ) : null}
 
       <div className="stack" style={{ gap: 8 }}>
-        <p className="pgtxt">{stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}{stop.note ? ` · ${stop.note}` : ""}</p>
-
         <h4 className="pgtxt" style={{ margin: "12px 0 4px" }}>Utenti assegnati ({users.length})</h4>
         {users.length === 0 ? (
           <p className="notice">Nessun utente assegnato a questa tappa.</p>
@@ -338,8 +336,9 @@ export default function StopDetail({
               </li>
             ))}
           </ul>
-        ) : (
-          <div style={{ width: "100%" }}>
+        ) : null}
+
+        <div style={{ width: "100%" }}>
             {/* === CAMPO NOTE (in alto, larghezza piena) === */}
             <div style={{ marginBottom: 12, border: "1px solid var(--line)", borderRadius: 6, padding: 12, background: "#f8fafc" }}>
               <label className="lb" style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
@@ -518,7 +517,6 @@ export default function StopDetail({
               </div>
             </div>
           </div>
-        )}
 
         {canManage && edit ? (
           <form className="stack" style={{ gap: 8 }} onSubmit={(e) => {

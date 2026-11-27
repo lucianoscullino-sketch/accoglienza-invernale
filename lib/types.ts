@@ -1,6 +1,6 @@
 // Tipi che rispecchiano le tabelle Supabase.
 
-export type Role = "admin" | "org";
+type Role = "admin" | "org";
 
 export interface Org {
   id: string;
@@ -74,7 +74,7 @@ export interface ProposalVerification {
   created_at?: string;
 }
 
-export type ProposalStatus = "pending" | "validated" | "rejected";
+type ProposalStatus = "pending" | "validated" | "rejected";
 
 export interface Proposal {
   id: string;
@@ -108,7 +108,7 @@ export interface CalendarOverride {
   org_id: string | null;
 }
 
-export interface SatConfig {
+interface SatConfig {
   order: string[];
   start: string; // sabato di riferimento del turno 1
 }
@@ -128,7 +128,7 @@ export interface Settings {
 
 export type Status = "todo" | "done" | "missing";
 
-export type StopStatus = "active" | "suspended" | "deleted" | "pending";
+type StopStatus = "active" | "suspended" | "deleted" | "pending";
 
 export interface Stop {
   id: string;

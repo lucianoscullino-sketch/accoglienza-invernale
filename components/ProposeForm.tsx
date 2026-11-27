@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { EntryFields, emptyEntry, type EntryValues } from "@/components/EntryFields";
 import { geocodeAddress } from "@/lib/geocode";
 
-export interface ProposeDraft {
+interface ProposeDraft {
   name: string;
   desc: string;
 }

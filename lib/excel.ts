@@ -5,8 +5,6 @@
 import type { Org, Stop, StopLog } from "@/lib/types";
 import { REPORT_HEAD, reportTable, type Rec } from "@/lib/report";
 
-export type ExcelRow = Rec;
-
 export function reportFileName(prefix: string, key: string): string {
   const d = key.replaceAll("-", "");
   return `${prefix}_${d}.xlsx`;

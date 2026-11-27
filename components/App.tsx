@@ -1379,7 +1379,7 @@ export default function App({ profile }: { profile: Profile }) {
             lat: p.lat,
             lng: p.lng,
             status: "active",
-            note: "Tappa creata dalla validazione del candidato",
+            note: "",
             created_by: myOrgId(),
           })
           .select()
@@ -1926,8 +1926,14 @@ export default function App({ profile }: { profile: Profile }) {
   }
 
   function listHTML() {
-    const order: Record<string, number> = { active: 0, suspended: 1, deleted: 2 };
-    const items = stops.map((s) => ({
+    const order: Record<string, number> = { active: 0, pending: 1, suspended: 2, deleted: 3 };
+    // Come sulla mappa: attive sempre; proposte, sospese ed eliminate solo con il relativo flag.
+    const showInList = (s: Stop) =>
+      s.status === "active" ||
+      (s.status === "pending" && showStopProps) ||
+      (s.status === "suspended" && showSuspended) ||
+      (s.status === "deleted" && showDeleted);
+    const items = stops.filter(showInList).map((s) => ({
       kind: "stop" as const,
       id: s.id,
       name: s.name,
