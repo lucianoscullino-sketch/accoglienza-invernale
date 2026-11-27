@@ -370,18 +370,7 @@ export default function App({ profile }: { profile: Profile }) {
       const problems: string[] = [];
       try {
         const sb = supabase();
-        // La colonna profiles.created_at potrebbe mancare se il DB di
-        // produzione non è allineato alle migrazioni: in quel caso
-        // "order by created_at" fallisce con "column ... does not exist".
-        // Proviamo con l'ordinamento e, se manca la colonna, ricarichiamo
-        // i profili senza ordinamento (l'app resta pienamente funzionante).
-        const prPromise = (async () => {
-          const ordered = await sb.from("profiles").select("*").order("created_at", { ascending: true });
-          if (ordered.error && /created_at/i.test(ordered.error.message || "")) {
-            return sb.from("profiles").select("*");
-          }
-          return ordered;
-        })();
+        const prPromise = sb.from("profiles").select("*").order("created_at", { ascending: true });
         const [o, pr, u, l, p, c, s, su, st, nt, sl, pl] = await Promise.all([
           sb.from("organizations").select("id, name").order("name"),
           prPromise,
@@ -924,27 +913,19 @@ export default function App({ profile }: { profile: Profile }) {
     }
   }
 
-  // Sospendere nasconde da mappa ed elenchi ma tiene il record (reversibile);
-  // eliminare cancella definitivamente (esiti via cascade). La colonna active
-  // esiste già, quindi la sospensione funziona anche senza la migrazione 0007.
+  // Sospendere nasconde da mappa ed elenchi ma tiene il record (reversibile).
   async function suspendUser(u: ServiceUser, note: string) {
     try {
       const { error } = await supabase()
         .from("service_users")
         .update({ active: false, suspension_note: note })
         .eq("id", u.id);
-      if (error) {
-        if (/suspension_note/i.test(error.message || "")) {
-          // Colonna nota assente: sospendiamo comunque senza motivo.
-          const r2 = await supabase().from("service_users").update({ active: false }).eq("id", u.id);
-          if (r2.error) throw r2.error;
-        } else throw error;
-      }
+      if (error) throw error;
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
       setSuspendedUsers((prev) => [{ ...u, active: false, suspension_note: note }, ...prev]);
       toast(`Utenza "${u.name}" sospesa: non sarà più visualizzata su mappa ed elenchi.`);
     } catch (e) {
-      toast("Errore nella sospensione: " + (e instanceof Error ? e.message : "riprova"));
+      toast("Errore nella sospensione: " + errMsg(e));
     }
   }
 
@@ -954,57 +935,28 @@ export default function App({ profile }: { profile: Profile }) {
         .from("service_users")
         .update({ active: true, suspension_note: "" })
         .eq("id", u.id);
-      if (error && /suspension_note/i.test(error.message || "")) {
-        const r2 = await supabase().from("service_users").update({ active: true }).eq("id", u.id);
-        if (r2.error) throw r2.error;
-      } else if (error) throw error;
+      if (error) throw error;
       setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
       setUsers((prev) => [{ ...u, active: true, suspension_note: "" }, ...prev]);
       toast(`Utenza "${u.name}" riattivata: torna su mappa ed elenchi.`);
     } catch (e) {
-      toast("Errore nella riattivazione: " + (e instanceof Error ? e.message : "riprova"));
+      toast("Errore nella riattivazione: " + errMsg(e));
     }
   }
 
+  // Eliminazione sempre soft (deleted=true, active=false): reversibile.
   async function deleteUser(u: ServiceUser, note: string) {
-    // Soft-delete: nascondiamo l'utenza (deleted=true, active=false) invece di
-    // cancellarla, così il coordinamento può ancora rivederla su mappa col flag
-    // "Eliminati" e, se serve, ripristinarla.
     try {
-      // .select() è indispensabile: senza, con RLS un update a vuoto non dà
-      // errore ma 0 righe → falso successo (l'utente "sparisce" in memoria ma
-      // ricompare al refresh). Così distinguiamo il successo reale.
+      // .select("id") è indispensabile: con RLS un update a vuoto non dà errore
+      // ma 0 righe, quindi senza sarebbe un falso successo.
       const { data, error } = await supabase()
         .from("service_users")
         .update({ active: false, deleted: true, suspension_note: note })
         .eq("id", u.id)
         .select("id");
-      if (error) {
-        // Colonna "deleted" assente (migrazione 0008 non applicata): ripieghiamo
-        // sulla disattivazione, che resta comunque un soft-delete reversibile.
-        if (/deleted/i.test(error.message || "")) {
-          const r2 = await supabase()
-            .from("service_users")
-            .update({ active: false })
-            .eq("id", u.id)
-            .select("id");
-          if (r2.error) throw r2.error;
-          if (!r2.data || r2.data.length === 0) {
-            toast("Impossibile nascondere l'utenza: permessi insufficienti. Esegui la migrazione 0011.");
-            return;
-          }
-          setUsers((prev) => prev.filter((x) => x.id !== u.id));
-          setSuspendedUsers((prev) => prev.filter((x) => x.id !== u.id));
-          toast(`Utenza "${u.name}" nascosta. Per rivederla tra gli «Eliminati» esegui la migrazione 0011.`);
-          setSelected(null);
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
       if (!data || data.length === 0) {
-        // Nessuna riga aggiornata: la policy RLS ha "nascosto" la riga oppure
-        // manca la migrazione. Messaggio esplicito invece del silenzio.
-        toast("Impossibile aggiornare lo stato dell'utenza (permessi o migrazione 0011 non applicata).");
+        toast("Impossibile eliminare l'utenza: permessi insufficienti.");
         return;
       }
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
@@ -1013,32 +965,28 @@ export default function App({ profile }: { profile: Profile }) {
       toast(`Utenza "${u.name}" eliminata: non sarà più visibile (la ritrovi col flag "Eliminati" su mappa).`);
       setSelected(null);
     } catch (e) {
-      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
+      toast("Errore nell'eliminazione: " + errMsg(e));
     }
   }
-
-  // Nota: l'eliminazione è sempre soft (reversibile). L'eliminazione fisica non
-  // è più usata dall'app perché rischia di fallire sui vincoli (proposals) e di
-  // perdere dati; la migrazione 0011 garantisce lo schema del soft-delete.
 
   // Ripristina un'utenza eliminata (soft-delete) riportandola attiva.
   async function restoreUser(u: ServiceUser) {
     try {
-      const { error } = await supabase()
+      const { data, error } = await supabase()
         .from("service_users")
         .update({ active: true, deleted: false, suspension_note: "" })
-        .eq("id", u.id);
-      if (error) {
-        if (/deleted/i.test(error.message || "")) {
-          const r2 = await supabase().from("service_users").update({ active: true }).eq("id", u.id);
-          if (r2.error) throw r2.error;
-        } else throw error;
+        .eq("id", u.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast("Impossibile ripristinare l'utenza: permessi insufficienti.");
+        return;
       }
       setDeletedUsers((prev) => prev.filter((x) => x.id !== u.id));
       setUsers((prev) => [{ ...u, active: true, deleted: false, suspension_note: "" }, ...prev]);
       toast(`Utenza "${u.name}" ripristinata: torna su mappa ed elenchi.`);
     } catch (e) {
-      toast("Errore nel ripristino: " + (e instanceof Error ? e.message : "riprova"));
+      toast("Errore nel ripristino: " + errMsg(e));
     }
   }
 
@@ -1537,29 +1485,7 @@ export default function App({ profile }: { profile: Profile }) {
         .update({ status: "rejected", suspended: true, suspension_note: "eliminata dal coordinamento" })
         .eq("id", pid)
         .select("id");
-      if (error) {
-        // Colonna suspended/suspension_note assente (migrazione 0007/0012 non
-        // applicata): ripieghiamo sul solo status="rejected", che la toglie
-        // comunque da mappa ed elenchi (senza poterla rivedere tra gli Eliminati).
-        if (/suspended|suspension_note/i.test(error.message || "")) {
-          const r2 = await supabase()
-            .from("proposals")
-            .update({ status: "rejected" })
-            .eq("id", pid)
-            .select("id");
-          if (r2.error) throw r2.error;
-          if (!r2.data || r2.data.length === 0) {
-            toast("Impossibile eliminare la proposta: permessi insufficienti.");
-            return;
-          }
-          setProposals((prev) => prev.map((x) => (x.id === pid ? { ...x, status: "rejected" } : x)));
-          setSelected(null);
-          setTab("proposte");
-          toast("Proposta rimossa dalla mappa. Per rivederla tra gli «Eliminati» esegui la migrazione 0012.");
-          return;
-        }
-        throw error;
-      }
+      if (error) throw error;
       if (!data || data.length === 0) {
         toast("Impossibile eliminare la proposta: permessi insufficienti.");
         return;
@@ -1575,7 +1501,7 @@ export default function App({ profile }: { profile: Profile }) {
       setTab("proposte");
       toast("Proposta eliminata: non sarà più visibile su mappa ed elenchi.");
     } catch (e) {
-      toast("Errore nell'eliminazione: " + (e instanceof Error ? e.message : "riprova"));
+      toast("Errore nell'eliminazione: " + errMsg(e));
     }
   }
 
